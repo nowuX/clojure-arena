@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–03 complete (3/70). The arena contains one gray main platform at (170, 280), with no collision yet.
+Checkpoints 01–04 complete (4/70). One cyan circular character rests visually on the main platform.
 Future mechanics remain specified in the roadmap.
 
 ## Run

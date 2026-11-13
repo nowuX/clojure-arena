@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**3 of 70 checkpoints complete.** Checkpoints 01–03 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**4 of 70 checkpoints complete.** Checkpoints 01–04 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -117,7 +117,7 @@ Checkpoints **01–21**. Introduce rendering, immutable data, input, fixed time,
 
 ### 04 — Draw one character
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Draw a cyan circle of radius 16 centered at (400, 264). Keep
   player color limited to the body.
 - **Verify:** Its feet touch Y = 280; no movement or collision code is introduced.
