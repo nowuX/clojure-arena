@@ -1,0 +1,8 @@
+{
+  "name": "clojure-arena",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@12.17.0",
+  "engines": {"node": ">=22"},
+  "devDependencies": {"shadow-cljs": "3.5.11"}
+}

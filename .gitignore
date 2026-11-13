@@ -1,0 +1,8 @@
+# Generated dependencies and compiler output; introduced by the build checkpoint.
+/node_modules/
+/.pnpm-store/
+/.shadow-cljs/
+/.cpcache/
+/target/
+/public/js/
+/public/js-release/
