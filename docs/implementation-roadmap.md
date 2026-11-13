@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**2 of 70 checkpoints complete.** Checkpoints 01–02 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**3 of 70 checkpoints complete.** Checkpoints 01–03 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -108,7 +108,7 @@ Checkpoints **01–21**. Introduce rendering, immutable data, input, fixed time,
 
 ### 03 — Draw one platform
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Draw one neutral filled rectangle at (170, 280), size 460 × 16.
   Keep collision and scene collections out of this step.
 - **Verify:** Inspect the rectangle position and dimensions; reload reconstructs it.

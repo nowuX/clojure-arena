@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–02 complete (2/70). An empty 800 × 480 canvas draws the neutral arena background.
+Checkpoints 01–03 complete (3/70). The arena contains one gray main platform at (170, 280), with no collision yet.
 Future mechanics remain specified in the roadmap.
 
 ## Run
