@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**7 of 70 checkpoints complete.** Checkpoints 01–07 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**8 of 70 checkpoints complete.** Checkpoints 01–08 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -158,7 +158,7 @@ Checkpoints **01–21**. Introduce rendering, immutable data, input, fixed time,
 
 ### 08 — Read horizontal intentions
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Capture A/D keydown/keyup and expose -1, 0, or 1. Both held keys
   mean neutral. Clear keys on blur/stop/restart, with removable listener references.
 - **Verify:** Press, hold, release, both directions, blur, and repeated initialization.

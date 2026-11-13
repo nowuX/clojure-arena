@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–07 complete (7/70). RAF draws independently from fixed 25 ms simulation ticks, with bounded pauses and restart cleanup.
+Checkpoints 01–08 complete (8/70). A/D records held horizontal intentions; both keys, blur, and restart clear or neutralize input.
 Future mechanics remain specified in the roadmap.
 
 ## Run

@@ -5,6 +5,28 @@
 (def max-frame-ms 100)
 (defonce world (atom game/initial-world))
 (defonce frame-id (atom nil))
+(defonce pressed-keys (atom #{}))
+(def movement-key-codes #{"KeyA" "KeyD"})
+
+(defn horizontal-input []
+  (- (if (contains? @pressed-keys "KeyD") 1 0)
+     (if (contains? @pressed-keys "KeyA") 1 0)))
+
+(defn read-inputs []
+  {:horizontal (horizontal-input)})
+
+(defn handle-key-down! [event]
+  (when (contains? movement-key-codes (.-code event))
+    (.preventDefault event)
+    (swap! pressed-keys conj (.-code event))))
+
+(defn handle-key-up! [event]
+  (when (contains? movement-key-codes (.-code event))
+    (.preventDefault event)
+    (swap! pressed-keys disj (.-code event))))
+
+(defn handle-blur! [_event]
+  (reset! pressed-keys #{}))
 
 (defn draw-background [canvas]
   (let [context (.getContext canvas "2d")]
@@ -32,7 +54,7 @@
   (loop [remaining-ms elapsed-ms]
     (if (>= remaining-ms tick-ms)
       (do
-        (swap! world game/step {} (/ tick-ms 1000))
+        (swap! world game/step (read-inputs) (/ tick-ms 1000))
         (recur (- remaining-ms tick-ms)))
       remaining-ms)))
 
@@ -46,12 +68,19 @@
             (js/requestAnimationFrame (partial frame canvas timestamp remainder)))))
 
 (defn stop! []
+  (.removeEventListener js/window "keydown" handle-key-down!)
+  (.removeEventListener js/window "keyup" handle-key-up!)
+  (.removeEventListener js/window "blur" handle-blur!)
+  (handle-blur! nil)
   (when-some [id @frame-id]
     (js/cancelAnimationFrame id))
   (reset! frame-id nil))
 
 (defn init []
   (stop!)
+  (.addEventListener js/window "keydown" handle-key-down!)
+  (.addEventListener js/window "keyup" handle-key-up!)
+  (.addEventListener js/window "blur" handle-blur!)
   (set! (.-textContent (.getElementById js/document "status")) "Arena lista.")
   (let [canvas (.getElementById js/document "arena")]
     (draw-world canvas @world)
