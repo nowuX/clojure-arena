@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**4 of 70 checkpoints complete.** Checkpoints 01–04 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**5 of 70 checkpoints complete.** Checkpoints 01–05 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -126,7 +126,7 @@ Checkpoints **01–21**. Introduce rendering, immutable data, input, fixed time,
 
 ### 05 — Represent the scene as immutable data
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Introduce game.cljc with the current platform and player data,
   and a client atom for the displayed world. Rendering reads geometry from values rather
   than repeating it in drawing functions.

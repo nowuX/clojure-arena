@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–04 complete (4/70). One cyan circular character rests visually on the main platform.
+Checkpoints 01–05 complete (5/70). The scene is immutable shared data, read by the Canvas renderer through a browser atom.
 Future mechanics remain specified in the roadmap.
 
 ## Run
