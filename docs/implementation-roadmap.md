@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**5 of 70 checkpoints complete.** Checkpoints 01–05 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**6 of 70 checkpoints complete.** Checkpoints 01–06 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -137,7 +137,7 @@ Checkpoints **01–21**. Introduce rendering, immutable data, input, fixed time,
 
 ### 06 — Define the pure simulation boundary
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Add step with explicit world, inputs, and dt arguments. Return
   the unchanged world initially, without browser APIs or side effects.
 - **Verify:** Call step with ordinary values and confirm the input world is preserved and

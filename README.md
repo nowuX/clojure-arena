@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–05 complete (5/70). The scene is immutable shared data, read by the Canvas renderer through a browser atom.
+Checkpoints 01–06 complete (6/70). A pure step(world, inputs, dt) boundary currently returns the scene unchanged.
 Future mechanics remain specified in the roadmap.
 
 ## Run
