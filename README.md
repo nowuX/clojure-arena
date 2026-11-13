@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–06 complete (6/70). A pure step(world, inputs, dt) boundary currently returns the scene unchanged.
+Checkpoints 01–07 complete (7/70). RAF draws independently from fixed 25 ms simulation ticks, with bounded pauses and restart cleanup.
 Future mechanics remain specified in the roadmap.
 
 ## Run

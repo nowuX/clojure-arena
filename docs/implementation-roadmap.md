@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**6 of 70 checkpoints complete.** Checkpoints 01–06 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**7 of 70 checkpoints complete.** Checkpoints 01–07 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -147,7 +147,7 @@ Checkpoints **01–21**. Introduce rendering, immutable data, input, fixed time,
 
 ### 07 — Connect rendering and fixed simulation time
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Use RAF for drawing and an elapsed-time accumulator for
   0.025-second simulation steps. Count at most 100 ms per frame, carry the remainder, and
   implement stop/init cleanup for one RAF loop.
