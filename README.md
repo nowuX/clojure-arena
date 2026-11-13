@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–01 complete (1/70). The pinned browser build starts a Spanish ready page with a neutral palette.
+Checkpoints 01–02 complete (2/70). An empty 800 × 480 canvas draws the neutral arena background.
 Future mechanics remain specified in the roadmap.
 
 ## Run
