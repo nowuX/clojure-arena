@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**8 of 70 checkpoints complete.** Checkpoints 01–08 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**9 of 70 checkpoints complete.** Checkpoints 01–09 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -168,7 +168,7 @@ Checkpoints **01–21**. Introduce rendering, immutable data, input, fixed time,
 
 ### 09 — Move horizontally at constant speed
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Use the horizontal intention in step to set X velocity to ±220
   units/s and integrate X. Neutral stops immediately at this intentionally simple stage.
   Add meaningful simulation tests and the just test recipe with its runner.

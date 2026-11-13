@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–08 complete (8/70). A/D records held horizontal intentions; both keys, blur, and restart clear or neutralize input.
+Checkpoints 01–09 complete (9/70). A/D moves the character at a constant 220 units/s; just test verifies input, time, and pure movement.
 Future mechanics remain specified in the roadmap.
 
 ## Run
@@ -20,6 +20,7 @@ just dev
 
 Open http://127.0.0.1:8081/. Use `just dev <TAILSCALE_IP>` to serve on
 another interface. `just build` compiles an optimized browser bundle.
+`just test` runs the Node simulation and browser-boundary tests.
 
 ## Guides
 

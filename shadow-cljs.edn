@@ -1,7 +1,10 @@
-{:source-paths ["src"]
+{:source-paths ["src" "test"]
  :dev-http {8081 {:host #shadow/env ["CLOJURE_ARENA_HOST" "127.0.0.1"]
                   :root "public"}}
- :builds {:app {:target :browser
+ :builds {:test {:target :node-test
+                 :output-to ".shadow-cljs/test.js"
+                 :ns-regexp "-test$"}
+          :app {:target :browser
                 :output-dir "public/js"
                 :asset-path "/js"
                 :modules {:main {:init-fn clojure-arena.client/init}}

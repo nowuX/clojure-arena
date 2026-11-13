@@ -22,3 +22,7 @@ The second build leaves watched public/js assets intact. HTML loads main.js;
 Shadow calls clojure-arena.client/init. Generated files are ignored by Git.
 A release compilation verifies the compiler boundary; inspect the served page
 in a native browser to verify startup and appearance.
+
+`just test` compiles and runs the ClojureScript tests in Node. Browser fixtures
+use EventTarget and controlled RAF callbacks; they do not verify native focus,
+Canvas pixels, or cross-device access.

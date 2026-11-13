@@ -13,3 +13,8 @@ dev host="127.0.0.1":
 # Compile a release, optionally with isolated output.
 build config="{}":
     pnpm exec shadow-cljs release app --config-merge {{ quote(config) }}
+
+# Run simulation and client-boundary regressions in Node.
+test:
+    pnpm exec shadow-cljs compile test
+    node .shadow-cljs/test.js
