@@ -47,6 +47,23 @@
           (< (+ y radius) top)
           (> (- y radius) bottom)))))
 
+(defn active-player? [player]
+  (and (map? player) (= :active (:lifecycle player :active))))
+
+(defn resolve-ring-out
+  "Consume one active life and clear pending physical/hit effects."
+  [player bounds]
+  (if (and (active-player? player) (outside-arena? player bounds))
+    (let [stocks (max 0 (dec (:stocks player initial-stocks)))]
+      (assoc player :stocks stocks
+             :lifecycle (if (pos? stocks) :respawning :eliminated)
+             :vx 0 :vy 0 :knockback-vx 0 :knockback-vy 0
+             :spawn-locked? true :air-jumps-left 1
+             :drop-through-platform-id nil :melee-cooldown-left 0
+             :melee-target-ids #{}
+             :melee-resolved-strike-id (:melee-strike-id player 0)))
+    player))
+
 (defn move-player [player dt]
   (-> player
       (update :x + (* (:vx player) dt))
@@ -304,12 +321,14 @@
       :dvy (* (+ right left) -0.6 magnitude)})))
 
 (defn melee-target-ids [players attacker-id]
-  (if-let [attacker (get players attacker-id)]
+  (if-let [attacker (when (active-player? (get players attacker-id))
+                     (get players attacker-id))]
     (reduce-kv
       (fn [targets target-id target]
         (let [dx (- (:x target) (:x attacker))
               dy (- (:y target) (:y attacker))]
-          (if (and (not= target-id attacker-id)
+          (if (and (active-player? target)
+                   (not= target-id attacker-id)
                    (case (:facing attacker)
                      :right (pos? dx)
                      :left (neg? dx)
@@ -321,51 +340,57 @@
     #{}))
 
 (defn step-melee [player attack? dt]
-  (let [remaining (max 0 (- (:melee-cooldown-left player 0) dt))
-        remaining (if (<= remaining cooldown-epsilon) 0 remaining)
-        player (assoc player :melee-cooldown-left remaining :melee-target-ids #{})]
-    (if (and attack? (not (:spawn-locked? player)) (zero? remaining))
-      (-> player
-          (assoc :melee-cooldown-left melee-cooldown)
-          (update :melee-strike-id (fnil inc 0)))
-      player)))
+  (if-not (active-player? player)
+    player
+    (let [remaining (max 0 (- (:melee-cooldown-left player 0) dt))
+          remaining (if (<= remaining cooldown-epsilon) 0 remaining)
+          player (assoc player :melee-cooldown-left remaining :melee-target-ids #{})]
+      (if (and attack? (not (:spawn-locked? player)) (zero? remaining))
+        (-> player
+            (assoc :melee-cooldown-left melee-cooldown)
+            (update :melee-strike-id (fnil inc 0)))
+        player))))
 
 (defn step-player [player platforms
                    {:keys [horizontal jump? drop? attack?]
                     :or {horizontal 0 jump? false drop? false attack? false}} dt]
-  (let [player (clear-drop-through player platforms)
-        locked? (:spawn-locked? player)
-        horizontal (if locked? 0 horizontal)
-        player (cond
-                 (neg? horizontal) (assoc player :facing :left)
-                 (pos? horizontal) (assoc player :facing :right)
-                 :else player)
-        player (step-melee player attack? dt)
-        support (supporting-platform player platforms)
-        dropping? (and (not locked?) drop? (= :semisolid (:type support)))
-        player (if dropping?
-                 (assoc player :drop-through-platform-id (:id support))
-                 (apply-jump player platforms jump?))
-        previous-knockback-vx (:knockback-vx player 0)
-        knockback-vx (apply-horizontal-friction previous-knockback-vx dt)
-        voluntary-vx (accelerate-horizontal (- (:vx player) previous-knockback-vx)
-                                            horizontal dt)
-        moving-player (assoc player :vx (+ voluntary-vx knockback-vx)
-                             :knockback-vx knockback-vx)]
-    (-> moving-player
-        (update :vy + (* gravity dt))
-        (collide-platforms platforms dt)
-        (clear-drop-through platforms))))
+  (if-not (active-player? player)
+    player
+    (let [player (clear-drop-through player platforms)
+          locked? (:spawn-locked? player)
+          horizontal (if locked? 0 horizontal)
+          player (cond
+                   (neg? horizontal) (assoc player :facing :left)
+                   (pos? horizontal) (assoc player :facing :right)
+                   :else player)
+          player (step-melee player attack? dt)
+          support (supporting-platform player platforms)
+          dropping? (and (not locked?) drop? (= :semisolid (:type support)))
+          player (if dropping?
+                   (assoc player :drop-through-platform-id (:id support))
+                   (apply-jump player platforms jump?))
+          previous-knockback-vx (:knockback-vx player 0)
+          knockback-vx (apply-horizontal-friction previous-knockback-vx dt)
+          voluntary-vx (accelerate-horizontal (- (:vx player) previous-knockback-vx)
+                                              horizontal dt)
+          moving-player (assoc player :vx (+ voluntary-vx knockback-vx)
+                               :knockback-vx knockback-vx)]
+      (-> moving-player
+          (update :vy + (* gravity dt))
+          (collide-platforms platforms dt)
+          (clear-drop-through platforms)))))
 
 (defn apply-melee-hits [players]
   (let [pending (filter (fn [[_ attacker]]
-                          (> (:melee-strike-id attacker 0)
-                             (:melee-resolved-strike-id attacker 0)))
+                          (and (active-player? attacker)
+                               (> (:melee-strike-id attacker 0)
+                                  (:melee-resolved-strike-id attacker 0))))
                         players)
         hits-by-target
         (reduce (fn [hits [_ attacker]]
                   (reduce (fn [hits target-id]
-                            (if (contains? players target-id)
+                            (if (and (contains? players target-id)
+                                     (active-player? (get players target-id)))
                               (update hits target-id (fnil conj []) (:facing attacker))
                               hits))
                           hits (:melee-target-ids attacker)))
@@ -394,14 +419,19 @@
         stepped-players
         (reduce-kv (fn [result player-id player]
                      (assoc result player-id
-                            (step-player player (:platforms world)
-                                         (get inputs-by-player player-id) dt)))
+                            (if (active-player? player)
+                              (resolve-ring-out
+                                (step-player player (:platforms world)
+                                             (get inputs-by-player player-id) dt)
+                                (:blast-bounds world))
+                              player)))
                    {} players)
         targeted-players
         (reduce-kv
           (fn [result player-id player]
-            (if (> (:melee-strike-id player 0)
-                   (:melee-strike-id (get players player-id) 0))
+            (if (and (active-player? player)
+                     (> (:melee-strike-id player 0)
+                        (:melee-strike-id (get players player-id) 0)))
               (assoc-in result [player-id :melee-target-ids]
                         (melee-target-ids stepped-players player-id))
               result))

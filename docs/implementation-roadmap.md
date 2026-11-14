@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**51 of 70 checkpoints complete.** Checkpoints 01–51 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**52 of 70 checkpoints complete.** Checkpoints 01–52 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -703,7 +703,7 @@ Checkpoints **50–56**. Introduce each lifecycle responsibility separately; no 
 
 ### 52 — Consume one stock per ring-out
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** After moving all active bodies, resolve their exits before melee
   targeting. Decrement once, clear movement/hit effects, hide and disable inactive bodies,
   and enter respawning or eliminated. Discard inactive one-shot inputs; stock loss does

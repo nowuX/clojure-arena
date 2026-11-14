@@ -139,8 +139,7 @@ The world stores `:blast-bounds {:left -80 :right 880 :top -160 :bottom 560}`.
 `outside-arena?` is a pure whole-circle query: exact touch or partial crossing
 is not an exit. The circle must be strictly beyond one limit. The visible
 800 × 480 canvas is not the loss boundary. Bounds are validated world data in
-snapshots, independent of platform geometry; this checkpoint detects exits
-without changing players or consuming opportunities.
+snapshots, independent of platform geometry; the query itself never changes players or consumes opportunities.
 
 ## Player opportunities
 
@@ -148,4 +147,14 @@ without changing players or consuming opportunities.
 remaining opportunities, independent of percentage and motion. Snapshots
 allow active/respawning bodies with 1–3 integer stocks and eliminated records
 with 0. Waiting belongs to future match phases. This stage represents the
-state without consuming stocks or changing movement.
+state; the stock-loss transition below controls participation.
+
+## One stock per exit
+
+The tick moves active bodies, then `resolve-ring-out` checks each result before
+melee targeting. An exit decrements once, freezes motion, clears drop/cooldown
+and pending hit effects, and enters respawning or eliminated. Percentage stays
+visible until a fresh life replaces it. Inactive records neither move nor hit
+nor receive hits. Drawing omits their bodies; connection identity and input
+ownership remain. Room ticks consume inactive action pulses normally, retaining
+only the latest direction. At this stage inactive bodies do not return yet.

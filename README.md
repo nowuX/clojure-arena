@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–51 complete (51/70). Fresh players have three stocks and explicit active/respawning/eliminated lifecycle validated in snapshots; stock consumption follows next.
+Checkpoints 01–52 complete (52/70). Complete ring-outs consume one opportunity before combat and freeze inactive bodies while keeping connection ownership.
 Future mechanics remain specified in the roadmap.
 
 ## Run

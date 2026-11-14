@@ -285,3 +285,10 @@ validador del snapshot exige cuatro números finitos y límites no invertidos.
 estados sin objetos mutables: activo, esperando reaparición o eliminado. El
 protocolo valida juntos estado y número entero de vidas; el porcentaje se
 conserva como otro campo, no representa salud.
+
+### Una salida consume una vida
+
+`active-player?` filtra quién participa en física y combate. Después de mover,
+`resolve-ring-out` devuelve un estado inactivo con una vida menos; los ticks
+posteriores no vuelven a cobrar la misma caída. El mapa conserva su clave e
+identidad. `filter` omite el cuerpo al dibujar sin eliminarlo de la conexión.

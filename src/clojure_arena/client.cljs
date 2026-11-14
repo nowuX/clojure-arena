@@ -129,7 +129,7 @@
   (draw-background canvas)
   (doseq [platform platforms]
     (draw-platform canvas platform))
-  (doseq [player (vals players)]
+  (doseq [player (filter game/active-player? (vals players))]
     (draw-player canvas player)))
 
 (defn render-players! [{:keys [players]}]
