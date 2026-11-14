@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**67 of 70 checkpoints complete.** Checkpoints 01–67 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**68 of 70 checkpoints complete.** Checkpoints 01–68 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -909,7 +909,7 @@ Checkpoints **67–70**. Improve the implemented game without adding mechanics o
 
 ### 68 — Update player panels only when values change
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Retain rows by exact player ID and current DOM container. Update
   changed text/classes/colors only; account for CSS color normalization. Reuse surviving
   rows on membership changes, skip unchanged clock/result writes, and rebuild standings

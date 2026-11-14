@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–67 complete (67/70). Connection status exposes mode, attempted endpoint, known error categories and close metadata while preserving authoritative ownership.
+Checkpoints 01–68 complete (68/70). Player rows persist by identity/container; unchanged text, colors, clocks and captured results produce no DOM writes.
 Future mechanics remain specified in the roadmap.
 
 ## Run

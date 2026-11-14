@@ -151,3 +151,14 @@ respawn. Snapshot validation includes finite bounds, stored spawns, integer
 stocks, lifecycle, phase/roster consistency, bounded timers and captured results.
 Admissions start waiting at zero stocks; match start and respawn grant protection.
 Match reset rebuilds all current connections without replacing their sessions.
+
+## Presentation caches
+
+The player panel retains nodes by exact player ID and current container.
+Movement-only snapshots do not rebuild rows or rewrite unchanged display
+values. Membership changes reuse surviving rows. Color comparison uses the
+assigned value rather than the browser's normalized CSS serialization.
+Match clock/summary text changes only when its displayed string changes;
+standings rebuild only when the captured result or container changes.
+`stop!` clears presentation caches. Canvas still draws each RAF; none of these
+caches modifies the immutable world or determines gameplay state.

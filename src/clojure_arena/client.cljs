@@ -19,6 +19,8 @@
 (def movement-key-codes #{"KeyA" "KeyD"})
 
 (defonce ^:private reset-frame-time? (atom false))
+(defonce ^:private player-panel-cache (atom nil))
+(defonce ^:private result-panel-cache (atom nil))
 
 (defn- clear-pending-actions! []
   (reset! pending-jump false)
@@ -164,31 +166,57 @@
                            "Observador · próxima partida")
     (player-state-label player)))
 
+(defn- set-text! [element text]
+  (when-not (= text (.-textContent element))
+    (set! (.-textContent element) text)))
+
+(defn- create-player-row! [player-id]
+  (let [row (.createElement js/document "li")
+        swatch (.createElement js/document "span")
+        label (.createElement js/document "span")
+        percentage (.createElement js/document "span")
+        stocks (.createElement js/document "span")
+        state (.createElement js/document "span")]
+    (set! (.-className row) "player-row")
+    (set! (.-className swatch) "player-swatch")
+    (.setAttribute swatch "aria-hidden" "true")
+    (set-text! label (name player-id))
+    (doseq [element [swatch label percentage stocks state]]
+      (.appendChild row element))
+    {:row row :swatch swatch :label label :percentage percentage
+     :stocks stocks :state state}))
+
+(defn- update-player-row! [entry player-id player match]
+  (let [{:keys [swatch percentage stocks state]} entry
+        color (:color player)]
+    ;; Native CSS reads normalize colors; retain the original assigned value.
+    (when-not (= color (:color entry))
+      (set! (.-backgroundColor (.-style swatch)) color))
+    (set-text! percentage (str (:accumulated-percentage player 0) " %"))
+    (set-text! stocks (str (:stocks player)
+                          (if (= 1 (:stocks player)) " oportunidad" " oportunidades")))
+    (set-text! state (panel-state-label player-id player match))
+    (assoc entry :color color)))
+
 (defn render-players! [{:keys [players match]}]
   (when-let [panel (.getElementById js/document "players")]
-    (.replaceChildren panel)
-    (doseq [[player-id player] (sort-by (comp str key) players)]
-      (let [row (.createElement js/document "li")
-            swatch (.createElement js/document "span")
-            label (.createElement js/document "span")
-            percentage (.createElement js/document "span")
-            stocks (.createElement js/document "span")
-            state (.createElement js/document "span")]
-        (set! (.-className row) "player-row")
-        (set! (.-className swatch) "player-swatch")
-        (set! (.-backgroundColor (.-style swatch)) (:color player))
-        (.setAttribute swatch "aria-hidden" "true")
-        (set! (.-textContent label) (name player-id))
-        (set! (.-textContent percentage) (str (:accumulated-percentage player 0) " %"))
-        (set! (.-textContent stocks) (str (:stocks player)
-                                         (if (= 1 (:stocks player)) " oportunidad" " oportunidades")))
-        (set! (.-textContent state) (panel-state-label player-id player match))
-        (.appendChild row swatch)
-        (.appendChild row label)
-        (.appendChild row percentage)
-        (.appendChild row stocks)
-        (.appendChild row state)
-        (.appendChild panel row)))))
+    (let [cached @player-panel-cache
+          previous (when (identical? panel (:container cached)) cached)
+          ordered (sort-by (comp str key) players)
+          order (mapv key ordered)
+          rows (into {}
+                     (map (fn [[player-id player]]
+                            [player-id (update-player-row!
+                                        (or (get-in previous [:rows player-id])
+                                            (create-player-row! player-id))
+                                        player-id player match)]))
+                     ordered)]
+      (when-not (= order (:order previous))
+        (.replaceChildren panel)
+        (doseq [player-id order]
+          (.appendChild panel (:row (get rows player-id)))))
+      (reset! player-panel-cache {:container panel :order order :rows rows})))
+  nil)
 
 (defn format-clock [seconds]
   (let [seconds (max 0 (js/Math.ceil (or seconds 0)))
@@ -213,33 +241,39 @@
     "Partida finalizada"))
 
 (defn- render-match-result! [result]
-  (when-let [summary (.getElementById js/document "match-result")]
-    (set! (.-textContent summary)
-          (if result
-            (str (if-let [winner-id (:winner-id result)]
-                   (str "Ganador: " (name winner-id)) "Empate")
-                 " · " (result-reason-label (:reason result))) "")))
-  (when-let [container (.getElementById js/document "match-standings")]
-    (.replaceChildren container)
-    (doseq [{:keys [player-id color stocks accumulated-percentage forfeited?]} (:standings result)]
-      (let [row (.createElement js/document "li")
-            swatch (.createElement js/document "span")]
-        (set! (.-className row) "player-row")
-        (set! (.-className swatch) "player-swatch")
-        (set! (.-backgroundColor (.-style swatch)) color)
-        (.setAttribute swatch "aria-hidden" "true")
-        (.appendChild row swatch)
-        (doseq [text [(name player-id) (str stocks " oportunidades")
-                     (str accumulated-percentage " %")
-                     (if forfeited? "Abandonó" "Contendiente")]]
-          (let [label (.createElement js/document "span")]
-            (set! (.-textContent label) text)
-            (.appendChild row label)))
-        (.appendChild container row)))))
+  (let [summary (.getElementById js/document "match-result")
+        container (.getElementById js/document "match-standings")
+        cached @result-panel-cache]
+    (when summary
+      (set-text! summary
+                 (if result
+                   (str (if-let [winner-id (:winner-id result)]
+                          (str "Ganador: " (name winner-id)) "Empate")
+                        " · " (result-reason-label (:reason result))) "")))
+    (when (and container
+               (or (not (identical? container (:container cached)))
+                   (not= result (:result cached))))
+      (.replaceChildren container)
+      (doseq [{:keys [player-id color stocks accumulated-percentage forfeited?]} (:standings result)]
+        (let [row (.createElement js/document "li")
+              swatch (.createElement js/document "span")]
+          (set! (.-className row) "player-row")
+          (set! (.-className swatch) "player-swatch")
+          (set! (.-backgroundColor (.-style swatch)) color)
+          (.setAttribute swatch "aria-hidden" "true")
+          (.appendChild row swatch)
+          (doseq [text [(name player-id) (str stocks " oportunidades")
+                       (str accumulated-percentage " %")
+                       (if forfeited? "Abandonó" "Contendiente")]]
+            (let [label (.createElement js/document "span")]
+              (set-text! label text)
+              (.appendChild row label)))
+          (.appendChild container row))))
+    (reset! result-panel-cache {:container container :result result})))
 
 (defn render-match! [world]
   (when-let [status (.getElementById js/document "match-status")]
-    (set! (.-textContent status) (match-status-text (:match world))))
+    (set-text! status (match-status-text (:match world))))
   (render-match-result! (get-in world [:match :result]))
   (render-players! world))
 
@@ -272,6 +306,8 @@
 
 (defn stop! []
   (transport/stop!)
+  (reset! player-panel-cache nil)
+  (reset! result-panel-cache nil)
   (reset! reset-frame-time? false)
   (when-let [canvas @input-canvas]
     (.removeEventListener canvas "pointerdown" handle-pointer-down!))

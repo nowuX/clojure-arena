@@ -359,3 +359,11 @@ opcionales de cierre. Los datos de diagnóstico viven en un mapa independiente
 de la condición de autoridad: un socket abierto y admitido sigue usando el
 reloj del servidor aunque un mensaje recibido sea inválido. Los callbacks
 comparan la identidad del socket para ignorar sesiones anteriores.
+
+### Cachés de presentación
+
+Un mapa asocia cada ID exacto con sus nodos DOM. `identical?` comprueba si el
+contenedor sigue siendo el mismo objeto; la igualdad de valores evita escribir
+texto sin cambios. Guardar el color original evita confundir un hexadecimal
+con el formato `rgb(...)` que devuelve CSS. Estas cachés se limpian al detener
+el cliente y no forman parte del mundo inmutable de la simulación.
