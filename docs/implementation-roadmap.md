@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**15 of 70 checkpoints complete.** Checkpoints 01–15 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**16 of 70 checkpoints complete.** Checkpoints 01–16 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -248,7 +248,7 @@ Checkpoints **01–21**. Introduce rendering, immutable data, input, fixed time,
 
 ### 16 — Capture one jump request per press
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Track fresh W presses separately from held movement. Keep a
   short tap until a tick consumes it; ignore autorepeat and clear requests on
   blur/stop/restart. Reading inputs does not consume them.

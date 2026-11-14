@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–15 complete (15/70). The local movement loop has verified timing, input cleanup, acceleration, friction, gravity, and solid contacts; guides explain the implementation.
+Checkpoints 01–16 complete (16/70). W records one fresh pending request per press; fixed ticks consume it once, without physical jumping yet.
 Future mechanics remain specified in the roadmap.
 
 ## Run

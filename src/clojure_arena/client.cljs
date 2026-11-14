@@ -6,6 +6,8 @@
 (defonce world (atom game/initial-world))
 (defonce frame-id (atom nil))
 (defonce pressed-keys (atom #{}))
+(defonce pending-jump (atom false))
+(def jump-key-code "KeyW")
 (def movement-key-codes #{"KeyA" "KeyD"})
 
 (defn horizontal-input []
@@ -13,20 +15,34 @@
      (if (contains? @pressed-keys "KeyA") 1 0)))
 
 (defn read-inputs []
-  {:horizontal (horizontal-input)})
+  {:horizontal (horizontal-input) :jump? @pending-jump})
+
+(defn consume-inputs! []
+  (let [inputs (read-inputs)]
+    (reset! pending-jump false)
+    inputs))
+
+(defn- control-key? [code]
+  (or (contains? movement-key-codes code) (= code jump-key-code)))
 
 (defn handle-key-down! [event]
-  (when (contains? movement-key-codes (.-code event))
-    (.preventDefault event)
-    (swap! pressed-keys conj (.-code event))))
+  (let [code (.-code event)]
+    (when (control-key? code)
+      (.preventDefault event)
+      (when (and (= code jump-key-code)
+                 (not (.-repeat event))
+                 (not (contains? @pressed-keys code)))
+        (reset! pending-jump true))
+      (swap! pressed-keys conj code))))
 
 (defn handle-key-up! [event]
-  (when (contains? movement-key-codes (.-code event))
+  (when (control-key? (.-code event))
     (.preventDefault event)
     (swap! pressed-keys disj (.-code event))))
 
 (defn handle-blur! [_event]
-  (reset! pressed-keys #{}))
+  (reset! pressed-keys #{})
+  (reset! pending-jump false))
 
 (defn draw-background [canvas]
   (let [context (.getContext canvas "2d")]
@@ -54,7 +70,7 @@
   (loop [remaining-ms elapsed-ms]
     (if (>= remaining-ms tick-ms)
       (do
-        (swap! world game/step (read-inputs) (/ tick-ms 1000))
+        (swap! world game/step (consume-inputs!) (/ tick-ms 1000))
         (recur (- remaining-ms tick-ms)))
       remaining-ms)))
 

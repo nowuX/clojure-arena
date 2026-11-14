@@ -28,7 +28,7 @@ At the client's 25 ms tick, acceleration changes horizontal speed by at most `22
 
 `platform-contact` checks an existing overlap and swept contact with each rectangular face and rounded corner. `overlap-contact`, `face-contact`, and `corner-contact` produce contact geometry. `resolve-contact` removes only velocity directed into the contact normal, preserving separating and tangential motion. `collide-platform` can process up to four contacts in one tick and uses a `1e-9` contact tolerance.
 
-The current checkpoint has one platform and no jump request, spawn lock, air-jump allowance, network transport, or platform collection. The code does not impose an arena-edge rule.
+The scene has one platform. W captures a fresh jump request, consumed by one tick; physical jumping follows later. The code does not impose an arena-edge rule.
 
 ## Inputs and rendering
 

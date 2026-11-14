@@ -90,7 +90,7 @@
   (client/init)
   (key-event! "keydown" "KeyD")
   (key-event! "keydown" "KeyD" true)
-  (is (= {:horizontal 1} (client/read-inputs)))
+  (is (= {:horizontal 1 :jump? false} (client/read-inputs)))
   (key-event! "keydown" "KeyA")
   (is (= 0 (client/horizontal-input)))
   (key-event! "keyup" "KeyD")
@@ -151,3 +151,39 @@
         fast (simulate (range 0 1001 10))
         slow (simulate (range 0 1001 100))]
     (is (= fast slow))))
+
+(deftest fast-jump-tap-survives-reads-and-subtick-frame
+  (let [seen (atom [])]
+    (with-redefs [game/step (fn [world inputs _] (swap! seen conj inputs) world)]
+      (client/init)
+      (fire-frame! 0)
+      (key-event! "keydown" "KeyW")
+      (key-event! "keyup" "KeyW")
+      (is (:jump? (client/read-inputs)))
+      (is (:jump? (client/read-inputs)))
+      (fire-frame! 10)
+      (is (:jump? (client/read-inputs)))
+      (fire-frame! 100)
+      (is (= [true false false false] (mapv :jump? @seen)))
+      (is (false? (:jump? (client/read-inputs)))))))
+
+(deftest held-w-requires-a-fresh-press
+  (client/init)
+  (key-event! "keydown" "KeyW")
+  (is (:jump? (client/consume-inputs!)))
+  (key-event! "keydown" "KeyW" true)
+  (key-event! "keydown" "KeyW")
+  (is (false? (:jump? (client/consume-inputs!))))
+  (key-event! "keyup" "KeyW")
+  (key-event! "keydown" "KeyW")
+  (is (:jump? (client/consume-inputs!))))
+
+(deftest blur-stop-and-restart-discard-pending-actions
+  (client/init)
+  (doseq [reset-input! [#(.dispatchEvent @target (js/Event. "blur"))
+                       client/stop! client/init]]
+    (client/init)
+    (key-event! "keydown" "KeyW")
+    (key-event! "keydown" "KeyD")
+    (reset-input!)
+    (is (= {:horizontal 0 :jump? false} (client/read-inputs)))))
