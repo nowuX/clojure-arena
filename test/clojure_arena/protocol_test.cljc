@@ -10,6 +10,44 @@
     (catch #?(:clj Exception :cljs :default) _
       true)))
 
+(deftest player-input-validation-test
+  (testing "neutral input has the exact documented shape"
+    (is (= {:horizontal 0
+            :jump? false
+            :drop? false
+            :attack? false}
+           protocol/neutral-input)))
+  (testing "horizontal input accepts only the three discrete directions"
+    (doseq [horizontal [-1 0 1]]
+      (is (protocol/player-input? {:horizontal horizontal
+                                   :jump? false
+                                   :drop? false
+                                   :attack? false})
+          (str "expected valid horizontal value " horizontal)))
+    (doseq [horizontal [nil -2 2 0.5 "1" :left]]
+      (is (not (protocol/player-input? {:horizontal horizontal
+                                        :jump? false
+                                        :drop? false
+                                        :attack? false}))
+          (str "expected invalid horizontal value " (pr-str horizontal)))))
+  (testing "all action fields must be booleans and the key set must be exact"
+    (doseq [key [:jump? :drop? :attack?]
+            value [false true]]
+      (is (protocol/player-input? (assoc protocol/neutral-input key value))))
+    (doseq [key [:jump? :drop? :attack?]
+            value [nil 0 1 "true" :true]]
+      (is (not (protocol/player-input? (assoc protocol/neutral-input key value)))
+          (str "expected invalid " key " value " (pr-str value))))
+    (doseq [input [(dissoc protocol/neutral-input :attack?)
+                   (assoc protocol/neutral-input :extra true)
+                   (assoc protocol/neutral-input :player-id :player-1)
+                   (assoc protocol/neutral-input :connection-token :forged)
+                   (assoc protocol/neutral-input :position [1 2])
+                   (assoc protocol/neutral-input :velocity [3 4])
+                   [] nil]]
+      (is (not (protocol/player-input? input))
+          (str "expected invalid input payload " (pr-str input))))))
+
 (deftest decode-exactly-one-edn-value-test
   (testing "decode reads one EDN value and allows trailing whitespace"
     (is (= {:type :ping} (protocol/decode "{:type :ping}  \n\t")))
@@ -38,6 +76,66 @@
       (is (= {:type :error :code :unsupported-type}
              (protocol/reply-to-message (pr-str {:type message})))
           (str "expected unsupported-type for " message)))))
+
+(deftest read-client-message-input-and-error-shapes-test
+  (testing "an exact flat input frame returns its payload without a reply"
+    (doseq [horizontal [-1 0 1]
+            jump? [false true]
+            drop? [false true]
+            attack? [false true]]
+      (let [payload {:horizontal horizontal
+                     :jump? jump?
+                     :drop? drop?
+                     :attack? attack?}
+            frame (pr-str (assoc payload :type :input))]
+        (is (= {:input payload}
+               (protocol/read-client-message frame))
+            (str "unexpected decoded input for " frame))
+        (is (nil? (protocol/reply-to-message frame))
+            "the compatibility wrapper should not reply to valid input")))
+    (is (= {:reply {:type :pong}}
+           (protocol/read-client-message "{:type :ping}")))
+    (is (= {:type :pong}
+           (protocol/reply-to-message "{:type :ping}"))))
+  (testing "invalid EDN and invalid message shapes retain distinct errors"
+    (doseq [text ["{" "{:type :input :horizontal 0" "{} {}"]]
+      (is (= {:reply {:type :error :code :invalid-edn}}
+             (protocol/read-client-message text))))
+    (doseq [text [nil 42 :input "[]" "{}" "{:type \"input\"}"
+                  "{:type :ping :nonce 1}"]]
+      (is (= {:reply {:type :error :code :invalid-message}}
+             (protocol/read-client-message text))
+          (str "expected invalid-message for " (pr-str text)))
+      (is (= {:type :error :code :invalid-message}
+             (protocol/reply-to-message text)))))
+  (testing "malformed or forged input payloads are rejected"
+    (let [valid {:type :input
+                 :horizontal 1
+                 :jump? true
+                 :drop? false
+                 :attack? false}
+          forged [(assoc valid :player-id :player-99)
+                  (assoc valid :connection-token :forged)
+                  (assoc valid :position [999 999])
+                  (assoc valid :velocity [50 50])
+                  (assoc valid :extra true)
+                  (assoc valid :horizontal 2)
+                  (assoc valid :jump? 1)
+                  (dissoc valid :attack?)]]
+      (doseq [message forged]
+        (let [frame (pr-str message)]
+          (is (= {:reply {:type :error :code :invalid-message}}
+                 (protocol/read-client-message frame))
+              (str "expected forged or malformed input to be rejected: " frame))
+          (is (= {:type :error :code :invalid-message}
+                 (protocol/reply-to-message frame)))))))
+  (testing "unsupported keyword message types preserve their error code"
+    (doseq [message [:join :tick :leave :unknown]]
+      (let [frame (pr-str {:type message})]
+        (is (= {:reply {:type :error :code :unsupported-type}}
+               (protocol/read-client-message frame)))
+        (is (= {:type :error :code :unsupported-type}
+               (protocol/reply-to-message frame)))))))
 
 (deftest server-message-validation-and-roundtrip-test
   (testing "server messages accept only the documented exact maps"

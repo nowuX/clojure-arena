@@ -7,6 +7,18 @@
 (def player-colors [:cyan :crimson :amber :green])
 (def neutral-input {:horizontal 0 :jump? false :drop? false :attack? false})
 
+(defn player-input? [input]
+  (and (map? input)
+       (= #{:horizontal :jump? :drop? :attack?} (set (keys input)))
+       (contains? #{-1 0 1} (:horizontal input))
+       (every? boolean? (map input [:jump? :drop? :attack?]))))
+
+(defn merge-pending-input [pending input]
+  {:horizontal (:horizontal input)
+   :jump? (or (:jump? pending) (:jump? input))
+   :drop? (or (:drop? pending) (:drop? input))
+   :attack? (or (:attack? pending) (:attack? input))})
+
 (defn decode [text]
   (let [reader #?(:clj (java.io.PushbackReader. (java.io.StringReader. text))
                   :cljs (readers/string-push-back-reader text))
@@ -17,24 +29,33 @@
       (throw (ex-info "Expected one EDN value" {})))
     message))
 
-(defn reply-to-message [text]
+(defn read-client-message [text]
   (if-not (string? text)
-    {:type :error :code :invalid-message}
+    {:reply {:type :error :code :invalid-message}}
     (try
       (let [message (decode text)]
         (cond
           (not (and (map? message) (keyword? (:type message))))
-          {:type :error :code :invalid-message}
+          {:reply {:type :error :code :invalid-message}}
+
+          (= :input (:type message))
+          (let [input (dissoc message :type)]
+            (if (player-input? input)
+              {:input input}
+              {:reply {:type :error :code :invalid-message}}))
 
           (not= :ping (:type message))
-          {:type :error :code :unsupported-type}
+          {:reply {:type :error :code :unsupported-type}}
 
           (not= {:type :ping} message)
-          {:type :error :code :invalid-message}
+          {:reply {:type :error :code :invalid-message}}
 
-          :else {:type :pong}))
+          :else {:reply {:type :pong}}))
       (catch #?(:clj Exception :cljs :default) _
-        {:type :error :code :invalid-edn}))))
+        {:reply {:type :error :code :invalid-edn}}))))
+
+(defn reply-to-message [text]
+  (:reply (read-client-message text)))
 
 (defn server-message? [message]
   (or (= {:type :ready} message)

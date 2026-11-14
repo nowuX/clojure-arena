@@ -225,3 +225,11 @@ Así la capacidad y la elección de color forman una sola decisión de estado.
 reutiliza `make-player`; no tiene otra versión de la física. Una misma cadena
 `->` inserta miembro, personaje y entrada neutral con `assoc-in`. Se devuelve
 todo junto, sin exponer tokens privados dentro del mundo serializable.
+
+### Intenciones por conexión
+
+`merge-pending-input` construye un mapa nuevo: toma la última dirección y usa
+`or` para conservar acciones breves entre ticks. El servidor agrega su token
+privado al mensaje interno; el navegador no puede elegir el jugador. Los
+handlers de teclado envían datos inmediatamente, mientras RAF sigue dedicado
+al avance y dibujo local.

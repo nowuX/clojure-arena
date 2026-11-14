@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [clojure-arena.protocol :as protocol]
+            [clojure-arena.room :as room]
             [clojure-arena.server :as server]
             [org.httpkit.server :as http])
   (:import [java.net URI]
@@ -143,6 +144,20 @@
         (str "unexpected reply to " (pr-str text)))
     reply))
 
+(defn- await-room! [room-agent]
+  (is (await-for timeout-ms room-agent)
+      "room agent should finish processing the frame before inspection")
+  (is (nil? (agent-error room-agent))
+      "room input processing should not fail the room agent"))
+
+(defn- send-input-frame! [websocket events room-agent payload]
+  (send-text! websocket (pr-str (assoc payload :type :input)) true)
+  ;; The pong confirms the next frame handler ran; await-for then waits for the
+  ;; asynchronous room action queued by the preceding input frame.
+  (expect-reply! websocket events "{:type :ping}" {:type :pong})
+  (await-room! room-agent)
+  (assert-no-event! events "valid input frames must not receive a reply"))
+
 (defn- close-websocket! [websocket events]
   (await-future (.sendClose ^WebSocket websocket
                             WebSocket/NORMAL_CLOSURE
@@ -248,6 +263,95 @@
           (finally
             (abort-websocket! websocket))))
       (finally
+        (server/stop! instance)))))
+
+(deftest websocket-inputs-are-owned-validated-and-queued-test
+  (let [host (test-host)
+        captured-room (atom nil)
+        make-room room/make-room
+        instance (with-redefs [room/make-room
+                               (fn [deliver-effects!]
+                                 (let [room-agent (make-room deliver-effects!)]
+                                   (reset! captured-room room-agent)
+                                   room-agent))]
+                   (start-test-server! host 0))
+        port (http/server-port instance)
+        connections (atom [])]
+    (try
+      (is (pos? port) "port 0 should bind an ephemeral port")
+      (is (some? @captured-room)
+          "server startup should create the captured room agent")
+      (let [room-agent @captured-room
+            first-connection (connect-tracked! connections host port)
+            second-connection (connect-tracked! connections host port)
+            first-websocket (:websocket first-connection)
+            first-events (:events first-connection)
+            second-websocket (:websocket second-connection)
+            second-events (:events second-connection)]
+        (await-ready! first-events)
+        (let [first-identity (await-identity! first-events)]
+          (await-ready! second-events)
+          (let [second-identity (await-identity! second-events)
+                first-player (:player-id first-identity)
+                second-player (:player-id second-identity)
+                neutral-inputs {first-player protocol/neutral-input
+                                second-player protocol/neutral-input}]
+            (await-room! room-agent)
+            (is (= #{:player-1 :player-2} #{first-player second-player})
+                "two real sockets should own distinct admitted players")
+            (is (= neutral-inputs
+                   (get-in @room-agent [:room :inputs-by-player])))
+
+            (testing "forged and malformed input fields return errors without mutation"
+              (doseq [message [(assoc (assoc protocol/neutral-input :type :input)
+                                      :player-id second-player)
+                               (assoc (assoc protocol/neutral-input :type :input)
+                                      :connection-token :forged)
+                               (assoc (assoc protocol/neutral-input :type :input)
+                                      :position [999 999])
+                               (assoc (assoc protocol/neutral-input :type :input)
+                                      :velocity [999 999])
+                               (assoc (assoc protocol/neutral-input :type :input)
+                                      :horizontal 2)
+                               (dissoc (assoc protocol/neutral-input :type :input)
+                                       :attack?)]]
+                (expect-reply! first-websocket first-events (pr-str message)
+                               {:type :error :code :invalid-message}))
+              (expect-reply! first-websocket first-events "{"
+                             {:type :error :code :invalid-edn})
+              (is (= neutral-inputs
+                     (get-in @room-agent [:room :inputs-by-player]))
+                  "invalid client payloads must not mutate member inputs"))
+
+            (testing "a short action tap survives a following neutral frame"
+              (send-input-frame! first-websocket first-events room-agent
+                                 {:horizontal -1
+                                  :jump? true
+                                  :drop? false
+                                  :attack? false})
+              (is (= {:horizontal -1 :jump? true :drop? false :attack? false}
+                     (get-in @room-agent [:room :inputs-by-player first-player])))
+              (send-input-frame! first-websocket first-events room-agent
+                                 protocol/neutral-input)
+              (is (= {:horizontal 0 :jump? true :drop? false :attack? false}
+                     (get-in @room-agent [:room :inputs-by-player first-player]))
+                  "neutral input should clear direction but retain the pending jump")
+              (is (= protocol/neutral-input
+                     (get-in @room-agent [:room :inputs-by-player second-player]))))
+
+            (testing "a valid frame after errors is accepted for the other owner"
+              (send-input-frame! second-websocket second-events room-agent
+                                 {:horizontal 1
+                                  :jump? false
+                                  :drop? true
+                                  :attack? true})
+              (is (= {:horizontal 1 :jump? false :drop? true :attack? true}
+                     (get-in @room-agent [:room :inputs-by-player second-player])))
+              (is (= {:horizontal 0 :jump? true :drop? false :attack? false}
+                     (get-in @room-agent [:room :inputs-by-player first-player])))))))
+      (finally
+        (doseq [{:keys [websocket]} @connections]
+          (abort-websocket! websocket))
         (server/stop! instance)))))
 
 (deftest websocket-stop-and-rebind-test

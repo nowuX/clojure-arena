@@ -49,6 +49,18 @@
 (defn- receive! [socket text]
   ((.-onmessage socket) #js {:data text}))
 
+(defn- sent-frames [socket]
+  (mapv protocol/decode (array-seq (aget socket "sent"))))
+
+(defn- sent-inputs [socket]
+  (->> (sent-frames socket)
+       (filter #(= :input (:type %)))
+       (mapv #(dissoc % :type))))
+
+(defn- admit! [socket]
+  (open! socket)
+  (receive! socket "{:type :identity :player-id :player-41 :color :green}"))
+
 (deftest websocket-address-follows-page-or-explicit-game-server
   (doseq [[page expected]
           [["http://100.109.130.32:8082/" "ws://100.109.130.32:8082/ws"]
@@ -122,6 +134,100 @@
       (receive! socket message)
       (is (= identity (:identity @transport/connection-state)))
       (is (= 1 (alength (aget socket "sent")))))))
+
+(deftest input-contract-is-exact-and-valid-inputs-buffer-until-admission
+  (is (= {:horizontal 0 :jump? false :drop? false :attack? false}
+         protocol/neutral-input))
+  (is (protocol/player-input? protocol/neutral-input))
+  (doseq [input [(assoc protocol/neutral-input :extra true)
+                 (dissoc protocol/neutral-input :drop?)
+                 (assoc protocol/neutral-input :horizontal 2)
+                 (assoc protocol/neutral-input :jump? 1)]]
+    (is (not (protocol/player-input? input))))
+
+  (transport/start! "http://arena.example/")
+  (let [socket @transport/connection]
+    (transport/send-input! {:horizontal 1 :jump? true :drop? false :attack? false})
+    (is (empty? (sent-inputs socket))
+        "a valid input waits while the socket is connecting")
+    (open! socket)
+    (transport/send-input! {:horizontal -1 :jump? false :drop? true :attack? false})
+    (transport/send-input! {:horizontal 0 :jump? false :drop? false :attack? true})
+    (doseq [input [(assoc protocol/neutral-input :extra true)
+                   (dissoc protocol/neutral-input :attack?)
+                   (assoc protocol/neutral-input :horizontal 4)
+                   (assoc protocol/neutral-input :attack? :yes)]]
+      (transport/send-input! input))
+    (is (empty? (sent-inputs socket))
+        "an open but unadmitted socket sends no player input")
+    (receive! socket "{:type :identity :player-id :player-41 :color :green}")
+    (is (= [{:horizontal 0 :jump? true :drop? true :attack? true}]
+           (sent-inputs socket))
+        "admission flushes one exact input with latest movement and coalesced actions")
+    (is (= {:type :input :horizontal 0 :jump? true :drop? true :attack? true}
+           (last (sent-frames socket))))))
+
+(deftest accepted-input-sends-immediately-without-an-unsolicited-neutral
+  (transport/start! "http://arena.example/")
+  (let [socket @transport/connection]
+    (admit! socket)
+    (is (empty? (sent-inputs socket))
+        "identity alone does not send a neutral input")
+    (let [input {:horizontal -1 :jump? true :drop? false :attack? true}]
+      (transport/send-input! input)
+      (is (= [input] (sent-inputs socket))
+          "accepted open sessions send the current input synchronously")
+      (is (= {:type :input :horizontal -1 :jump? true :drop? false :attack? true}
+             (last (sent-frames socket)))))))
+
+(deftest full-room-does-not-buffer-and-clears-pending-input
+  (transport/start! "http://arena.example/")
+  (let [full-socket @transport/connection]
+    (open! full-socket)
+    (transport/send-input! {:horizontal -1 :jump? true :drop? false :attack? false})
+    (receive! full-socket "{:type :room-full}")
+    (transport/send-input! {:horizontal 1 :jump? false :drop? false :attack? true})
+    (is (= :full (:admission @transport/connection-state)))
+    (is (empty? (sent-inputs full-socket)))
+
+    (transport/start! "http://arena.example/")
+    (let [replacement @transport/connection]
+      (admit! replacement)
+      (is (empty? (sent-inputs replacement))
+          "neither pre-rejection nor full-room input crosses into a later session"))))
+
+(deftest disconnect-drops-buffered-input-and-no-socket-input-is-not-replayed
+  (transport/send-input! {:horizontal 1 :jump? true :drop? false :attack? false})
+  (transport/start! "http://arena.example/")
+  (let [disconnected @transport/connection]
+    (transport/send-input! {:horizontal -1 :jump? false :drop? true :attack? false})
+    (set! (.-readyState disconnected) 3)
+    ((.-onclose disconnected) #js {})
+    (transport/send-input! {:horizontal 0 :jump? false :drop? false :attack? true})
+    (is (nil? @transport/connection))
+    (transport/start! "http://arena.example/")
+    (let [current @transport/connection]
+      (admit! current)
+      (is (empty? (sent-inputs current))
+          "inputs with no socket and from the disconnected session are discarded"))))
+
+(deftest replacement-session-ignores-stale-admission-and-keeps-only-current-input
+  (transport/start! "http://arena.example/")
+  (let [old @transport/connection
+        old-message-handler (.-onmessage old)]
+    (open! old)
+    (transport/send-input! {:horizontal 1 :jump? true :drop? false :attack? false})
+    (transport/start! "http://arena.example/")
+    (let [current @transport/connection]
+      (open! current)
+      (transport/send-input! {:horizontal -1 :jump? false :drop? true :attack? false})
+      (old-message-handler #js {:data "{:type :identity :player-id :player-41 :color :green}"})
+      (is (nil? (:identity @transport/connection-state))
+          "a stale identity callback cannot admit the replacement")
+      (receive! current "{:type :identity :player-id :player-42 :color :amber}")
+      (is (= [{:horizontal -1 :jump? false :drop? true :attack? false}]
+             (sent-inputs current))
+          "only the replacement session's pending input is flushed"))))
 
 (deftest invalid-identity-cannot-replace-the-assigned-identity
   (transport/start! "http://arena.example/")

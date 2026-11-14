@@ -18,42 +18,56 @@
    :inputs-by-player {}
    :world (assoc game/initial-world :players {})})
 
-(defn apply-room-message [room internal-message]
-  (if (and (map? internal-message)
-           (= #{:type :connection-token} (set (keys internal-message)))
-           (= :join (:type internal-message))
-           (some? (:connection-token internal-message)))
-    (let [connection-token (:connection-token internal-message)
-          members (:members room)]
-      (if (contains? members connection-token)
-        {:room room
-         :effects [{:connection-token connection-token
-                    :message (let [{:keys [player-id color]}
-                                   (get members connection-token)]
-                               {:type :identity
-                                :player-id player-id
-                                :color color})}]}
-        (let [assigned-colors (set (map :color (vals members)))
-              color (first (remove assigned-colors protocol/player-colors))]
-          (if (and color (< (count members) (count protocol/player-colors)))
-            (let [player-id (keyword (str "player-" (:next-player-number room)))
-                  member {:player-id player-id
-                          :color color}]
-              {:room (-> room
-                         (assoc-in [:members connection-token] member)
-                         (assoc-in [:world :players player-id]
-                                   (make-spawn-player color))
-                         (assoc-in [:inputs-by-player player-id] protocol/neutral-input)
-                         (update :next-player-number inc))
-               :effects [{:connection-token connection-token
-                          :message {:type :identity
-                                    :player-id player-id
-                                    :color color}}]})
-            {:room room
+(defn- join-room [room connection-token]
+  (let [members (:members room)]
+    (if (contains? members connection-token)
+      {:room room
+       :effects [{:connection-token connection-token
+                  :message (let [{:keys [player-id color]}
+                                 (get members connection-token)]
+                             {:type :identity
+                              :player-id player-id
+                              :color color})}]}
+      (let [assigned-colors (set (map :color (vals members)))
+            color (first (remove assigned-colors protocol/player-colors))]
+        (if (and color (< (count members) (count protocol/player-colors)))
+          (let [player-id (keyword (str "player-" (:next-player-number room)))
+                member {:player-id player-id
+                        :color color}]
+            {:room (-> room
+                       (assoc-in [:members connection-token] member)
+                       (assoc-in [:world :players player-id]
+                                 (make-spawn-player color))
+                       (assoc-in [:inputs-by-player player-id] protocol/neutral-input)
+                       (update :next-player-number inc))
              :effects [{:connection-token connection-token
-                        :message {:type :room-full}}]}))))
-    {:room room
-     :effects []}))
+                        :message {:type :identity
+                                  :player-id player-id
+                                  :color color}}]})
+          {:room room
+           :effects [{:connection-token connection-token
+                      :message {:type :room-full}}]})))))
+
+(defn apply-room-message [room internal-message]
+  (let [{:keys [type connection-token input]} (when (map? internal-message)
+                                              internal-message)
+        fields (when (map? internal-message) (set (keys internal-message)))]
+    (cond
+      (and (= :join type)
+           (= #{:type :connection-token} fields)
+           (some? connection-token))
+      (join-room room connection-token)
+
+      (and (= :input type)
+           (= #{:type :connection-token :input} fields)
+           (protocol/player-input? input))
+      (if-let [player-id (get-in room [:members connection-token :player-id])]
+        {:room (update-in room [:inputs-by-player player-id]
+                          protocol/merge-pending-input input)
+         :effects []}
+        {:room room :effects []})
+
+      :else {:room room :effects []})))
 
 (defn make-room [deliver-effects!]
   (let [room-agent (agent {:room initial-room

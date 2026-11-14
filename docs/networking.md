@@ -79,3 +79,17 @@ all existing body/input state. Full-room rejection inserts nothing. The world
 is serializable data; private channel tokens belong only to membership and
 captured delivery recipients. Server bodies are active records immediately;
 match phases have not been introduced. The server does not advance them yet.
+
+## Connection-owned input
+
+The browser sends exactly `{:type :input :horizontal -1|0|1 :jump? boolean
+:drop? boolean :attack? boolean}` on fresh control events, without waiting for
+RAF. It never sends an identity or connection token. Before admission, the
+transport coalesces the latest direction and ORs pending one-shot actions.
+Closing or replacing the socket clears this buffer.
+
+The server attaches its private connection token. `apply-room-message` resolves
+that member and merges only its input; it does not move the world. A neutral
+release preserves an already captured jump, drop or attack until simulation
+consumes it. Keyboard repeat sends no extra action, and blur sends neutral
+movement immediately. The local fallback still runs independently at this stage.

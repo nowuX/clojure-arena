@@ -1,5 +1,6 @@
 (ns clojure-arena.client
   (:require [clojure-arena.game :as game]
+            [clojure-arena.protocol :as protocol]
             [clojure-arena.transport :as transport]))
 
 (def local-player-id :player-1)
@@ -43,24 +44,34 @@
                  (not (contains? @pressed-keys code)))
         (cond
           (= code jump-key-code) (reset! pending-jump true)
-          (= code drop-key-code) (reset! pending-drop true)))
-      (swap! pressed-keys conj code))))
+          (= code drop-key-code) (reset! pending-drop true))
+        (swap! pressed-keys conj code)
+        (transport/send-input! {:horizontal (horizontal-input)
+                               :jump? (= code jump-key-code)
+                               :drop? (= code drop-key-code)
+                               :attack? false})))))
 
 (defn handle-key-up! [event]
-  (when (control-key? (.-code event))
-    (.preventDefault event)
-    (swap! pressed-keys disj (.-code event))))
+  (let [code (.-code event)]
+    (when (control-key? code)
+      (.preventDefault event)
+      (when (contains? @pressed-keys code)
+        (swap! pressed-keys disj code)
+        (transport/send-input! (assoc protocol/neutral-input :horizontal (horizontal-input)))))))
 
 (defn handle-pointer-down! [event]
   (when (zero? (.-button event))
     (.preventDefault event)
-    (reset! pending-attack true)))
+    (reset! pending-attack true)
+    (transport/send-input! (assoc protocol/neutral-input
+                                :horizontal (horizontal-input) :attack? true))))
 
 (defn handle-blur! [_event]
   (reset! pressed-keys #{})
   (reset! pending-jump false)
   (reset! pending-drop false)
-  (reset! pending-attack false))
+  (reset! pending-attack false)
+  (transport/send-input! protocol/neutral-input))
 
 (defn draw-background [canvas]
   (let [context (.getContext canvas "2d")]

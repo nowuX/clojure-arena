@@ -3,6 +3,7 @@
 
 (defonce connection (atom nil))
 (defonce connection-state (atom {:status :closed}))
+(defonce ^:private pending-input (atom nil))
 
 (defn websocket-url [page-url]
   (let [page (js/URL. page-url)
@@ -27,7 +28,28 @@
             (str label (when player-id
                          (str " ID: " (name player-id) " · " (name color) ".")))))))
 
+(defn- flush-input! []
+  (when-let [socket @connection]
+    (when (and (= 1 (.-readyState socket))
+               (= :accepted (:admission @connection-state)))
+      (when-let [input @pending-input]
+        (try
+          (.send socket (pr-str (assoc input :type :input)))
+          (reset! pending-input nil)
+          (catch :default _
+            (set-state! (assoc @connection-state :status :error))))))))
+
+(defn send-input! [input]
+  (when-let [socket @connection]
+    (when (and (protocol/player-input? input)
+               (< (.-readyState socket) 2)
+               (not= :full (:admission @connection-state)))
+      (swap! pending-input #(protocol/merge-pending-input
+                             (or % protocol/neutral-input) input))
+      (flush-input!))))
+
 (defn stop! []
+  (reset! pending-input nil)
   (when-let [socket @connection]
     (reset! connection nil)
     (set! (.-onopen socket) nil)
@@ -66,7 +88,11 @@
                                           (dissoc :identity))
                            :pong (assoc state :status :ready)
                            :ready (assoc state :status :open)
-                           (assoc state :status :error))))
+                           (assoc state :status :error)))
+                        (case (:type message)
+                          :identity (flush-input!)
+                          :room-full (reset! pending-input nil)
+                          nil))
                       (set-state! (assoc @connection-state :status :error :url url))))
                   (catch :default _
                     (set-state! (assoc @connection-state :status :error :url url)))))))
@@ -78,6 +104,7 @@
             (fn [_]
               (when (identical? socket @connection)
                 (reset! connection nil)
+                (reset! pending-input nil)
                 (set-state! {:status :closed :url url})))))
     (catch :default _
       (set-state! {:status :error}))))

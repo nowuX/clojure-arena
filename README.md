@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–42 complete (42/70). Accepted connections now own independent spawned characters and neutral input in the server room.
+Checkpoints 01–43 complete (43/70). Browser intentions are validated, buffered per session, and routed only to their connection-owned player.
 Future mechanics remain specified in the roadmap.
 
 ## Run

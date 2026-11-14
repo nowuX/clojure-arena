@@ -25,8 +25,14 @@
                                     room-agent {:type :join
                                                 :connection-token connection-token}))
                         :on-receive (fn [channel message]
-                                      (http/send! channel
-                                                  (pr-str (protocol/reply-to-message message))))
+                                      (let [{:keys [input reply]}
+                                            (protocol/read-client-message message)]
+                                        (if input
+                                          (room/enqueue-room-message!
+                                           room-agent {:type :input
+                                                       :connection-token connection-token
+                                                       :input input})
+                                          (http/send! channel (pr-str reply)))))
                         :on-close (fn [_channel _status]
                                     (swap! connections dissoc connection-token))}))
     {:status 426

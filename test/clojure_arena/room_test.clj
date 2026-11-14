@@ -10,6 +10,11 @@
                            {:type :join
                             :connection-token connection-token}))
 
+(defn- input-message [connection-token input]
+  {:type :input
+   :connection-token connection-token
+   :input input})
+
 (defn- await-agent! [room-agent]
   (is (await-for 2000 room-agent)
       "room agent should finish its queued actions before the deadline")
@@ -27,8 +32,9 @@
     (is (= {:room (-> room/initial-room
                       (assoc-in [:members :connection-a]
                                 {:player-id :player-1 :color :cyan})
+                      (assoc-in [:inputs-by-player :player-1]
+                                protocol/neutral-input)
                       (assoc :next-player-number 2)
-                      (assoc-in [:inputs-by-player :player-1] protocol/neutral-input)
                       (assoc-in [:world :players :player-1]
                                 (game/make-player "#22d3ee" 340 160)))
             :effects [{:connection-token :connection-a
@@ -38,6 +44,11 @@
            first-result))
     (is (not-any? fn?
                   (tree-seq coll? seq first-result)))))
+
+(deftest initial-room-has-no-player-inputs-test
+  (is (= {} (:inputs-by-player room/initial-room)))
+  (is (= protocol/neutral-input
+         {:horizontal 0 :jump? false :drop? false :attack? false})))
 
 (deftest first-four-joins-receive-free-colors-and-monotonic-identities-test
   (let [results (reduce (fn [acc connection-token]
@@ -91,8 +102,9 @@
     (is (= (-> seeded-room
                (assoc-in [:members :new-connection]
                          {:player-id :player-41 :color :crimson})
+               (assoc-in [:inputs-by-player :player-41]
+                         protocol/neutral-input)
                (assoc :next-player-number 42)
-               (assoc-in [:inputs-by-player :player-41] protocol/neutral-input)
                (assoc-in [:world :players :player-41]
                          (game/make-player "#e11d48" 380 160)))
            (:room result)))
@@ -159,8 +171,11 @@
                                {:first {:player-id :player-1 :color :cyan}
                                 :second {:player-id :player-2 :color :crimson}
                                 :third {:player-id :player-3 :color :amber}})
+                        (assoc :inputs-by-player
+                               {:player-1 protocol/neutral-input
+                                :player-2 protocol/neutral-input
+                                :player-3 protocol/neutral-input})
                         (assoc :next-player-number 4)
-                        (assoc :inputs-by-player (zipmap [:player-1 :player-2 :player-3] (repeat protocol/neutral-input)))
                         (assoc-in [:world :players]
                                   {:player-1 (game/make-player "#22d3ee" 340 160)
                                    :player-2 (game/make-player "#e11d48" 380 160)
@@ -172,6 +187,124 @@
              @room-agent))
       (finally
         (reset! room-ref nil)))))
+
+(deftest accepted-input-updates-only-the-owning-player-without-stepping-world-test
+  (let [joined-a (:room (join-room room/initial-room :connection-a))
+        joined-b (:room (join-room joined-a :connection-b))
+        input-a {:horizontal 1 :jump? true :drop? false :attack? false}
+        before-world (:world joined-b)
+        result (room/apply-room-message
+                joined-b (input-message :connection-a input-a))]
+    (is (= {:room (assoc-in joined-b [:inputs-by-player :player-1] input-a)
+            :effects []}
+           result))
+    (is (= before-world (get-in result [:room :world]))
+        "accepting input must not advance or otherwise mutate the world")
+    (is (identical? before-world (get-in result [:room :world]))
+        "input changes should preserve the existing world value")
+    (is (= protocol/neutral-input
+           (get-in result [:room :inputs-by-player :player-2])))))
+
+(deftest neutral-input-clears-horizontal-but-retains-pending-actions-test
+  (let [joined (:room (join-room room/initial-room :connection-a))
+        tap {:horizontal -1 :jump? true :drop? false :attack? true}
+        tap-result (room/apply-room-message joined
+                                           (input-message :connection-a tap))
+        neutral-result (room/apply-room-message
+                        (:room tap-result)
+                        (input-message :connection-a protocol/neutral-input))]
+    (is (= {:horizontal 0 :jump? true :drop? false :attack? true}
+           (get-in neutral-result [:room :inputs-by-player :player-1]))
+        "a neutral frame replaces direction while pending action flags stay set")
+    (is (= [] (:effects tap-result)))
+    (is (= [] (:effects neutral-result)))
+    (is (= (:world joined) (get-in neutral-result [:room :world])))))
+
+(deftest rejected-and-unknown-player-inputs-preserve-the-exact-room-test
+  (let [joined (:room (join-room room/initial-room :connection-a))
+        valid-input {:horizontal 1 :jump? true :drop? false :attack? false}
+        messages [(input-message :unknown-connection valid-input)
+                  (input-message :connection-a (assoc valid-input :horizontal 2))
+                  (input-message :connection-a (assoc valid-input :jump? 1))
+                  (input-message :connection-a (assoc valid-input :player-id :player-2))
+                  (input-message :connection-a (assoc valid-input
+                                                       :connection-token :forged))
+                  (input-message :connection-a (assoc valid-input :position [9 9]))
+                  (input-message :connection-a (assoc valid-input :velocity [9 9]))
+                  (input-message :connection-a (dissoc valid-input :attack?))
+                  (assoc (input-message :connection-a valid-input) :extra true)
+                  {:type :input :connection-token :connection-a}
+                  {:type :input :connection-token :connection-a
+                   :input valid-input :extra true}]]
+    (doseq [message messages]
+      (let [result (room/apply-room-message joined message)]
+        (is (identical? joined (:room result))
+            (str "rejected input should preserve room identity for "
+                 (pr-str message)))
+        (is (= {:room joined :effects []} result)
+            (str "rejected input should have no effects for " (pr-str message)))))))
+
+(deftest queued-concurrent-inputs-remain-owned-by-their-members-test
+  (let [deliveries (atom [])
+        room-agent (room/make-room #(swap! deliveries into %))
+        submitters [:connection-a :connection-b]
+        ready (CountDownLatch. (count submitters))
+        start (CountDownLatch. 1)
+        finished (CountDownLatch. (count submitters))
+        failures (atom [])
+        inputs {:connection-a {:horizontal 1
+                               :jump? true
+                               :drop? false
+                               :attack? false}
+                :connection-b {:horizontal -1
+                               :jump? false
+                               :drop? true
+                               :attack? true}}
+        threads (mapv (fn [connection-token]
+                        (doto (Thread.
+                               ^Runnable
+                               (reify Runnable
+                                 (run [_]
+                                   (.countDown ready)
+                                   (try
+                                     (when-not (.await start 2 TimeUnit/SECONDS)
+                                       (throw (ex-info "start latch timed out" {})))
+                                     (room/enqueue-room-message!
+                                      room-agent
+                                      (input-message connection-token
+                                                     (get inputs connection-token)))
+                                     (catch Throwable error
+                                       (swap! failures conj error))
+                                     (finally
+                                       (.countDown finished))))))
+                          (.setDaemon true)))
+                      submitters)]
+    (try
+      (doseq [connection-token submitters]
+        (room/enqueue-room-message! room-agent
+                                    {:type :join
+                                     :connection-token connection-token}))
+      (await-agent! room-agent)
+      (let [world-before (get-in @room-agent [:room :world])]
+        (doseq [thread threads]
+          (.start thread))
+        (is (.await ready 2 TimeUnit/SECONDS)
+            "all concurrent input submitters should reach the start latch")
+        (.countDown start)
+        (is (.await finished 2 TimeUnit/SECONDS)
+            "concurrent input submitters should enqueue before the deadline")
+        (is (empty? @failures) (pr-str @failures))
+        (await-agent! room-agent)
+        (is (= {:player-1 (get inputs :connection-a)
+                :player-2 (get inputs :connection-b)}
+               (get-in @room-agent [:room :inputs-by-player]))
+            "concurrent updates should change only the submitting member's input")
+        (is (= world-before (get-in @room-agent [:room :world]))
+            "queued input updates must not advance the world")
+        (is (= 2 (count @deliveries))
+            "input updates must not produce socket effects"))
+      (finally
+        (.countDown start)))))
 
 (deftest queued-duplicate-replies-without-allocating-or-replaying-on-waits-test
   (let [deliveries (atom [])
