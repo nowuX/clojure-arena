@@ -71,7 +71,7 @@
           (await-room! room-agent)
           (let [messages (snapshots-at! accepted 2)]
             (is (apply = messages))
-            (is (= #{:blast-bounds :platforms :players} (set (keys (:world (first messages))))))
+            (is (= #{:blast-bounds :platforms :players :match} (set (keys (:world (first messages))))))
             (is (= #{:player-1 :player-2 :player-3 :player-4}
                    (set (keys (get-in (first messages) [:world :players])))))
             (is (= (get-in @room-agent [:room :world]) (:world (first messages)))))
@@ -89,9 +89,9 @@
             (await-room! room-agent)
             (let [messages (snapshots-at! accepted 23)]
               (is (apply = messages))
-              (is (= 10 (get-in (first messages)
+              (is (= 0 (get-in (first messages)
                                  [:world :players :player-2 :accumulated-percentage])))
-              (is (= 1 (get-in (first messages)
+              (is (= 0 (get-in (first messages)
                                 [:world :players :player-1 :melee-strike-id])))
               (is (every? protocol/snapshot-message? messages))))))
       (finally
@@ -192,7 +192,7 @@
                    (count (get-in after [:world :players]))
                    (count (:inputs-by-player after))))
             (is (= 6 (:next-player-number after)))
-            (is (= (room/make-spawn-player :cyan)
+            (is (= (assoc (room/make-spawn-player :cyan) :stocks 0 :lifecycle :waiting)
                    (get-in after [:world :players :player-5])))
             (is (= protocol/neutral-input
                    (get-in after [:inputs-by-player :player-5])))

@@ -1,5 +1,6 @@
 (ns clojure-arena.room
   (:require [clojure-arena.game :as game]
+            [clojure-arena.match :as match]
             [clojure-arena.protocol :as protocol]))
 
 (def tick-seconds 0.025)
@@ -19,7 +20,7 @@
    :members {}
    :next-player-number 1
    :inputs-by-player {}
-   :world (assoc game/initial-world :players {})})
+   :world (assoc game/initial-world :players {} :match match/initial-match)})
 
 (defn- join-room [room connection-token]
   (let [members (:members room)]
@@ -39,8 +40,7 @@
                         :color color}]
             {:room (-> room
                        (assoc-in [:members connection-token] member)
-                       (assoc-in [:world :players player-id]
-                                 (make-spawn-player color))
+                       (update :world match/add-player player-id (make-spawn-player color))
                        (assoc-in [:inputs-by-player player-id] protocol/neutral-input)
                        (update :next-player-number inc))
              :effects [{:connection-token connection-token
@@ -56,22 +56,22 @@
     (let [player-id (get-in room [:members connection-token :player-id])]
       {:room (-> room
                  (update :members dissoc connection-token)
-                 (update-in [:world :players] dissoc player-id)
+                 (update :world match/remove-player player-id)
                  (update :inputs-by-player dissoc player-id))
        :effects []})
     {:room room :effects []}))
 
+(defn- clear-input-actions [input]
+  (assoc input :jump? false :drop? false :attack? false))
+
 (defn- clear-pending-actions [inputs-by-player]
   (into {}
         (map (fn [[player-id input]]
-               [player-id (assoc input
-                                 :jump? false
-                                 :drop? false
-                                 :attack? false)]))
+               [player-id (clear-input-actions input)]))
         inputs-by-player))
 
 (defn- tick-room [room]
-  (let [world (game/step (:world room)
+  (let [world (match/step (:world room)
                          (:inputs-by-player room)
                          tick-seconds)
         next-room (-> room
@@ -106,7 +106,11 @@
            (protocol/player-input? input))
       (if-let [player-id (get-in room [:members connection-token :player-id])]
         {:room (update-in room [:inputs-by-player player-id]
-                          protocol/merge-pending-input input)
+                          (fn [pending]
+                            (let [merged (protocol/merge-pending-input pending input)]
+                              (if (match/playing? (:world room) player-id)
+                                merged
+                                (clear-input-actions merged)))))
          :effects []}
         {:room room :effects []})
 

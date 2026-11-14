@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–56 complete (56/70). Players have three opportunities, simulation-owned respawns and two-second incoming-hit protection with neutral lifecycle presentation.
+Checkpoints 01–57 complete (57/70). Connected players wait with public match ownership and no gameplay until a match starts; the offline sandbox remains playable.
 Future mechanics remain specified in the roadmap.
 
 ## Run
@@ -37,6 +37,7 @@ with both `just dev <HOST>` and `just server <HOST> 8082` running.
 - [Development](docs/development.md)
 - [Networking](docs/networking.md)
 - [Simulation](docs/simulation.md)
+- [Matches](docs/matches.md)
 - [Local combat](docs/combat.md)
 - [Architecture](docs/architecture.md)
 - [Language guide (Spanish)](docs/language-guide.md)

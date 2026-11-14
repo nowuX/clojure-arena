@@ -1,5 +1,6 @@
 (ns clojure-arena.respawn-delay-test
-  (:require [clojure-arena.game :as game]
+  (:require [clojure-arena.match-test-helpers :as match-helpers]
+            [clojure-arena.game :as game]
             [clojure-arena.protocol :as protocol]
             #?(:clj [clojure.test :refer [deftest is]]
                :cljs [cljs.test :refer-macros [deftest is]])))
@@ -21,7 +22,7 @@
     (is (= 2 (:stocks player)))
     (is (= [400 160] ((juxt :x :y) player)))
     (is (> (get-in (tick at120) [:players :player-1 :y]) (:y player)))
-    (is (protocol/snapshot-message? {:type :snapshot :tick 120 :world at120}))))
+    (is (protocol/snapshot-message? {:type :snapshot :tick 120 :world (match-helpers/running-world at120)}))))
 
 (deftest timer-progress-is-independent-and-zero-stock-records-never-count-down
   (let [a (assoc (game/make-player "#22d3ee" 400 160) :lifecycle :respawning
@@ -34,7 +35,7 @@
     (is (= c (get-in after [:players :player-3])))))
 
 (deftest snapshots-reject-invalid-or-state-inconsistent-respawn-times
-  (let [snapshot {:type :snapshot :tick 0 :world game/initial-world}
+  (let [snapshot {:type :snapshot :tick 0 :world (match-helpers/running-world game/initial-world)}
         path [:world :players :player-1 :respawn-seconds-left]]
     (doseq [timer [-1 3.01 ##Inf ##NaN nil "3"]]
       (is (not (protocol/snapshot-message? (assoc-in snapshot path timer)))))

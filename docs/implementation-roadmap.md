@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**56 of 70 checkpoints complete.** Checkpoints 01–56 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**57 of 70 checkpoints complete.** Checkpoints 01–57 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -768,7 +768,7 @@ Checkpoints **57–66**. Separate connections from contenders and compose match 
 
 ### 57 — Model match phases and contender roster
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Introduce serializable match ID,
   waiting/countdown/running/finished phases and a fixed contender map distinct from
   membership. Add waiting lifecycle with zero stocks to admission. Waiting holds gameplay;

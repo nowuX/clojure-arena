@@ -337,19 +337,19 @@
                      (get-in @room-agent [:room :inputs-by-player]))
                   "invalid client payloads must not mutate member inputs"))
 
-            (testing "a short action tap survives a following neutral frame"
+            (testing "waiting sockets retain direction while dropping action taps"
               (send-input-frame! first-websocket first-events room-agent
                                  {:horizontal -1
                                   :jump? true
                                   :drop? false
                                   :attack? false})
-              (is (= {:horizontal -1 :jump? true :drop? false :attack? false}
+              (is (= {:horizontal -1 :jump? false :drop? false :attack? false}
                      (get-in @room-agent [:room :inputs-by-player first-player])))
               (send-input-frame! first-websocket first-events room-agent
                                  protocol/neutral-input)
-              (is (= {:horizontal 0 :jump? true :drop? false :attack? false}
+              (is (= protocol/neutral-input
                      (get-in @room-agent [:room :inputs-by-player first-player]))
-                  "neutral input should clear direction but retain the pending jump")
+                  "waiting sockets cannot retain a pending jump")
               (is (= protocol/neutral-input
                      (get-in @room-agent [:room :inputs-by-player second-player]))))
 
@@ -359,9 +359,9 @@
                                   :jump? false
                                   :drop? true
                                   :attack? true})
-              (is (= {:horizontal 1 :jump? false :drop? true :attack? true}
+              (is (= {:horizontal 1 :jump? false :drop? false :attack? false}
                      (get-in @room-agent [:room :inputs-by-player second-player])))
-              (is (= {:horizontal 0 :jump? true :drop? false :attack? false}
+              (is (= protocol/neutral-input
                      (get-in @room-agent [:room :inputs-by-player first-player])))))))
       (finally
         (doseq [{:keys [websocket]} @connections]

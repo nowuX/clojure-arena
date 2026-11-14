@@ -1,5 +1,6 @@
 (ns clojure-arena.network-client-test
-  (:require [cljs.test :refer-macros [deftest is testing use-fixtures]]
+  (:require [clojure-arena.match-test-helpers :as match-helpers]
+            [cljs.test :refer-macros [deftest is testing use-fixtures]]
             [clojure-arena.client :as client]
             [clojure-arena.game :as game]
             [clojure-arena.protocol :as protocol]
@@ -184,7 +185,7 @@
 
 (defn- receive-snapshot! [socket tick world]
   ((.-onmessage socket)
-   #js {:data (pr-str {:type :snapshot :tick tick :world world})}))
+   #js {:data (pr-str {:type :snapshot :tick tick :world (match-helpers/running-world world)})}))
 
 (defn- start-networked-session! [world]
   (let [sockets (install-websocket!)]
@@ -192,7 +193,7 @@
     {:sockets sockets :socket (last @sockets)}))
 
 (defn- playable-world []
-  (-> game/initial-world
+  (-> (match-helpers/running-world game/initial-world)
       (update :players select-keys [client/local-player-id])
       (assoc-in [:players client/local-player-id :spawn-locked?] false)))
 
@@ -255,7 +256,7 @@
     (reset! percentage-list percentages)
     (reset! connection-status status)
     (reset! raf-state initial-raf-state)
-    (reset! client/world game/initial-world)
+    (reset! client/world (match-helpers/running-world game/initial-world))
     (reset! client/frame-id nil)
     (reset! client/pressed-keys #{})
     (reset! client/pending-jump false)
@@ -321,7 +322,7 @@
     (is (empty? (active-listener-counts)))))
 
 (deftest keyboard-input-events-send-directions-and-quick-actions-immediately
-  (let [{:keys [socket]} (start-networked-session! game/initial-world)]
+  (let [{:keys [socket]} (start-networked-session! (match-helpers/running-world game/initial-world))]
     (admit-client-socket! socket)
     (dispatch-key! "keydown" "KeyD")
     (dispatch-key! "keydown" "KeyA")
@@ -353,7 +354,7 @@
         "input delivery does not depend on running the queued animation frame")))
 
 (deftest repeated-held-keydowns-do-not-send-again-but-a-fresh-press-does
-  (let [{:keys [socket]} (start-networked-session! game/initial-world)]
+  (let [{:keys [socket]} (start-networked-session! (match-helpers/running-world game/initial-world))]
     (admit-client-socket! socket)
     (dispatch-key! "keydown" "KeyD")
     (dispatch-key! "keydown" "KeyD" true)
@@ -376,7 +377,7 @@
         "keyboard repeat and duplicate downs while held are ignored; release permits a new press")))
 
 (deftest one-time-actions-are-not-replayed-by-unrelated-input-events
-  (let [{:keys [socket]} (start-networked-session! game/initial-world)]
+  (let [{:keys [socket]} (start-networked-session! (match-helpers/running-world game/initial-world))]
     (admit-client-socket! socket)
     (dispatch-key! "keydown" "KeyW")
     (dispatch-key! "keydown" "KeyS")
@@ -394,7 +395,7 @@
         "network event snapshots do not queue actions for local simulation")))
 
 (deftest only-primary-pointerdown-on-the-canvas-sends-an-attack
-  (let [{:keys [socket]} (start-networked-session! game/initial-world)
+  (let [{:keys [socket]} (start-networked-session! (match-helpers/running-world game/initial-world))
         outside (tracked-event-target)]
     (admit-client-socket! socket)
     (dispatch-pointer-down! js/window 0)
@@ -411,7 +412,7 @@
         "accepted attacks are not queued for local simulation")))
 
 (deftest blur-immediately-sends-neutral-and-clears-local-input
-  (let [{:keys [socket]} (start-networked-session! game/initial-world)]
+  (let [{:keys [socket]} (start-networked-session! (match-helpers/running-world game/initial-world))]
     (admit-client-socket! socket)
     (dispatch-key! "keydown" "KeyD")
     (dispatch-key! "keydown" "KeyW")
@@ -435,7 +436,7 @@
         "the test leaves the animation frame queued while checking blur delivery")))
 
 (deftest buffered-action-survives-blur-until-identity-admits-the-session
-  (let [{:keys [socket]} (start-networked-session! game/initial-world)]
+  (let [{:keys [socket]} (start-networked-session! (match-helpers/running-world game/initial-world))]
     (open-client-socket! socket)
     (dispatch-key! "keydown" "KeyW")
     (dispatch-blur!)
@@ -539,10 +540,10 @@
 
 (deftest network-snapshots-render-as-one-world-and-offline-fallback-keeps-its-own-world
   (let [offline-world (assoc-in (playable-world) [:players :player-1 :x] 123)
-        first-network-world (-> game/initial-world
+        first-network-world (-> (match-helpers/running-world game/initial-world)
                                 (assoc-in [:players :player-1 :x] 700)
                                 (assoc-in [:players :player-2 :accumulated-percentage] 30))
-        latest-network-world (-> game/initial-world
+        latest-network-world (-> (match-helpers/running-world game/initial-world)
                                  (assoc-in [:players :player-1 :x] 760)
                                  (assoc-in [:players :player-2 :accumulated-percentage] 60))
         {:keys [socket]} (start-networked-session! offline-world)
@@ -564,15 +565,15 @@
                   (fn [world]
                     (swap! rendered-player-snapshots conj (:players world)))]
       (receive-snapshot! socket 5 first-network-world)
-      (is (= first-network-world @client/world)
+      (is (= (match-helpers/running-world first-network-world) @client/world)
           "a snapshot installs immediately even before the pending RAF runs")
       (deliver-frame! 0)
       (receive-snapshot! socket 6 latest-network-world)
-      (is (= latest-network-world @client/world)
+      (is (= (match-helpers/running-world latest-network-world) @client/world)
           "a newer snapshot replaces the visible world while RAF is between frames")
       (deliver-frame! 25)
       (deliver-frame! 50)
-      (is (= [first-network-world latest-network-world latest-network-world]
+      (is (= (mapv match-helpers/running-world [first-network-world latest-network-world latest-network-world])
              @rendered-worlds))
       (is (= (mapv :players @rendered-worlds)
              @rendered-player-snapshots)
@@ -605,9 +606,9 @@
         old-player (assoc (game/make-player "#4ade80" 600 240)
                           :spawn-locked? false :accumulated-percentage 80
                           :vx 200 :knockback-vx 100 :melee-cooldown-left 0.3)
-        old-world (assoc game/initial-world :players {:player-41 old-player})
+        old-world (assoc (match-helpers/running-world game/initial-world) :players {:player-41 old-player})
         fresh-player (game/make-player "#4ade80" 460 160)
-        fresh-world (assoc game/initial-world :players {:player-42 fresh-player})
+        fresh-world (assoc (match-helpers/running-world game/initial-world) :players {:player-42 fresh-player})
         {:keys [sockets socket]} (start-networked-session! offline-world)]
     (admit-as! socket :player-41 :green)
     (receive-snapshot! socket 90 old-world)
@@ -616,7 +617,7 @@
     (set! (.-send socket) (fn [_] (throw (js/Error. "Interrupted old session"))))
     (dispatch-pointer-down! @arena-canvas 0)
     (is (= :error (:status @transport/connection-state)))
-    (is (= old-world @client/world))
+    (is (= (match-helpers/running-world old-world) @client/world))
 
     (let [old-handlers (mapv #(aget socket %)
                              ["onopen" "onmessage" "onerror" "onclose"])]
@@ -642,7 +643,7 @@
             "old held keys, buffered attack and jump do not enter the new session")
         (receive-snapshot! current 91 fresh-world)
         (deliver-frame! 1000)
-        (is (= fresh-world @client/world))
+        (is (= (match-helpers/running-world fresh-world) @client/world))
         (is (= {:player-id :player-42 :color :green}
                (:identity @transport/connection-state)))
         (is (= "Arena compartida conectada. ID: player-42 · green."
@@ -656,7 +657,7 @@
 
 (deftest connection-timeout-immediately-restores-offline-physics-and-ignores-late-data
   (let [offline-world (assoc-in (grounded-world) [:players :player-1 :x] 123)
-        network-world (assoc-in game/initial-world [:players :player-1 :x] 700)
+        network-world (assoc-in (match-helpers/running-world game/initial-world) [:players :player-1 :x] 700)
         {:keys [socket]} (start-networked-session! offline-world)
         stepped-worlds (atom [])]
     (admit-as! socket :player-1 :cyan)
@@ -727,7 +728,7 @@
 
 (deftest init-stop-cycles-do-not-replay-inputs-or-duplicate-listeners
   (let [sockets (install-websocket!)]
-    (begin-session! game/initial-world)
+    (begin-session! (match-helpers/running-world game/initial-world))
     (let [first-socket (first @sockets)]
       (open-client-socket! first-socket)
       (dispatch-key! "keydown" "KeyD")
@@ -804,16 +805,16 @@
 
 (deftest own-eliminated-player-keeps-receiving-authoritative-worlds
   (let [{:keys [socket]} (start-networked-session! (playable-world))
-        network-world (assoc-in game/initial-world [:players :player-2]
+        network-world (assoc-in (match-helpers/running-world game/initial-world) [:players :player-2]
                                 (assoc (game/make-player "#e11d48" 380 160)
                                        :stocks 0 :lifecycle :eliminated))
         panels (atom [])]
     (admit-as! socket :player-2 :crimson)
     (receive-snapshot! socket 1 network-world)
     (is (transport/connected?))
-    (is (= network-world @client/world))
+    (is (= (match-helpers/running-world network-world) @client/world))
     (with-redefs [game/step (fn [& _] (throw (js/Error. "Connected client must not simulate")))
                   client/render-players! (fn [world] (swap! panels conj world))]
       (deliver-frame! 0)
-      (is (= [network-world] @panels)))
+      (is (= [(match-helpers/running-world network-world)] @panels)))
     (is (= 0 (get-in @client/world [:players :player-2 :stocks])))))

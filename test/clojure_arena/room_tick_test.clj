@@ -1,6 +1,8 @@
 (ns clojure-arena.room-tick-test
   (:require [clojure.test :refer [deftest is testing]]
             [clojure-arena.game :as game]
+            [clojure-arena.match :as match]
+            [clojure-arena.match-test-helpers :as match-helpers]
             [clojure-arena.protocol :as protocol]
             [clojure-arena.room :as room]))
 
@@ -18,6 +20,16 @@
 (defn- tick-room [state]
   (room/apply-room-message state {:type :tick}))
 
+(defn- prepare-waiting-players-for-physics-fixture [room-state]
+  (update-in room-state [:world :players]
+             (fn [players]
+               (into {}
+                     (map (fn [[player-id player]]
+                            [player-id (if (= :waiting (:lifecycle player))
+                                         (assoc player :lifecycle :active :stocks 3)
+                                         player)]))
+                     players))))
+
 (defn- clear-actions [inputs-by-player]
   (into {}
         (map (fn [[player-id input]]
@@ -29,7 +41,7 @@
 
 (defn- manual-tick [state]
   (let [inputs (:inputs-by-player state)
-        world (game/step (:world state) inputs room/tick-seconds)]
+        world (match/step (:world state) inputs room/tick-seconds)]
     (-> state
         (assoc :world world)
         (update :tick inc)
@@ -47,7 +59,9 @@
   (let [joined-a (:room (join-room room/initial-room :connection-a))
         joined-b (:room (join-room joined-a :connection-b))
         prepared (set-input
-                  (set-input joined-b :connection-a
+                  (set-input (match-helpers/running-room
+                              (prepare-waiting-players-for-physics-fixture joined-b))
+                             :connection-a
                              {:horizontal 1
                               :jump? true
                               :drop? false
@@ -69,7 +83,9 @@
            (get-in actual [:inputs-by-player :player-2])))))
 
 (deftest tick-steps-the-world-once-with-all-inputs-and-the-fixed-delta-test
-  (let [joined (:room (join-room room/initial-room :connection-a))
+  (let [joined (match-helpers/running-room
+                (prepare-waiting-players-for-physics-fixture
+                 (:room (join-room room/initial-room :connection-a))))
         prepared (set-input joined :connection-a
                             {:horizontal 1
                              :jump? true
@@ -88,15 +104,15 @@
     (is (identical? inputs (second (first @calls))))
     (is (= room/tick-seconds (nth (first @calls) 2)))))
 
-(deftest empty-room-ticks-advance-the-counter-and-step-empty-worlds-test
+(deftest empty-room-ticks-advance-the-counter-and-freeze-empty-worlds-test
   (let [first-result (tick-room room/initial-room)
         second-result (tick-room (:room first-result))]
-    (is (= {:room (-> room/initial-room
-                      (assoc :tick 1)
-                      (assoc :world (game/step (:world room/initial-room)
-                                               {} room/tick-seconds)))
+    (is (= {:room (assoc room/initial-room :tick 1)
             :effects []}
            first-result))
+    (is (identical? (:world room/initial-room)
+                    (get-in first-result [:room :world]))
+        "waiting rooms freeze the exact world fixture")
     (is (= 2 (get-in second-result [:room :tick]))
         "empty rooms should keep accepting pure ticks")
     (is (= {} (get-in second-result [:room :world :players])))))
@@ -117,6 +133,7 @@
                           :spawn-locked? false)}
         prepared (-> joined
                      (assoc-in [:world :players] initial-players)
+                     match-helpers/running-room
                      (set-input :jump {:horizontal 0
                                        :jump? true
                                        :drop? false
@@ -151,11 +168,15 @@
                                      :accumulated-percentage]))))))
 
 (deftest held-horizontal-input-persists-between-ticks-test
-  (let [joined (:room (join-room room/initial-room :connection-a))
+  (let [joined-a (:room (join-room room/initial-room :connection-a))
+        joined (prepare-waiting-players-for-physics-fixture
+                (:room (join-room joined-a :connection-b)))
         active-player (-> (get-in joined [:world :players :player-1])
-                          (assoc :x 300 :y 264 :spawn-locked? false))
+                          (assoc :x 300 :y 264 :spawn-locked? false
+                                 :lifecycle :active :stocks 3))
         prepared (-> joined
                      (assoc-in [:world :players :player-1] active-player)
+                     match-helpers/running-room
                      (set-input :connection-a {:horizontal 1
                                                 :jump? false
                                                 :drop? false
@@ -167,14 +188,19 @@
     (is (> (:x player) 300))))
 
 (deftest spawn-lock-controls-and-room-ticks-integrate-with-landing-test
-  (let [joined (:room (join-room room/initial-room :connection-a))
+  (let [joined-a (:room (join-room room/initial-room :connection-a))
+        joined (prepare-waiting-players-for-physics-fixture
+                (:room (join-room joined-a :connection-b)))
         spawn-x (get-in joined [:world :players :player-1 :x])
         landing-player (assoc (get-in joined [:world :players :player-1])
                               :y 258
                               :vy 240
-                              :air-jumps-left 0)
+                              :air-jumps-left 0
+                              :lifecycle :active
+                              :stocks 3)
         prepared (-> joined
                      (assoc-in [:world :players :player-1] landing-player)
+                     match-helpers/running-room
                      (set-input :connection-a {:horizontal 1
                                                 :jump? true
                                                 :drop? true
@@ -205,6 +231,7 @@
                                  :spawn-locked? false)}
         prepared (-> joined
                      (assoc-in [:world :players] players)
+                     match-helpers/running-room
                      (set-input :attacker {:horizontal 0
                                            :jump? false
                                            :drop? false
@@ -227,6 +254,7 @@
                       :spawn-locked? false)
         prepared (-> joined
                      (assoc-in [:world :players :player-1] player)
+                     match-helpers/running-room
                      (set-input :connection-a {:horizontal 0
                                                 :jump? false
                                                 :drop? true
@@ -260,8 +288,9 @@
             (is (= 1 (:tick room)))
             (is (= #{:connection-a :connection-b}
                    (set (keys (:members room)))))
-            (is (= pending-input (get-in room [:inputs-by-player :player-1]))
-                "input queued after the tick should stay pending for the next tick")
+            (is (= {:horizontal 1 :jump? false :drop? false :attack? false}
+                   (get-in room [:inputs-by-player :player-1]))
+                "waiting players retain direction and cannot queue action flags")
             (is (= protocol/neutral-input
                    (get-in room [:inputs-by-player :player-2])))
             (is (== 160 (get-in room [:world :players :player-2 :y]))

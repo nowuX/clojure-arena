@@ -1,5 +1,6 @@
 (ns clojure-arena.protocol-test
-  (:require [clojure-arena.protocol :as protocol]
+  (:require [clojure-arena.match-test-helpers :as match-helpers]
+            [clojure-arena.protocol :as protocol]
             [clojure-arena.game :as game]
             #?(:clj [clojure.test :refer [deftest is testing]]
                :cljs [cljs.test :refer-macros [deftest is testing]])))
@@ -201,7 +202,7 @@
         (is (protocol/server-message? decoded))))))
 
 (deftest snapshot-message-validation-test
-  (let [snapshot {:type :snapshot :tick 0 :world game/initial-world}
+  (let [snapshot {:type :snapshot :tick 0 :world (match-helpers/running-world game/initial-world)}
         player-id :player-1
         infinity #?(:clj Double/POSITIVE_INFINITY :cljs js/Infinity)
         invalid-messages

@@ -1,5 +1,6 @@
 (ns clojure-arena.blast-bounds-test
-  (:require [clojure-arena.game :as game]
+  (:require [clojure-arena.match-test-helpers :as match-helpers]
+            [clojure-arena.game :as game]
             [clojure-arena.protocol :as protocol]
             #?(:clj [clojure.test :refer [deftest is]]
                :cljs [cljs.test :refer-macros [deftest is]])))
@@ -18,7 +19,7 @@
     (is (= player (game/make-player "#22d3ee" 400 160)))))
 
 (deftest snapshot-bounds-require-exact-finite-noninverted-data
-  (let [snapshot {:type :snapshot :tick 0 :world game/initial-world}
+  (let [snapshot {:type :snapshot :tick 0 :world (match-helpers/running-world game/initial-world)}
         bounds (:blast-bounds game/initial-world)]
     (is (protocol/snapshot-message? snapshot))
     (is (= snapshot (protocol/decode (pr-str snapshot))))

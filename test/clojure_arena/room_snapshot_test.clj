@@ -1,6 +1,7 @@
 (ns clojure-arena.room-snapshot-test
   (:require [clojure.test :refer [deftest is testing]]
             [clojure-arena.game :as game]
+            [clojure-arena.match-test-helpers :as match-helpers]
             [clojure-arena.protocol :as protocol]
             [clojure-arena.room :as room]))
 
@@ -12,29 +13,29 @@
 (defn- tick-room [state]
   (room/apply-room-message state {:type :tick}))
 
+(defn- advance-room [state n]
+  (nth (iterate (comp :room tick-room) state) n))
+
 (defn- snapshot-effect [result]
   (first (:effects result)))
 
 (deftest current-factory-and-real-physics-snapshots-roundtrip-through-edn-test
   (testing "a complete current factory scene survives the wire roundtrip"
-    (let [message {:type :snapshot :tick 0 :world game/initial-world}
+    (let [message {:type :snapshot :tick 0
+                   :world (match-helpers/running-world game/initial-world)}
           decoded (protocol/decode (pr-str message))]
       (is (= message decoded))
       (is (protocol/snapshot-message? decoded))
       (is (protocol/server-message? decoded))))
-  (testing "the snapshot emitted after a real room physics tick is wire-safe"
+  (testing "a waiting tick publishes state without moving its body"
     (let [joined (join-room room/initial-room :connection-a)
-          before-y (get-in joined [:world :players :player-1 :y])
           result (tick-room joined)
-          next-room (:room result)
-          message (:message (snapshot-effect result))
-          decoded (protocol/decode (pr-str message))]
-      (is (= 1 (:tick next-room)))
-      (is (> (get-in next-room [:world :players :player-1 :y]) before-y)
-          "the real physics step should move the spawned player")
-      (is (= message decoded))
-      (is (protocol/snapshot-message? decoded))
-      (is (protocol/server-message? decoded)))))
+          message (:message (snapshot-effect result))]
+      (is (= 1 (get-in result [:room :tick])))
+      (is (= (:world joined) (:world message)))
+      (is (= :waiting (get-in message [:world :match :phase])))
+      (is (protocol/snapshot-message? message))
+      (is (= message (protocol/decode (pr-str message)))))))
 
 (deftest ticks-broadcast-one-snapshot-only-for-admitted-members-test
   (let [empty-result (tick-room room/initial-room)]

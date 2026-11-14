@@ -72,7 +72,7 @@
         (is (= 1 (:tick first-message)))
         (is (= 41 (:tick last-message)))
         (is (= (get-in @room-agent [:room :world]) (:world last-message)))
-        (is (not= (:world first-message) (:world last-message))))
+        (is (= (:world first-message) (:world last-message))))
       (finally
         (.countDown release)
         (publication/stop! handle)))))

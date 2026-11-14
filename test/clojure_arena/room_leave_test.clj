@@ -164,7 +164,7 @@
     (is (= 6 (:next-player-number final-room)))
     (is (= :player-5 (get-in final-room [:members :connection-e :player-id])))
     (is (= :crimson (get-in final-room [:members :connection-e :color])))
-    (is (= (room/make-spawn-player :crimson)
+    (is (= (assoc (room/make-spawn-player :crimson) :stocks 0 :lifecycle :waiting)
            (get-in final-room [:world :players :player-5])))
     (is (= #{:connection-a :connection-c :connection-d :connection-e}
            (set (keys (:members final-room))))

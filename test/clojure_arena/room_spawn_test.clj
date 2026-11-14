@@ -3,7 +3,8 @@
             [clojure.set :as set]
             [clojure.test :refer [deftest is]]
             [clojure-arena.game :as game]
-            [clojure-arena.room :as room]))
+            [clojure-arena.room :as room]
+            [clojure-arena.match :as match]))
 
 (def spawn-cases
   [{:connection-token :connection-a
@@ -42,25 +43,9 @@
       results)))
 
 (defn- expected-player [{:keys [x fill]}]
-  {:x x
-   :y 160
-   :spawn-x x :spawn-y 160
-   :vx 0
-   :vy 0
-   :knockback-vx 0
-   :knockback-vy 0
-   :facing :right
-   :spawn-locked? true
-   :air-jumps-left 1
-   :drop-through-platform-id nil
-   :melee-cooldown-left 0
-   :melee-strike-id 0
-   :melee-resolved-strike-id 0
-   :melee-target-ids #{}
-   :accumulated-percentage 0
-   :stocks 3 :lifecycle :active :respawn-seconds-left 0 :protection-seconds-left 0
-   :radius 16
-   :color fill})
+  (assoc (game/make-player fill x 160)
+         :stocks 0
+         :lifecycle :waiting))
 
 (deftest initial-room-keeps-browser-fixtures-out-of-the-room-world-test
   (let [browser-world-before game/initial-world]
@@ -68,15 +53,23 @@
             :members {}
             :next-player-number 1
             :inputs-by-player {}
-            :world (assoc game/initial-world :players {})}
+            :world (assoc game/initial-world :players {} :match match/initial-match)}
            room/initial-room))
     (is (= (:platforms game/initial-world)
            (get-in room/initial-room [:world :platforms])))
     (is (= {} (get-in room/initial-room [:world :players])))
+    (is (= match/initial-match (get-in room/initial-room [:world :match])))
     (is (seq (:players game/initial-world))
         "the browser's local fixture world should remain populated")
     (is (= browser-world-before game/initial-world)
         "room initialization should leave browser fixtures unchanged")))
+
+(deftest pure-player-factories-remain-active-three-stock-fixtures-test
+  (doseq [{:keys [color fill x]} spawn-cases]
+    (let [factory-player (room/make-spawn-player color)]
+      (is (= (game/make-player fill x 160) factory-player))
+      (is (= :active (:lifecycle factory-player)))
+      (is (= 3 (:stocks factory-player))))))
 
 (deftest spawn-config-and-first-four-joins-create-matching-world-players-test
   (let [results (join-sequence (map :connection-token spawn-cases))
@@ -107,7 +100,11 @@
             "each pure join transition should commit its member and player together")))
     (is (= expected-members (:members final-room)))
     (is (= expected-players (get-in final-room [:world :players])))
-    (is (= #{:blast-bounds :platforms :players} (set (keys (:world final-room)))))
+    (is (= #{:blast-bounds :platforms :players :match}
+           (set (keys (:world final-room)))))
+    (is (= {:id 0 :phase :waiting :countdown-seconds-left 0
+            :time-seconds-left 0 :intermission-seconds-left 0 :result nil :contenders {}}
+           (get-in final-room [:world :match])))
     (is (= [340 380 420 460]
            (mapv :x (map expected-player spawn-cases))))
     (is (apply distinct? (map :x (map expected-player spawn-cases)))
@@ -224,9 +221,14 @@
 
 (deftest actual-spawns-land-and-refill-jumps-one-player-at-a-time-test
   (let [joined-room (:room (last (join-sequence (map :connection-token spawn-cases))))
+        factory-world (assoc (:world joined-room)
+                             :players (into {}
+                                            (map (fn [{:keys [player-id color]}]
+                                                   [player-id (room/make-spawn-player color)]))
+                                            spawn-cases))
         first-id :player-1
         second-id :player-2
-        world (-> (:world joined-room)
+        world (-> factory-world
                   (assoc-in [:players first-id :y] 258)
                   (assoc-in [:players first-id :vy] 240)
                   (assoc-in [:players first-id :air-jumps-left] 0)

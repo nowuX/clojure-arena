@@ -1,12 +1,13 @@
 (ns clojure-arena.room-stock-lifecycle-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure-arena.match-test-helpers :as match-helpers]
+            [clojure.test :refer [deftest is testing]]
             [clojure-arena.protocol :as protocol]
             [clojure-arena.room :as room]))
 
 (deftest stock-loss-keeps-session-ownership-and-consumes-inactive-actions
   (let [joined (:room (room/apply-room-message room/initial-room
                                               {:type :join :connection-token :session}))
-        before (-> joined
+        before (-> (match-helpers/active-room joined)
                    (assoc-in [:world :players :player-1 :x] 900)
                    (assoc-in [:inputs-by-player :player-1]
                              {:horizontal 1 :jump? true :drop? true :attack? true}))
@@ -45,7 +46,7 @@
         joined (reduce join-room room/initial-room tokens)
         inactive-player (-> (get-in joined [:world :players :player-1])
                             (assoc :x -200 :stocks 2 :lifecycle :respawning :respawn-seconds-left 3))
-        prepared (-> joined
+        prepared (-> (match-helpers/active-room joined)
                      (assoc-in [:world :players :player-1] inactive-player)
                      (set-input :connection-a {:horizontal 1
                                                :jump? true
@@ -80,7 +81,7 @@
              (set (keys (:inputs-by-player after-first)))))
       (is (= (set tokens) (set (:connection-tokens snapshot-effect))))
       (is (= #{:type :tick :world} (set (keys snapshot))))
-      (is (= #{:blast-bounds :platforms :players}
+      (is (= #{:blast-bounds :platforms :players :match}
              (set (keys (:world snapshot)))))
       (is (= snapshot decoded))
       (is (protocol/snapshot-message? decoded))
@@ -94,7 +95,7 @@
 
 (deftest room-snapshots-follow-loss-return-and-protection-expiry
   (let [joined (reduce join-room room/initial-room [:a :b])
-        prepared (-> joined
+        prepared (-> (match-helpers/active-room joined)
                      (assoc-in [:world :players :player-1 :x] 900)
                      (set-input :a {:horizontal 1 :jump? true :drop? true :attack? true}))
         loss (tick-room prepared)

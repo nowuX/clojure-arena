@@ -1,5 +1,6 @@
 (ns clojure-arena.transport-test
-  (:require [cljs.test :refer-macros [deftest is testing use-fixtures]]
+  (:require [clojure-arena.match-test-helpers :as match-helpers]
+            [cljs.test :refer-macros [deftest is testing use-fixtures]]
             [clojure-arena.game :as game]
             [clojure-arena.protocol :as protocol]
             [clojure-arena.transport :as transport]))
@@ -65,7 +66,7 @@
   (receive! socket "{:type :identity :player-id :player-41 :color :green}"))
 
 (defn- snapshot-frame [tick world]
-  (pr-str {:type :snapshot :tick tick :world world}))
+  (pr-str {:type :snapshot :tick tick :world (match-helpers/running-world world)}))
 
 (deftest websocket-address-follows-page-or-explicit-game-server
   (doseq [[page expected]
@@ -147,16 +148,16 @@
   (transport/start! "http://arena.example/")
   (let [socket @transport/connection]
     (open! socket)
-    (receive! socket (snapshot-frame 4 game/initial-world))
+    (receive! socket (snapshot-frame 4 (match-helpers/running-world game/initial-world)))
     (is (nil? (:snapshot @transport/connection-state))
         "a valid snapshot before admission does not change connection state")
     (receive! socket "{:type :identity :player-id :player-1 :color :cyan}")
     (receive! socket
-              (snapshot-frame 4 (update game/initial-world :players dissoc :player-1)))
+              (snapshot-frame 4 (update (match-helpers/running-world game/initial-world) :players dissoc :player-1)))
     (is (nil? (:snapshot @transport/connection-state))
         "a snapshot without the assigned player is ignored")
-    (receive! socket (snapshot-frame 4 game/initial-world))
-    (is (= {:tick 4 :world game/initial-world}
+    (receive! socket (snapshot-frame 4 (match-helpers/running-world game/initial-world)))
+    (is (= {:tick 4 :world (match-helpers/running-world game/initial-world)}
            (:snapshot @transport/connection-state)))
     (is (= "Arena compartida conectada. ID: player-1 · cyan."
            (.-textContent @status-element))))
@@ -166,16 +167,16 @@
     (open! socket)
     (receive! socket "{:type :room-full}")
     (let [full-state @transport/connection-state]
-      (receive! socket (snapshot-frame 4 game/initial-world))
+      (receive! socket (snapshot-frame 4 (match-helpers/running-world game/initial-world)))
       (is (= full-state @transport/connection-state)
           "a valid snapshot after a full-room rejection is ignored"))))
 
 (deftest snapshots-are-monotonic-and-malformed-frames-preserve-the-last-valid-world
   (transport/start! "http://arena.example/")
   (let [socket @transport/connection
-        first-world (assoc-in game/initial-world [:players :player-1 :x] 111)
-        duplicate-world (assoc-in game/initial-world [:players :player-1 :x] 222)
-        newest-world (assoc-in game/initial-world [:players :player-1 :x] 333)]
+        first-world (assoc-in (match-helpers/running-world game/initial-world) [:players :player-1 :x] 111)
+        duplicate-world (assoc-in (match-helpers/running-world game/initial-world) [:players :player-1 :x] 222)
+        newest-world (assoc-in (match-helpers/running-world game/initial-world) [:players :player-1 :x] 333)]
     (open! socket)
     (receive! socket "{:type :identity :player-id :player-1 :color :cyan}")
     (receive! socket (snapshot-frame 7 first-world))
@@ -211,7 +212,7 @@
     (receive! socket "{:type :identity :player-id :player-1 :color :cyan}")
     (set! (.-readyState socket) 3)
     (let [closed-state @transport/connection-state]
-      (receive! socket (snapshot-frame 1 game/initial-world))
+      (receive! socket (snapshot-frame 1 (match-helpers/running-world game/initial-world)))
       (is (= closed-state @transport/connection-state)
           "the current callback is ignored once its WebSocket is closed")
       ((.-onclose socket) #js {})
@@ -223,18 +224,18 @@
   (let [old-socket @transport/connection]
     (open! old-socket)
     (receive! old-socket "{:type :identity :player-id :player-1 :color :cyan}")
-    (receive! old-socket (snapshot-frame 20 game/initial-world))
+    (receive! old-socket (snapshot-frame 20 (match-helpers/running-world game/initial-world)))
     (let [old-handler (.-onmessage old-socket)]
       (transport/start! "http://arena.example/")
       (let [new-socket @transport/connection]
         (is (nil? (:snapshot @transport/connection-state)))
-        (old-handler #js {:data (snapshot-frame 99 game/initial-world)})
+        (old-handler #js {:data (snapshot-frame 99 (match-helpers/running-world game/initial-world))})
         (is (nil? (:snapshot @transport/connection-state))
             "a stale socket callback cannot affect the replacement")
         (open! new-socket)
         (receive! new-socket "{:type :identity :player-id :player-1 :color :cyan}")
-        (receive! new-socket (snapshot-frame 1 game/initial-world))
-        (is (= {:tick 1 :world game/initial-world}
+        (receive! new-socket (snapshot-frame 1 (match-helpers/running-world game/initial-world)))
+        (is (= {:tick 1 :world (match-helpers/running-world game/initial-world)}
                (:snapshot @transport/connection-state))
             "a replacement session starts a fresh tick sequence")))))
 
@@ -368,9 +369,9 @@
   (transport/start! "http://arena.example/")
   (let [old @transport/connection]
     (admit! old)
-    (let [old-world (assoc game/initial-world :players
+    (let [old-world (assoc (match-helpers/running-world game/initial-world) :players
                            {:player-41 (game/make-player "#4ade80" 600 240)})
-          fresh-world (assoc game/initial-world :players
+          fresh-world (assoc (match-helpers/running-world game/initial-world) :players
                              {:player-42 (game/make-player "#4ade80" 460 160)})
           old-handlers (mapv #(aget old %)
                              ["onopen" "onmessage" "onerror" "onclose"])]
@@ -395,7 +396,7 @@
         ((second old-handlers) #js {:data (snapshot-frame 100 old-world)})
         (is (= {:player-id :player-42 :color :green}
                (:identity @transport/connection-state)))
-        (is (= {:tick 1 :world fresh-world}
+        (is (= {:tick 1 :world (match-helpers/running-world fresh-world)}
                (:snapshot @transport/connection-state)))
         ((last old-handlers) #js {})
         (is (transport/connected?))
@@ -424,9 +425,9 @@
     (open! socket)
     (receive! socket "{:type :ready}")
     (receive! socket "{:type :identity :player-id :player-1 :color :cyan}")
-    (receive! socket (snapshot-frame 4 game/initial-world))
+    (receive! socket (snapshot-frame 4 (match-helpers/running-world game/initial-world)))
     (is (transport/connected?))
-    (is (= {:tick 4 :world game/initial-world}
+    (is (= {:tick 4 :world (match-helpers/running-world game/initial-world)}
            (:snapshot @transport/connection-state))
         "the session has a valid snapshot for rejection to clear")
 
@@ -447,7 +448,7 @@
       (receive! socket "{:type :ready}")
       (receive! socket "{:type :pong}")
       (receive! socket "{:type :identity :player-id :player-42 :color :amber}")
-      (receive! socket (snapshot-frame 5 game/initial-world))
+      (receive! socket (snapshot-frame 5 (match-helpers/running-world game/initial-world)))
       (receive! socket "{:type :error :code :connection-timeout}")
       ((.-onerror socket) #js {})
       (is (= rejected-state @transport/connection-state)
@@ -481,7 +482,7 @@
   (transport/start! "http://arena.example/")
   (let [socket @transport/connection
         send-message (.-send socket)
-        world (assoc-in game/initial-world [:players :player-1 :x] 321)]
+        world (assoc-in (match-helpers/running-world game/initial-world) [:players :player-1 :x] 321)]
     (open! socket)
     (receive! socket "{:type :identity :player-id :player-1 :color :cyan}")
     (receive! socket (snapshot-frame 7 world))
@@ -515,7 +516,7 @@
       (transport/send-input! {:horizontal -1 :jump? false :drop? true :attack? false})
       (receive! socket "{:type :ready}")
       (receive! socket "{:type :identity :player-id :player-42 :color :amber}")
-      (receive! socket (snapshot-frame 8 game/initial-world))
+      (receive! socket (snapshot-frame 8 (match-helpers/running-world game/initial-world)))
       (receive! socket "{:type :room-full}")
       ((.-onerror socket) #js {})
       (is (= expired-state @transport/connection-state)
@@ -548,7 +549,7 @@
         identity-message "{:type :identity :player-id :player-1 :color :cyan}"]
     (open! old)
     (receive! old identity-message)
-    (receive! old (snapshot-frame 4 game/initial-world))
+    (receive! old (snapshot-frame 4 (match-helpers/running-world game/initial-world)))
     (is (= 4 (get-in @transport/connection-state [:snapshot :tick])))
     (let [old-handler (.-onmessage old)]
       (transport/start! "http://arena.example/")

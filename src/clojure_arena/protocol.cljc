@@ -1,5 +1,6 @@
 (ns clojure-arena.protocol
-  (:require #?(:clj [clojure.edn :as edn]
+  (:require [clojure-arena.match :as match]
+            #?(:clj [clojure.edn :as edn]
                :cljs [cljs.tools.reader.edn :as edn])
             #?(:cljs [cljs.tools.reader.reader-types :as readers])))
 
@@ -9,8 +10,9 @@
 (def safe-integer-maximum 9007199254740991)
 
 (def platform-fields #{:id :type :x :y :width :height :color})
-(def player-fields #{:x :y :spawn-x :spawn-y :vx :vy :knockback-vx :knockback-vy
-                     :stocks :lifecycle :respawn-seconds-left :protection-seconds-left
+(def player-fields #{:x :y :vx :vy :knockback-vx :knockback-vy
+                     :stocks :lifecycle
+                     :spawn-x :spawn-y :respawn-seconds-left :protection-seconds-left
                      :facing :spawn-locked? :air-jumps-left
                      :drop-through-platform-id :melee-cooldown-left
                      :melee-strike-id :melee-resolved-strike-id
@@ -70,19 +72,22 @@
        (< (:left bounds) (:right bounds))
        (< (:top bounds) (:bottom bounds))))
 
-(defn- stock-state? [{:keys [stocks lifecycle respawn-seconds-left protection-seconds-left]}]
-  (and (safe-nonnegative-integer? stocks)
-       (<= stocks 3)
-       (finite-number? respawn-seconds-left)
-       (<= 0 respawn-seconds-left 3)
-       (finite-number? protection-seconds-left)
-       (<= 0 protection-seconds-left 2)
-       (case lifecycle
-         :active (and (pos? stocks) (zero? respawn-seconds-left))
-         :respawning (and (pos? stocks) (zero? protection-seconds-left))
-         :eliminated (and (zero? stocks) (zero? respawn-seconds-left)
-                          (zero? protection-seconds-left))
-         false)))
+(defn- stock-state? [player]
+  (let [stocks (:stocks player)
+        respawn (:respawn-seconds-left player)
+        protection (:protection-seconds-left player)]
+    (and (safe-nonnegative-integer? stocks)
+         (<= stocks 3)
+         (finite-number? respawn)
+         (finite-number? protection)
+         (<= 0 respawn 3)
+         (<= 0 protection 2)
+         (case (:lifecycle player)
+           :waiting (and (zero? stocks) (zero? respawn) (zero? protection))
+           :active (and (pos? stocks) (zero? respawn))
+           :respawning (and (pos? stocks) (pos? respawn) (zero? protection))
+           :eliminated (and (zero? stocks) (zero? respawn) (zero? protection))
+           false))))
 
 (defn- player? [player semisolid-platform-ids]
   (let [drop-through-id (:drop-through-platform-id player)]
@@ -107,6 +112,55 @@
          (every? player-id? (:melee-target-ids player))
          (color? (:color player)))))
 
+(defn- contender-state? [contender]
+  (and (map? contender)
+       (= #{:color :stocks :accumulated-percentage :forfeited?} (set (keys contender)))
+       (color? (:color contender))
+       (safe-nonnegative-integer? (:stocks contender))
+       (<= (:stocks contender) 3)
+       (finite-number? (:accumulated-percentage contender))
+       (not (neg? (:accumulated-percentage contender)))
+       (boolean? (:forfeited? contender))))
+
+(defn- roster-matches-players? [contenders players]
+  (and (every? (fn [[player-id contender]]
+                 (if (:forfeited? contender)
+                   (not (contains? players player-id))
+                   (let [player (get players player-id)]
+                     (and player
+                          (not= :waiting (:lifecycle player))
+                          (= (select-keys contender [:color :stocks :accumulated-percentage])
+                             (select-keys player [:color :stocks :accumulated-percentage]))))))
+               contenders)
+       (every? (fn [[player-id player]]
+                 (or (contains? contenders player-id) (= :waiting (:lifecycle player))))
+               players)))
+
+(defn- match-state? [state players]
+  (let [{:keys [id phase countdown-seconds-left time-seconds-left
+                intermission-seconds-left result contenders]} state]
+    (and (map? state)
+         (= #{:id :phase :countdown-seconds-left :time-seconds-left
+              :intermission-seconds-left :result :contenders} (set (keys state)))
+         (safe-nonnegative-integer? id)
+         (contains? #{:waiting :countdown :running :finished} phase)
+         (finite-number? countdown-seconds-left) (<= 0 countdown-seconds-left 3)
+         (finite-number? time-seconds-left) (<= 0 time-seconds-left 180)
+         (and (finite-number? intermission-seconds-left) (zero? intermission-seconds-left))
+         (nil? result)
+         (map? contenders)
+         (every? player-id? (keys contenders))
+         (every? contender-state? (vals contenders))
+         (case phase
+           (:waiting :countdown)
+           (and (empty? contenders) (zero? time-seconds-left)
+                (every? #(= :waiting (:lifecycle %)) (vals players)))
+           (:running :finished)
+           (and (pos? id) (zero? countdown-seconds-left)
+                (<= 2 (count contenders) 4)
+                (roster-matches-players? contenders players))
+           false))))
+
 (defn snapshot-message? [message]
   (and (map? message)
        (= #{:type :tick :world} (set (keys message)))
@@ -122,14 +176,16 @@
                                                 (filter #(= :semisolid (:type %))
                                                         platforms))))]
          (and (map? world)
-              (= #{:blast-bounds :platforms :players} (set (keys world)))
+              (= #{:blast-bounds :platforms :players :match} (set (keys world)))
               (blast-bounds? (:blast-bounds world))
               (vector? platforms)
               (every? platform? platforms)
               (= (count platform-ids) (count platforms))
               (map? players)
+              (<= (count players) 4)
               (every? player-id? (keys players))
-              (every? #(player? % semisolid-platform-ids) (vals players))))))
+              (every? #(player? % semisolid-platform-ids) (vals players))
+              (match-state? (:match world) players)))))
 
 (defn decode [text]
   (let [reader #?(:clj (java.io.PushbackReader. (java.io.StringReader. text))

@@ -1,6 +1,8 @@
 (ns clojure-arena.room-test
   (:require [clojure.test :refer [deftest is]]
             [clojure-arena.game :as game]
+            [clojure-arena.match :as match]
+            [clojure-arena.match-test-helpers :as match-helpers]
             [clojure-arena.protocol :as protocol]
             [clojure-arena.room :as room])
   (:import [java.util.concurrent CountDownLatch LinkedBlockingQueue TimeUnit]))
@@ -21,6 +23,11 @@
   (is (nil? (agent-error room-agent))
       "room actions and post-commit delivery should not fail the agent"))
 
+(defn- waiting-player [color x]
+  (assoc (game/make-player color x 160)
+         :lifecycle :waiting
+         :stocks 0))
+
 (deftest apply-room-message-is-pure-and-deterministic-test
   (let [initial room/initial-room
         first-result (join-room initial :connection-a)
@@ -36,7 +43,7 @@
                                 protocol/neutral-input)
                       (assoc :next-player-number 2)
                       (assoc-in [:world :players :player-1]
-                                (game/make-player "#22d3ee" 340 160)))
+                                (waiting-player "#22d3ee" 340)))
             :effects [{:connection-token :connection-a
                        :message {:type :identity
                                  :player-id :player-1
@@ -48,6 +55,7 @@
 (deftest initial-room-has-no-player-inputs-test
   (is (= 0 (:tick room/initial-room)))
   (is (= {} (:inputs-by-player room/initial-room)))
+  (is (= match/initial-match (get-in room/initial-room [:world :match])))
   (is (= protocol/neutral-input
          {:horizontal 0 :jump? false :drop? false :attack? false})))
 
@@ -107,7 +115,12 @@
                          protocol/neutral-input)
                (assoc :next-player-number 42)
                (assoc-in [:world :players :player-41]
-                         (game/make-player "#e11d48" 380 160)))
+                         (waiting-player "#e11d48" 380))
+               (assoc-in [:world :match]
+                         {:id 0 :phase :waiting
+                          :countdown-seconds-left 0
+                          :time-seconds-left 0 :intermission-seconds-left 0
+                          :result nil :contenders {}}))
            (:room result)))
     (is (= [{:connection-token :new-connection
              :message {:type :identity
@@ -178,9 +191,14 @@
                                 :player-3 protocol/neutral-input})
                         (assoc :next-player-number 4)
                         (assoc-in [:world :players]
-                                  {:player-1 (game/make-player "#22d3ee" 340 160)
-                                   :player-2 (game/make-player "#e11d48" 380 160)
-                                   :player-3 (game/make-player "#f59e0b" 420 160)}))
+                                  {:player-1 (waiting-player "#22d3ee" 340)
+                                   :player-2 (waiting-player "#e11d48" 380)
+                                   :player-3 (waiting-player "#f59e0b" 420)})
+                        (assoc-in [:world :match]
+                                  {:id 0 :phase :waiting
+                                   :countdown-seconds-left 0
+                                   :time-seconds-left 0 :intermission-seconds-left 0 :result nil
+                                   :contenders {}}))
               :effects [{:connection-token :third
                          :message {:type :identity
                                    :player-id :player-3
@@ -189,14 +207,15 @@
       (finally
         (reset! room-ref nil)))))
 
-(deftest accepted-input-updates-only-the-owning-player-without-stepping-world-test
+(deftest waiting-input-retains-direction-and-drops-actions-without-stepping-world-test
   (let [joined-a (:room (join-room room/initial-room :connection-a))
         joined-b (:room (join-room joined-a :connection-b))
         input-a {:horizontal 1 :jump? true :drop? false :attack? false}
         before-world (:world joined-b)
         result (room/apply-room-message
                 joined-b (input-message :connection-a input-a))]
-    (is (= {:room (assoc-in joined-b [:inputs-by-player :player-1] input-a)
+    (is (= {:room (assoc-in joined-b [:inputs-by-player :player-1]
+                            {:horizontal 1 :jump? false :drop? false :attack? false})
             :effects []}
            result))
     (is (= before-world (get-in result [:room :world]))
@@ -207,7 +226,10 @@
            (get-in result [:room :inputs-by-player :player-2])))))
 
 (deftest neutral-input-clears-horizontal-but-retains-pending-actions-test
-  (let [joined (:room (join-room room/initial-room :connection-a))
+  (let [joined (-> (:room (join-room room/initial-room :connection-a))
+                   (update-in [:world :players :player-1]
+                              assoc :lifecycle :active :stocks 3)
+                   match-helpers/running-room)
         tap {:horizontal -1 :jump? true :drop? false :attack? true}
         tap-result (room/apply-room-message joined
                                            (input-message :connection-a tap))
@@ -296,10 +318,10 @@
             "concurrent input submitters should enqueue before the deadline")
         (is (empty? @failures) (pr-str @failures))
         (await-agent! room-agent)
-        (is (= {:player-1 (get inputs :connection-a)
-                :player-2 (get inputs :connection-b)}
+        (is (= {:player-1 {:horizontal 1 :jump? false :drop? false :attack? false}
+                :player-2 {:horizontal -1 :jump? false :drop? false :attack? false}}
                (get-in @room-agent [:room :inputs-by-player]))
-            "concurrent updates should change only the submitting member's input")
+            "concurrent waiting inputs should retain direction and clear one-shot actions")
         (is (= world-before (get-in @room-agent [:room :world]))
             "queued input updates must not advance the world")
         (is (= 2 (count @deliveries))

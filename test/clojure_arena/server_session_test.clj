@@ -111,6 +111,9 @@
   (room/enqueue-room-message! room-agent {:type :tick})
   (await-room! room-agent))
 
+(defn- waiting-spawn-player [color]
+  (assoc (room/make-spawn-player color) :lifecycle :waiting :stocks 0))
+
 (deftest reload-creates-a-fresh-player-session-with-the-same-cookie-test
   (let [{:keys [server port room-agent connections]} (start-runtime!)
         clients (atom [])
@@ -137,9 +140,9 @@
                 (update-in envelope [:room :world :players old-id]
                            merge old-player-changes)))
         (await-room! room-agent)
-        (is (= old-input
+        (is (= {:horizontal 1 :jump? false :drop? false :attack? false}
                (get-in (room-state room-agent) [:inputs-by-player old-id]))
-            "the old session should retain held direction and pending actions")
+            "a waiting session retains direction and drops one-shot actions")
         (is (= old-player-changes
                (select-keys (get-in (room-state room-agent)
                                     [:world :players old-id])
@@ -168,9 +171,9 @@
                 "each WebSocket connection should have its own token")
             (is (= #{new-id}
                    (set (keys (get-in (room-state room-agent) [:world :players])))))
-            (is (= (room/make-spawn-player old-color)
+            (is (= (waiting-spawn-player old-color)
                    (get-in (room-state room-agent) [:world :players new-id]))
-                "reload should build an exact fresh spawn, not restore physical or combat state")
+                "reload should build a fresh waiting player, not restore old state")
             (is (= protocol/neutral-input
                    (get-in (room-state room-agent) [:inputs-by-player new-id]))
                 "held and pending inputs should not cross session boundaries")
@@ -179,26 +182,11 @@
             (let [first-tick-player (get-in (room-state room-agent)
                                             [:world :players new-id])]
               (is (:spawn-locked? first-tick-player)
-                  "the new spawn should remain locked on its first server tick")
-              (is (> (:y first-tick-player) 160)
-                  "the fresh player should fall from its spawn before landing"))
-            (let [completed-ticks
-                  (loop [completed-ticks 1]
-                    (if (or (not (:spawn-locked?
-                                  (get-in (room-state room-agent)
-                                          [:world :players new-id])))
-                            (>= completed-ticks 40))
-                      completed-ticks
-                      (do
-                        (tick-room! room-agent)
-                        (recur (inc completed-ticks)))))
-                  landed-player (get-in (room-state room-agent)
-                                        [:world :players new-id])]
-              (is (< completed-ticks 40)
-                  "the spawn should unlock when it reaches its first platform")
-              (is (false? (:spawn-locked? landed-player)))
-              (is (== 264 (:y landed-player))
-                  "the first unlock should coincide with landing on the main platform")))))
+                  "the fresh waiting spawn keeps its factory lock")
+              (is (== 160 (:y first-tick-player))
+                  "a lone waiting player stays frozen at its spawn")
+              (is (= :waiting (:lifecycle first-tick-player)))
+              (is (= 0 (:stocks first-tick-player)))))))
       (finally
         (abort-clients! clients)
         (server/stop! server)))))
@@ -261,7 +249,7 @@
                                   "{:type :ping}" {:type :pong})
               (send-input! room-agent old
                            {:horizontal -1 :jump? false :drop? false :attack? true})
-              (is (= {:horizontal -1 :jump? false :drop? false :attack? true}
+              (is (= {:horizontal -1 :jump? false :drop? false :attack? false}
                      (get-in (room-state room-agent) [:inputs-by-player old-id])))
               (is (= protocol/neutral-input
                      (get-in (room-state room-agent)
