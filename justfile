@@ -26,3 +26,9 @@ server host="127.0.0.1" port="8082":
 # Run shared simulation and JVM HTTP/server regressions.
 test-server:
     clojure -M:test-server
+
+# Verify JVM, Node and an isolated optimized browser build.
+check build_dir="/tmp/clojure-arena-sequential-check/js":
+    just test-server
+    just test
+    just build {{ quote('{:output-dir "' + build_dir + '"}') }}

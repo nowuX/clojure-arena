@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–48 complete (48/70). Reloads, tabs and replacement sockets create isolated fresh sessions, independent of cookies or reused colors.
+Checkpoints 01–49 complete (49/70). One authoritative arena supports four connection-owned players, validated snapshots, bounded publication, heartbeat cleanup and fresh sessions; JVM/Node lifecycle coverage and a four-browser checklist are included.
 Future mechanics remain specified in the roadmap.
 
 ## Run
@@ -25,6 +25,9 @@ another interface. `just build` compiles an optimized browser bundle.
 To serve built assets with Clojure, run `just build`, then
 `just server <HOST> 8082` and open `http://<HOST>:8082/`.
 `just test-server` runs shared simulation and JVM server tests.
+For watched shared play use `http://<HOST>:8081/?server=http://<HOST>:8082`
+with both `just dev <HOST>` and `just server <HOST> 8082` running.
+`just check` runs JVM, Node and an isolated release build.
 
 ## Guides
 
@@ -38,6 +41,7 @@ To serve built assets with Clojure, run `just build`, then
 - [Architecture](docs/architecture.md)
 - [Language guide (Spanish)](docs/language-guide.md)
 - [Local verification](docs/simulation-verification.md)
+- [Multiplayer verification](docs/multiplayer-verification.md)
 
 The game specification describes the full target; only the completed roadmap
 checkpoints describe delivered behavior. Each checkpoint has one Conventional Commit.

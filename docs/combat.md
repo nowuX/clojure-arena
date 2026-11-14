@@ -90,6 +90,8 @@ unlocks spawn, and restores the air jump. None of this changes remembered facing
 The four colored records are local fixtures. Only cyan `:player-1` receives
 browser A/D/W/S/click input. The same scene supports movement, ground and air
 jumps, drop-through, facing, cooldowns, targeting, accumulation, and knockback.
-There are no remote sessions, automatic opponents, HP, stocks, or respawn yet.
+Connected play uses the same pure mechanics with server-owned inputs and
+snapshots; the fixture controls above describe disconnected fallback only.
+HP, stocks, respawn and automatic opponents are not implemented.
 See the [architecture](architecture.md) for the complete tick and the
 [verification guide](simulation-verification.md) for reproducible checks.

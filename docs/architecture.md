@@ -1,174 +1,115 @@
 # Architecture
 
-`game.cljc` owns world data, support queries, movement, contact, and jump eligibility. `client.cljs` owns browser events, fixed-step scheduling, mutable references, and Canvas drawing.
+ClojureScript owns browser events and presentation. Clojure owns one
+http-kit server, room agent, simulation scheduler, publication worker and
+heartbeat scheduler. Shared `.cljc` functions operate on immutable values;
+ClojureScript is the browser implementation of Clojure. See [Networking](networking.md)
+for the wire contract and [Simulation](simulation.md) / [Combat](combat.md)
+for physics and hit rules.
+
+## Ownership and concurrency
 
 ```mermaid
-flowchart LR
-    subgraph Browser[Browser effects: client.cljs]
-        Keys[keydown / keyup: A D W S]
-        Pointer[canvas primary pointerdown]
-        Held[pressed-keys atom]
-        Pending[pending jump / drop / attack atoms]
-        Consume[consume-inputs!: keep direction, clear actions]
-        RAF[RAF: cap 100 ms and carry remainder]
-        Advance[advance-world!: complete 25 ms ticks]
-        World[world atom]
-        Snapshot[one world value per frame]
-        Canvas[draw-world: Canvas 2D]
-        Panel[render-players!: identity / swatch / percentage]
-        Cleanup[blur / stop / init: clear input and old listeners]
-    end
-    subgraph Shared[Pure shared values: game.cljc]
-        Step[step: existing player IDs]
-        Player[step-player: facing / cooldown / jump or drop]
-        Motion[voluntary and received X / gravity]
-        Contact[collide-platforms: project both velocities]
-        Final[all players after movement and contacts]
-        Targets[new accepted sequences: query final snapshot]
-        Hits[apply-melee-hits: pending sequences only]
-        Effects[final percentage / summed impulse / resolved markers]
-    end
-    Keys --> Held
-    Keys --> Pending
-    Pointer --> Pending
-    Held --> Consume
-    Pending --> Consume
-    RAF --> Advance
-    Advance --> Consume
-    Consume -->|input under player-1| Step
-    Step --> Player --> Motion --> Contact --> Final
-    Final --> Targets --> Hits --> Effects --> World
-    World --> Snapshot
-    Snapshot --> Canvas
-    Snapshot --> Panel
-    Advance -->|fractional remainder| RAF
-    Cleanup --> Held
-    Cleanup --> Pending
-    Cleanup --> Pointer
-    Cleanup --> RAF
+flowchart TD
+    Build[Shadow: compile public assets] --> HTTP[Ring / http-kit: HTTP assets and health]
+    HTTP --> Browser[Browser: Canvas / DOM / RAF]
+    Browser --> Events[Fresh A D W S / primary click / blur]
+    Events --> Transport[Transport: exact EDN input, no ID]
+    Transport --> Socket[Socket boundary: attach private token]
+    Socket -->|join / input / leave| Agent[One room agent: serialized pure transitions]
+    Tick[25 ms scheduler: at most one pending tick] -->|trusted tick| Agent
+    Agent --> Step[game/step: all players at dt 0.025]
+    Step --> Commit[Committed room envelope]
+    Commit --> Watch[Watch: captured effects]
+    Watch --> Identity[Identity / full response to one token]
+    Identity --> Browser
+    Watch --> Queue[Bounded latest-only snapshot queue]
+    Queue --> Worker[Publication worker: encode once]
+    Worker -->|captured recipients| Browser
+    Browser --> Validate[Current socket / exact world / own ID / newer tick]
+    Validate --> Visible[Visible world]
+    Visible --> Frame[One world value per RAF: Canvas and player panel]
+    Heartbeat[5 second control Ping / matching Pong / 15 second deadline] --> Retire[Idempotent socket retirement]
+    Close[Socket close] --> Retire
+    Retire -->|remove channel and enqueue leave| Agent
+    Offline[Separate offline-world: local fixed ticks] -->|disconnect restores| Visible
 ```
 
-## Ownership and data flow
+Each accepted connection owns one private token and one public ID/color pair.
+The agent owns all player records; players are immutable records rather than
+separate agents. `send` serializes join/input/tick/leave transitions. The
+scheduler submits tick actions through that same agent queue. Concurrent
+callbacks cannot independently allocate capacity or mutate a body.
 
-| Concern | Owner | Current functions or values |
+The agent stores `{:room ... :effects [...]}`. A watch observes the committed
+envelope and delivers its captured effects. A snapshot contains both recipients
+and world from that tick; publication never rereads the room to rebuild it.
+A one-item queue replaces older pending snapshots outside the physics queue.
+Tick overload drops pulses instead of accumulating catch-up. Input frames
+still enqueue individual room actions; there is no input flood benchmark.
+
+Only the server selects identity from a fresh connection token. Trusted tokens
+are not EDN fields. Membership, inputs and bodies are inserted/removed in the
+same transition. Monotonic IDs are independent of colors. Cookies and tabs do
+not resume retired identities.
+
+## Principal function contracts
+
+| Function | Input → result | Effects / ownership |
 | --- | --- | --- |
-| World, support, jump eligibility, physics | Shared simulation | `initial-world`, `earliest-contact`, `semisolid-contact`, `grounded?`, `supporting-platform`, `apply-jump`, `step-player`, `step`, `collide-platforms` |
-| Held directions and one-shot actions | Browser client | `pressed-keys`, `pending-jump`, `pending-drop`, `pending-attack`, key/pointer handlers, `handle-blur!` |
-| Cooldown, target selection and hit effects | Shared simulation | `step-melee`, `melee-target-ids`, `apply-melee-hits`, `melee-knockback-impulse` |
-| Input snapshot and action lifetime | Browser client | `horizontal-input`, `read-inputs`, `consume-inputs!` |
-| Frame clock and fixed ticks | Browser client | `frame`, `advance-world!`, `tick-ms`, `max-frame-ms` |
-| Storage and presentation | Browser client | `world`, `draw-world`, `render-players!`, Canvas/DOM functions |
-| Startup and cleanup | Browser client | `init`, `stop!` |
+| `game/make-player` | body color, spawn X/Y → fresh player | Pure; starts locked with neutral motion/combat |
+| `game/step` | world, input by existing player ID, dt → next world | Pure; moves all bodies, targets final positions, resolves hits once |
+| `game/step-player` | player, platforms, intention, dt → next player | Pure; facing, cooldown, jump/drop, gravity, motion and swept contacts |
+| `game/collide-platforms` | player, platforms, dt → resolved player | Pure; earliest surface/corner, remaining time and four-contact budget |
+| `game/melee-target-ids` | players, attacker ID → target ID set | Pure; forward center-to-center half-disk of radius 60 |
+| `game/apply-melee-hits` | players → resolved players | Pure; final percentage, summed impulse and sequence markers together |
+| `protocol/read-client-message` | text/binary frame → input or error/reply | Safe EDN decoding; exact one-value contract, no evaluation |
+| `protocol/merge-pending-input` | pending input, new input → merged input | Pure; latest direction, OR of one-shot actions |
+| `protocol/snapshot-message?` | candidate → truthy/falsey | Pure; exact schemas, finite values and valid identities |
+| `room/apply-room-message` | room, trusted message → room/effects envelope | Pure; join/input/tick/leave only; one 0.025-second step per tick |
+| `room/make-room` | effect callback → room agent | Creates agent/watch; callback sees committed effects |
+| `room/enqueue-room-message!` | agent, trusted message → agent | Enqueues serialized transition with `send` |
+| `ticker/make-driver` | room agent → pulse/stop driver | At most one tick outstanding; scheduler owns 25 ms pulses |
+| `publication/publish!` | worker handle, captured effect → nil | Replaces pending snapshot in bounded queue |
+| `server/broadcast-world!` | channel registry, captured effect → nil | Encodes once and sends only captured recipients off room queue |
+| `heartbeat/make-driver` | probe callback, optional monotonic clock → driver | Tracks matching challenges and deadline; separate from simulation time |
+| `server/start!` / `stop!` | host/port/public-dir → handle; handle → nil | Owns and cleans HTTP, ticker, heartbeat, publication and queued leaves |
+| `transport/start!` / `stop!` | page URL → fresh session; no arguments → closed | Derives endpoint, clears buffers and ignores old-socket callbacks |
+| `transport/send-input!` | exact intention → no gameplay result | Sends immediately if admitted; otherwise coalesces for current session |
+| `client/advance-world!` | elapsed milliseconds → fractional remainder | Disconnected: steps offline-world then copies to world; connected: discards time/actions |
+| `client/frame` | canvas, previous time/remainder, RAF timestamp → next RAF | Reads visible world once for both renderers; does not predict network physics |
+| `client/init` / `stop!` | no arguments | Owns listeners, RAF and transport; repeat startup leaves one loop |
 
-`frame` caps one measured interval at 100 ms and passes that elapsed time plus the prior fractional remainder to `advance-world!`. The latter processes every complete 25 ms tick and returns the new fractional remainder for `frame` to carry into the next animation frame. Each tick calls `consume-inputs!`, which snapshots `read-inputs` and then clears `pending-jump`, `pending-drop`, and `pending-attack`; held A/D state remains. Quick W/S taps and primary clicks survive until a tick; only one tick receives each action.
+## One complete simulation tick
 
-`step-player` forces horizontal input to zero while spawn locked. Accepted nonzero intention updates `:facing` before acceleration; neutral input preserves it. It clears stale drop state, selects drop or `apply-jump` before gravity and movement, then resolves contact and clears finished drop state. Only a supported top contact unlocks spawn and restores the one air jump. Drawing happens after simulation and does not change world state.
+1. Step each existing player once, using its owned intention or neutral input.
+   Initial lock ignores voluntary movement/actions until supported landing.
+2. Update facing/cooldown, choose semisolid drop before jump, apply acceleration,
+   friction and gravity, then sweep surfaces and corners. Supported top contact
+   unlocks spawn and restores one air jump. Drop ignores only its stored platform.
+3. Freeze all resulting players for every newly accepted melee sequence.
+   A miss consumes its sequence and cooldown too.
+4. Group hits per target, add 10 percentage points per hit, calculate impulses at
+   the final percentage, then store total/received velocities and resolved markers
+   together. The added velocity moves the target on the next tick.
+5. Commit world, increment room tick and consume one-shot input while retaining
+   direction. Capture the snapshot for current members and publish after commit.
 
-`init` calls `stop!` before registering listeners and scheduling a frame. `stop!` removes window listeners and the pointer listener from its stored `input-canvas`, clears held keys and all pending actions through `handle-blur!`, cancels the scheduled frame, and resets its ID. `game.cljc` uses a reader conditional for `sqrt`; browser APIs remain in `client.cljs`.
+## Browser mode boundary
 
-Platform geometry lives in the `:platforms` vector. `earliest-contact` selects
-the earliest eligible surface, using stable platform IDs for equal times.
-Solid entries use every face and rounded corner; semisolids filter this to
-descending tops and upper endpoint arcs. The same remaining-time loop and
-four-contact budget process both types.
+An OPEN socket with accepted admission suspends local physics, including while
+waiting for its first snapshot. Snapshots must be strictly newer and include
+the assigned ID. Both Canvas and panel read the same captured world per frame.
+There is no interpolation or prediction.
 
-The per-player `:drop-through-platform-id` belongs to immutable simulation
-state. It changes surface eligibility for one platform only; neither the
-platform vector nor the browser clock is modified to implement a drop.
+Disconnected play advances a separate offline fixture world with capped 100 ms
+frame intervals and complete 25 ms ticks. On mode transitions, pending local
+actions and elapsed remainder are discarded. Disconnect restores that offline
+copy, never a network world. Full/expired sessions preserve their Spanish
+terminal notice; starting again is explicit.
 
-The world stores identity-keyed records in `:players`. `make-player` constructs
-fresh physics and input-eligibility values; `draw-world` reads every record.
-`advance-world!` routes each consumed input to `local-player-id` (`:player-1`).
-`step` reduces over the existing `:players` map, calling `step-player` once per
-record with shared platform data and dt. Other IDs receive neutral input.
-Unknown input IDs cannot add a player. Each movement result depends only on
-that player, its input, and the shared platforms; combat then reads the common
-final player map.
-
-Facing belongs to each shared player record, not to keyboard state or velocity.
-The browser only reads it to place the neutral white dot. Losing focus clears
-input without changing the remembered side; contact resolution changes physics
-without choosing a new side.
-
-## Complete local tick
-
-1. Route the consumed browser input under local `:player-1`. All other existing
-   records receive neutral input. These are disconnected fixtures, not server
-   sessions, and no automatic opponent supplies input.
-2. For each player, clear stale drop state, accept facing/cooldown/strike while
-   respecting the initial lock, choose drop before jump, update voluntary and
-   received movement, and sweep contacts. Every record advances exactly once.
-3. Freeze that resulting player map as the shared targeting snapshot. Only a
-   newly accepted sequence searches its 60 px forward half-disk.
-4. Group pending hits per target. Add all percentage first, calculate every
-   contribution at that final percentage, and add the summed impulse to total
-   and retained motion. Commit resolved markers for hits and misses together.
-5. Return a new world. The browser stores it and gives the same frame value to
-   Canvas and the panel. New impulses move on the next tick, not this one.
-
-The simulation has no browser reads, clocks, atoms, or I/O. The room owner
-calls the same `step` API with connection-owned inputs without changing
-these local mechanics. See [Local combat](combat.md) for the field contracts.
-
-## HTTP boundary
-
-```mermaid
-flowchart LR
-    Source[ClojureScript source] -->|just build / just dev| Assets[public assets]
-    JVM[server.clj: start! / stop!] --> Handler[make-handler]
-    Request[HTTP request] --> Handler
-    Handler -->|GET /health| Health[readiness response]
-    Handler -->|existing file| Assets
-    Handler -->|missing route/file| Missing[404]
-    Assets --> Browser[Browser loads HTML and JS]
-```
-
-The Clojure HTTP process owns file delivery and readiness; Shadow owns compilation.
-The browser owns fallback simulation; the admitted connection uses the room clock. `server/start!` returns its own
-http-kit handle, and `stop!` settles that handle without touching other services.
-
-## Room clock ownership
-
-```mermaid
-flowchart LR
-    Events[Browser controls] --> Transport[EDN input without identity]
-    Transport --> Socket[Server attaches private token]
-    Socket --> Agent[One room agent: join / input / tick]
-    Scheduler[25 ms scheduler: at most one pending tick] --> Agent
-    Agent --> Step[Pure game/step: all players]
-    Step --> Room[Committed room world and tick]
-    Admission[OPEN and accepted] --> Skip[Client skips local step and clears elapsed/actions]
-    RAF[Client RAF] --> Draw[Canvas and panel]
-```
-
-A tick calls `game/step` once, consumes pending actions, and retains horizontal
-input. Server stop drains owned scheduler work. Snapshots connect the committed world to client drawing through a bounded
-publication worker.
-
-## Shared rendering boundary
-
-```mermaid
-flowchart LR
-    Commit[Committed room tick] --> Capture[Captured world and recipient tokens]
-    Capture --> Queue[Latest-only publication queue]
-    Queue --> Encode[Worker: encode once]
-    Encode --> Clients[Accepted sockets]
-    Clients --> Validate[Exact schema / newer tick / own ID present]
-    Validate --> World[Visible world]
-    World --> Frame[One captured value per RAF]
-    Frame --> Canvas
-    Frame --> Panel
-    Offline[Separate offline-world] -->|disconnect restores| World
-```
-
-`advance-world!` steps `offline-world` only when disconnected, then copies it to
-`world`. While connected it drops elapsed time and actions. Transport's watch
-replaces `world` with accepted snapshots without touching `offline-world`.
-
-## Session retirement
-
-Close and heartbeat expiration share one per-socket retirement gate. The server
-removes delivery ownership before enqueuing `:leave`; that pure transition
-removes member, input and body together. Retired tokens cannot influence a new
-player using the same color. Control Ping/Pong uses monotonic wall time, while
-physics and action consumption use the room tick.
+Close/timeout retires delivery ownership once before submitting leave. Shutdown
+stops owned schedulers/worker, closes HTTP channels and waits for room cleanup.
+It does not stop unrelated processes. Real JVM socket tests and Node doubles
+cover different boundaries; [Multiplayer verification](multiplayer-verification.md)
+contains the native-browser and remote-device checklist.

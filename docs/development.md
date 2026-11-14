@@ -1,35 +1,62 @@
 # Development
 
-Install Java 21+, Clojure CLI, Node 22+, pnpm 12.17.0, and just.
-The package manager and Shadow compiler version are pinned in package.json.
+Requires Java 21+, Clojure CLI, Node 22+, pnpm 12.17.0, and just.
+Dependency versions and the pnpm lockfile are pinned.
+
+## Run the shared arena
 
 ```sh
 just setup
-just dev
+just build
+just server 127.0.0.1 8082
 ```
 
-Open http://127.0.0.1:8081/ on the service host. For another device, obtain
-its address with `tailscale ip -4`, then run `just dev <TAILSCALE_IP>` and
-open `http://<TAILSCALE_IP>:8081/`. A check on the service host does not
-establish another device's connectivity.
+Open http://127.0.0.1:8082/ in each browser. Each accepted socket becomes a
+separate player in that server's one room; at most four are admitted.
+`GET /health` checks HTTP readiness; it does not prove the JS bundle exists or
+that a browser has received an identity/snapshot.
+
+For another device, get the service machine's address with `tailscale ip -4`,
+run `just server <TAILSCALE_IP> 8082`, and open `http://<TAILSCALE_IP>:8082/`.
+Binding and an HTTP request on the host do not establish remote access.
+
+## Watch while using the game server
+
+Run these in separate terminals, using the same host address:
 
 ```sh
-just build
+just dev 127.0.0.1
+just server 127.0.0.1 8082
+```
+
+Open `http://127.0.0.1:8081/?server=http://127.0.0.1:8082`.
+For Tailscale, replace both host addresses with `<TAILSCALE_IP>`.
+The watcher serves assets on 8081; the game server owns `/ws` on 8082. Plain
+`:8081/` has no gameplay server and falls back locally. HTTP(S) in `server`
+is translated to WS(S); do not put a `ws://` URL in that query parameter.
+
+The JVM serves existing files and never compiles ClojureScript. An isolated
+release does not replace `public/js`:
+
+```sh
 just build '{:output-dir "/tmp/clojure-arena-sequential-release/js"}'
 ```
 
-The second build leaves watched public/js assets intact. HTML loads main.js;
-Shadow calls clojure-arena.client/init. Generated files are ignored by Git.
-A release compilation verifies the compiler boundary; inspect the served page
-in a native browser to verify startup and appearance.
+## Verify
 
-`just test` compiles and runs the ClojureScript tests in Node. Browser fixtures
-use EventTarget and controlled RAF callbacks; they do not verify native focus,
-Canvas pixels, or cross-device access.
+```sh
+just test-server
+just test
+just check
+```
 
-## JVM HTTP server
+`test-server` discovers JVM/shared tests, including real bounded HTTP/WebSocket
+checks with ephemeral ports and owned cleanup. `test` compiles/runs Node tests
+with EventTarget, RAF and DOM/Canvas doubles. `check` runs both suites and a
+release in `/tmp/clojure-arena-sequential-check/js`; an optional directory
+argument changes that isolated output. None of these starts a persistent dev
+server or proves native Canvas pixels, focus or access from another device.
 
-Compile browser files with `just build`, then serve them with
-`just server 127.0.0.1 8082` and open http://127.0.0.1:8082/.
-`just test-server` runs JVM regressions, including isolated real HTTP checks.
-The HTTP process does not replace Shadow or produce JavaScript itself.
+Use [Multiplayer verification](multiplayer-verification.md) for four browsers,
+fifth-client rejection, reconnection and remote checks, or
+[Simulation verification](simulation-verification.md) for the offline sandbox.

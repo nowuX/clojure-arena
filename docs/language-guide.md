@@ -52,11 +52,12 @@ un reader conditional para seleccionar la biblioteca de cada entorno:
 
 `defonce` conserva referencias entre recargas de desarrollo; `atom` contiene una referencia mutable del cliente; `@world` la lee y `swap!` guarda el resultado de aplicar una función al valor actual. `reset!` reemplaza el contenido completo de un átomo. `pressed-keys` representa teclas mantenidas en un conjunto (`#{}`); `conj`, `disj` y `contains?` agregan, quitan y consultan sus elementos. `pending-jump`, `pending-drop` y `pending-attack` conservan pulsos independientes de W, S y clic hasta un tick. `read-inputs` lee el estado sin consumirlo; `consume-inputs!` lee y limpia los tres pulsos.
 
-Un evento W o S nuevo y no repetido marca su pulso. Soltar la tecla quita su estado mantenido, pero no borra el pulso capturado. `handle-blur!` limpia las teclas y ambos pulsos; `stop!` también lo hace mediante esa función. Así, un toque rápido puede llegar al siguiente tick y un pulso no se repite en los ticks siguientes.
+Un evento W o S nuevo y no repetido marca su pulso. Soltar la tecla quita su estado mantenido, pero no borra el pulso capturado. `handle-blur!` limpia las teclas y los tres pulsos; `stop!` también lo hace mediante esa función. Así, un toque rápido puede llegar al siguiente tick y un pulso no se repite en los ticks siguientes.
 
-`js/window`, `.addEventListener`, `.-code` y `(.preventDefault event)` son interoperabilidad con JavaScript. `frame` usa `requestAnimationFrame`; `advance-world!` ejecuta ticks de 25 ms. Después, `draw-world` llama a las funciones que pintan el fondo, las plataformas y los jugadores; `render-players!` actualiza el panel. Dibujar no avanza la simulación. El estado visible de inicio es `Arena lista.`.
+`js/window`, `.addEventListener`, `.-code` y `(.preventDefault event)` son interoperabilidad con JavaScript. `frame` usa `requestAnimationFrame`; `advance-world!` ejecuta ticks de 25 ms solo en modo local. Con admisión
+aceptada, el servidor avanza y el cliente dibuja snapshots. Después, `draw-world` llama a las funciones que pintan el fondo, las plataformas y los jugadores; `render-players!` actualiza el panel. Dibujar no avanza la simulación. El estado visible de inicio es `Arena lista.`.
 
-## Recorrido de A/D y W
+## Recorrido local de A/D y W
 
 Al mantener D, el evento agrega `KeyD` al conjunto y `horizontal-input` produce
 `1`. `consume-inputs!` entrega esa intención al cliente, que la coloca bajo
@@ -117,7 +118,7 @@ El estado de un personaje no depende del orden de los otros.
                   :player-2 {:horizontal -1 :jump? true}} 0.025)
 ```
 
-El navegador usa solo `{local-player-id (consume-inputs!)}`, con
+En modo local, el navegador usa solo `{local-player-id (consume-inputs!)}`, con
 `local-player-id` igual a `:player-1`. Los demás personajes siguen recibiendo
 gravedad y colisiones aunque no tengan controles asignados.
 
@@ -232,7 +233,7 @@ todo junto, sin exponer tokens privados dentro del mundo serializable.
 `or` para conservar acciones breves entre ticks. El servidor agrega su token
 privado al mensaje interno; el navegador no puede elegir el jugador. Los
 handlers de teclado envían datos inmediatamente, mientras RAF sigue dedicado
-al avance y dibujo local.
+al dibujo; el avance local solo ocurre sin una conexión admitida.
 
 ### Un reloj y una cola
 

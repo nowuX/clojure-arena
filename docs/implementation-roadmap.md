@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**48 of 70 checkpoints complete.** Checkpoints 01–48 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**49 of 70 checkpoints complete.** Checkpoints 01–49 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -663,7 +663,7 @@ Checkpoints **39–49**. Add HTTP/WebSocket, exact EDN messages, connection-owne
 
 ### 49 — Verify the shared connection lifecycle
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Consolidate real-agent and socket lifecycle coverage with a
   four-browser checklist. Reconcile architecture function contracts, wire messages,
   concurrency diagram, development URLs, and startup commands. Add just check for JVM/Node

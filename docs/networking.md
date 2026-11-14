@@ -49,8 +49,8 @@ playable. There is no automatic reconnect. An admitted OPEN connection now uses 
 ## Serialized admission
 
 `room/initial-room` contains private `:members` and `:next-player-number`.
-`apply-room-message` accepts only trusted exact `{:type :join :connection-token
-...}` maps. Its pure result is an envelope `{:room next-room :effects [...]}`.
+`apply-room-message` accepts trusted exact join/input/tick/leave maps.
+A join is `{:type :join :connection-token ...}`. Its pure result is an envelope `{:room next-room :effects [...]}`.
 A free palette keyword is allocated with monotonic `:player-N` identity; the
 fifth connection receives exact `{:type :room-full}` without changing the room.
 A duplicate token keeps its original identity and emits that captured reply.
