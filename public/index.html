@@ -7,7 +7,7 @@
   <style>
     body { margin: 24px; background: #101010; color: #f2f2f2; font-family: system-ui, sans-serif; }
     p { color: #b3b3b3; }
-    #players { padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 12px; }
+    #players, #match-standings { padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 12px; }
     .player-row { display: flex; align-items: center; gap: 10px; padding: 12px; background: #181818; border: 1px solid #484848; }
     .player-swatch { width: 12px; height: 12px; display: inline-block; }
     :focus-visible { outline: 2px solid #f2f2f2; outline-offset: 3px; }
@@ -19,6 +19,12 @@
   <p>A / D: izquierda y derecha. W: salto y un salto extra en el aire. S: bajar de una plataforma semisólida. Clic principal en la arena: golpe. Espera el primer aterrizaje para moverte.</p>
   <p id="connection-status" role="status">Conexión pendiente.</p>
   <canvas id="arena" width="800" height="480" aria-label="Arena de juego"></canvas>
+  <section aria-labelledby="match-title">
+    <h2 id="match-title">Partida</h2>
+    <p id="match-status" role="status">Esperando estado de la partida.</p>
+    <p id="match-result" role="status"></p>
+    <ol id="match-standings" aria-label="Clasificación final"></ol>
+  </section>
   <section aria-labelledby="players-title">
     <h2 id="players-title">Jugadores</h2>
     <p>Tres oportunidades por jugador. El porcentaje aumenta el impulso recibido. Protección de 2 s al reaparecer.</p>

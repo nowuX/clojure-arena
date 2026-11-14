@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**63 of 70 checkpoints complete.** Checkpoints 01–63 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**64 of 70 checkpoints complete.** Checkpoints 01–64 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -853,7 +853,7 @@ Checkpoints **57–66**. Separate connections from contenders and compose match 
 
 ### 64 — Show phase, clock, and committed results
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Extend the neutral panel with shared countdown, mm:ss running
   time, waiting/observer labels, winner/draw/reason, and captured ordered standings.
   Render the committed result even if its winner has disconnected; do not calculate a

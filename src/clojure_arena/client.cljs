@@ -131,11 +131,18 @@
       (.arc context x y (+ radius 5) 0 (* 2 js/Math.PI))
       (.stroke context))))
 
-(defn draw-world [canvas {:keys [platforms players]}]
+(defn- drawable-player? [match player-id player]
+  (and (game/active-player? player)
+       (or (nil? match)
+           (and (contains? #{:running :finished} (:phase match))
+                (contains? (:contenders match) player-id)
+                (not (get-in match [:contenders player-id :forfeited?]))))))
+
+(defn draw-world [canvas {:keys [platforms players match]}]
   (draw-background canvas)
-  (doseq [platform platforms]
-    (draw-platform canvas platform))
-  (doseq [player (filter game/active-player? (vals players))]
+  (doseq [platform platforms] (draw-platform canvas platform))
+  (doseq [[player-id player] players
+          :when (drawable-player? match player-id player)]
     (draw-player canvas player)))
 
 (defn player-state-label [player]
@@ -145,9 +152,19 @@
                                   (js/Math.ceil (:protection-seconds-left player)) " s")))
     :respawning (str "Reapareciendo en " (js/Math.ceil (:respawn-seconds-left player 0)) " s")
     :eliminated "Eliminado"
+    :waiting "Esperando próxima partida"
     "Sin estado"))
 
-(defn render-players! [{:keys [players]}]
+(defn- panel-state-label [player-id player match]
+  (case (:phase match)
+    :waiting "Esperando jugadores"
+    :countdown "Esperando inicio"
+    (:running :finished) (if (contains? (:contenders match) player-id)
+                           (player-state-label player)
+                           "Observador · próxima partida")
+    (player-state-label player)))
+
+(defn render-players! [{:keys [players match]}]
   (when-let [panel (.getElementById js/document "players")]
     (.replaceChildren panel)
     (doseq [[player-id player] (sort-by (comp str key) players)]
@@ -165,13 +182,65 @@
         (set! (.-textContent percentage) (str (:accumulated-percentage player 0) " %"))
         (set! (.-textContent stocks) (str (:stocks player)
                                          (if (= 1 (:stocks player)) " oportunidad" " oportunidades")))
-        (set! (.-textContent state) (player-state-label player))
+        (set! (.-textContent state) (panel-state-label player-id player match))
         (.appendChild row swatch)
         (.appendChild row label)
         (.appendChild row percentage)
         (.appendChild row stocks)
         (.appendChild row state)
         (.appendChild panel row)))))
+
+(defn format-clock [seconds]
+  (let [seconds (max 0 (js/Math.ceil (or seconds 0)))
+        minutes (js/Math.floor (/ seconds 60))
+        remaining (mod seconds 60)]
+    (str (.padStart (str minutes) 2 "0") ":" (.padStart (str remaining) 2 "0"))))
+
+(defn match-status-text [match]
+  (case (:phase match)
+    :waiting "Esperando jugadores (mínimo 2)."
+    :countdown (str "La partida comienza en " (js/Math.ceil (:countdown-seconds-left match)) " s")
+    :running (str "Partida " (:id match) " en curso · " (format-clock (:time-seconds-left match)))
+    :finished (str "Partida finalizada · " (format-clock (:time-seconds-left match)))
+    "Práctica local"))
+
+(defn- result-reason-label [reason]
+  (case reason
+    :last-contender "Último contendiente"
+    :no-contenders "Sin contendientes"
+    :time-limit "Límite de tiempo"
+    "Partida finalizada"))
+
+(defn- render-match-result! [result]
+  (when-let [summary (.getElementById js/document "match-result")]
+    (set! (.-textContent summary)
+          (if result
+            (str (if-let [winner-id (:winner-id result)]
+                   (str "Ganador: " (name winner-id)) "Empate")
+                 " · " (result-reason-label (:reason result))) "")))
+  (when-let [container (.getElementById js/document "match-standings")]
+    (.replaceChildren container)
+    (doseq [{:keys [player-id color stocks accumulated-percentage forfeited?]} (:standings result)]
+      (let [row (.createElement js/document "li")
+            swatch (.createElement js/document "span")]
+        (set! (.-className row) "player-row")
+        (set! (.-className swatch) "player-swatch")
+        (set! (.-backgroundColor (.-style swatch)) color)
+        (.setAttribute swatch "aria-hidden" "true")
+        (.appendChild row swatch)
+        (doseq [text [(name player-id) (str stocks " oportunidades")
+                     (str accumulated-percentage " %")
+                     (if forfeited? "Abandonó" "Contendiente")]]
+          (let [label (.createElement js/document "span")]
+            (set! (.-textContent label) text)
+            (.appendChild row label)))
+        (.appendChild container row)))))
+
+(defn render-match! [world]
+  (when-let [status (.getElementById js/document "match-status")]
+    (set! (.-textContent status) (match-status-text (:match world))))
+  (render-match-result! (get-in world [:match :result]))
+  (render-players! world))
 
 (defn advance-world! [elapsed-ms]
   (if (transport/connected?)
@@ -196,7 +265,7 @@
         remainder (advance-world! (if reset-time? 0 (+ accumulated-ms elapsed-ms)))
         world-snapshot @world]
     (draw-world canvas world-snapshot)
-    (render-players! world-snapshot)
+    (render-match! world-snapshot)
     (reset! frame-id
             (js/requestAnimationFrame (partial frame canvas timestamp remainder)))))
 
@@ -226,7 +295,7 @@
     (.addEventListener canvas "pointerdown" handle-pointer-down!)
     (reset! input-canvas canvas)
     (draw-world canvas world-snapshot)
-    (render-players! world-snapshot)
+    (render-match! world-snapshot)
     (reset! frame-id (js/requestAnimationFrame (partial frame canvas nil 0))))
   (when-let [location (.-location js/window)]
     (transport/start! (.-href location))))

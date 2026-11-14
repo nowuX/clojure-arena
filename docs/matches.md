@@ -64,3 +64,13 @@ percentage ascending. An exact best-score tie draws. Forfeits sort last;
 player ID is only a stable display order and cannot break a score tie.
 The result captures ordered standings, winner ID/color and reason. Validation
 rechecks those captured facts, preserving them even if the winner later leaves.
+
+## Read-only presentation
+
+Canvas omits waiting and observer bodies. Player rows retain all current
+connections, distinguishing waiting, countdown, observers and eliminated
+contenders. The match panel displays the shared countdown, an authoritative
+mm:ss clock and the committed winner/draw/reason and ordered standings.
+Winner metadata comes from the captured result, even after disconnection;
+rendering never computes a local result. Text and states remain neutral, with
+identity colors restricted to bodies and small swatches.

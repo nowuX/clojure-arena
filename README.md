@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–63 complete (63/70). Matches resolve time limits by stocks then lower accumulated percentage; exact score ties draw and final-tick actions finish before ranking.
+Checkpoints 01–64 complete (64/70). The neutral match panel displays shared phases, mm:ss time, observers and committed winner/draw standings, including departed winner metadata.
 Future mechanics remain specified in the roadmap.
 
 ## Run

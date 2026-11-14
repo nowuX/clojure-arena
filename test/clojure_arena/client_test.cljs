@@ -48,7 +48,7 @@
               (swap! listeners update type disj listener)
               (.call remove event-target type listener)))
       (aset js/globalThis "window" event-target)
-      (aset js/globalThis "document" #js {:getElementById (fn [id] (if (= id "arena") @canvas-target #js {}))})
+      (aset js/globalThis "document" #js {:getElementById (fn [id] (case id "arena" @canvas-target "status" #js {} nil))})
       (aset js/globalThis "requestAnimationFrame"
             (fn [callback]
               (let [id (swap! next-id inc)]

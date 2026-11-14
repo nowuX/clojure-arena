@@ -3,6 +3,7 @@
             [cljs.test :refer-macros [deftest is testing use-fixtures]]
             [clojure-arena.client :as client]
             [clojure-arena.game :as game]
+            [clojure-arena.match :as match]
             [clojure-arena.protocol :as protocol]
             [clojure-arena.transport :as transport]))
 
@@ -818,3 +819,24 @@
       (deliver-frame! 0)
       (is (= [(match-helpers/running-world network-world)] @panels)))
     (is (= 0 (get-in @client/world [:players :player-2 :stocks])))))
+
+(deftest public-match-snapshots-drive-waiting-countdown-and-draw-without-client-simulation
+  (let [waiting (match/add-player (assoc game/initial-world :players {} :match match/initial-match)
+                                  :player-1 (game/make-player "#22d3ee" 340 160))
+        countdown (match/add-player waiting :player-2 (game/make-player "#e11d48" 380 160))
+        running (match/step countdown {} 3)
+        finished (match/step (assoc-in running [:match :time-seconds-left] 0.025) {} 0.025)
+        {:keys [socket]} (start-networked-session! game/initial-world)
+        drawn (atom []) panels (atom []) steps (atom 0)]
+    (admit-client-socket! socket)
+    (with-redefs [game/step (fn [world _ _] (swap! steps inc) world)
+                  client/draw-world (fn [_ world] (swap! drawn conj world))
+                  client/render-players! (fn [world] (swap! panels conj world))]
+      (doseq [[tick world] [[1 waiting] [2 countdown] [3 finished]]]
+        ((.-onmessage socket) #js {:data (pr-str {:type :snapshot :tick tick :world world})})
+        (is (= world @client/world))
+        (deliver-frame! (* tick 25)))
+      (is (zero? @steps))
+      (is (= [waiting countdown finished] @drawn @panels))
+      (is (= :time-limit (get-in @client/world [:match :result :reason])))
+      (is (nil? (get-in @client/world [:match :result :winner-id]))))))
