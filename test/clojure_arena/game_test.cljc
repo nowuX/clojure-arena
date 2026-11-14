@@ -10,14 +10,14 @@
 (def dt 0.025)
 (defn near? [a b] (< (abs (- a b)) 1e-8))
 (defn steps [world inputs n]
-  (nth (iterate #(game/step % inputs dt) world) n))
+  (nth (iterate #(fixtures/step % inputs dt) world) n))
 
 (deftest accelerated-movement-and-immutable-inputs
   (let [world playable-world
         inputs {:horizontal 1}
-        right (game/step world inputs dt)
-        left (game/step world {:horizontal -1} dt)
-        neutral (game/step right {:horizontal 0} dt)]
+        right (fixtures/step world inputs dt)
+        left (fixtures/step world {:horizontal -1} dt)
+        neutral (fixtures/step right {:horizontal 0} dt)]
     (is (near? 400.55 (get-in right [:players :player-1 :x])))
     (is (near? 399.45 (get-in left [:players :player-1 :x])))
     (is (== 22 (get-in right [:players :player-1 :vx])))
@@ -30,8 +30,8 @@
 
 (deftest gravity-precedes-position-and-does-not-mutate-world
   (let [world playable-world
-        first-tick (game/step world {:horizontal 1} dt)
-        second-tick (game/step first-tick {} dt)]
+        first-tick (fixtures/step world {:horizontal 1} dt)
+        second-tick (fixtures/step first-tick {} dt)]
     (is (near? 24.5 (get-in first-tick [:players :player-1 :vy])))
     (is (near? 160.6125 (get-in first-tick [:players :player-1 :y])))
     (is (near? 49 (get-in second-tick [:players :player-1 :vy])))
@@ -51,7 +51,7 @@
 (deftest neutral-friction-stops-in-eight-ticks-without-sign-reversal
   (doseq [sign [1 -1]]
     (let [world (assoc-in playable-world [:players :player-1 :vx] (* sign 220))
-          states (take 9 (iterate #(game/step % {:horizontal 0} dt) world))
+          states (take 9 (iterate #(fixtures/step % {:horizontal 0} dt) world))
           stopped (last states)]
       (is (near? (* sign 192.5) (get-in (second states) [:players :player-1 :vx])))
       (is (near? (+ 400 (* sign 19.25)) (get-in stopped [:players :player-1 :x])))
@@ -60,4 +60,4 @@
       (is (= 0 (game/apply-horizontal-friction (* sign 10) dt)))))
   (doseq [y [160 264]]
     (let [world (update-in playable-world [:players :player-1] assoc :y y :vx 220)]
-      (is (= 192.5 (get-in (game/step world {} dt) [:players :player-1 :vx]))))))
+      (is (= 192.5 (get-in (fixtures/step world {} dt) [:players :player-1 :vx]))))))

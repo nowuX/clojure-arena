@@ -10,3 +10,6 @@
   (-> game/initial-world
       (update :platforms (fn [platforms] (filterv #(= :main (:id %)) platforms)))
       (update :players select-keys [:player-1])))
+
+(defn step [world inputs dt]
+  (game/step world {:player-1 inputs} dt))

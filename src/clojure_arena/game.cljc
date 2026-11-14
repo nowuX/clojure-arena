@@ -259,24 +259,29 @@
         (> vx target) (max target (- vx change))
         :else vx))))
 
-(defn step [world {:keys [horizontal jump? drop?]
-                   :or {horizontal 0 jump? false drop? false}} dt]
+(defn step-player [player platforms
+                   {:keys [horizontal jump? drop?]
+                    :or {horizontal 0 jump? false drop? false}} dt]
+  (let [player (clear-drop-through player platforms)
+        locked? (:spawn-locked? player)
+        horizontal (if locked? 0 horizontal)
+        support (supporting-platform player platforms)
+        dropping? (and (not locked?) drop? (= :semisolid (:type support)))
+        player (if dropping?
+                 (assoc player :drop-through-platform-id (:id support))
+                 (apply-jump player platforms jump?))]
+    (-> player
+        (update :vx accelerate-horizontal horizontal dt)
+        (update :vy + (* gravity dt))
+        (collide-platforms platforms dt)
+        (clear-drop-through platforms))))
+
+(defn step [world inputs-by-player dt]
   (let [platforms (:platforms world)]
-    (if (contains? (:players world) :player-1)
-      (update-in world [:players :player-1]
-                 (fn [player]
-                   (let [player (clear-drop-through player platforms)
-                         locked? (:spawn-locked? player)
-                         horizontal (if locked? 0 horizontal)
-                         support (supporting-platform player platforms)
-                         dropping? (and (not locked?) drop?
-                                        (= :semisolid (:type support)))
-                         player (if dropping?
-                                  (assoc player :drop-through-platform-id (:id support))
-                                  (apply-jump player platforms jump?))]
-                     (-> player
-                         (update :vx accelerate-horizontal horizontal dt)
-                         (update :vy + (* gravity dt))
-                         (collide-platforms platforms dt)
-                         (clear-drop-through platforms)))))
-      world)))
+    (update world :players
+            (fn [players]
+              (reduce-kv (fn [result player-id player]
+                           (assoc result player-id
+                                  (step-player player platforms
+                                               (get inputs-by-player player-id) dt)))
+                         {} players)))))

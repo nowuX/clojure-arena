@@ -23,7 +23,7 @@
          ticks-left 120]
     (if (zero? ticks-left)
       [state nil]
-      (let [next-state (game/step state inputs dt)]
+      (let [next-state (fixtures/step state inputs dt)]
         (if (game/grounded? (player-of next-state) (first (:platforms next-state)))
           [state next-state]
           (recur next-state (dec ticks-left)))))))
@@ -34,7 +34,7 @@
     (cond
       (game/grounded? (player-of state) (first (:platforms state))) state
       (zero? ticks-left) nil
-      :else (recur (game/step state {} dt) (dec ticks-left)))))
+      :else (recur (fixtures/step state {} dt) (dec ticks-left)))))
 
 (deftest flat-support-is-center-based-and-includes-both-endpoints
   (let [platform (first (:platforms fixtures/single-platform-world))
@@ -56,9 +56,9 @@
         [before-landing landing]
         (landing-transition initial {:horizontal 1})
         attempted-landing-jump
-        (game/step before-landing {:horizontal 1 :jump? true} dt)
+        (fixtures/step before-landing {:horizontal 1 :jump? true} dt)
         first-controlled-tick
-        (game/step attempted-landing-jump {:horizontal 1} dt)]
+        (fixtures/step attempted-landing-jump {:horizontal 1} dt)]
     (is (true? (get-in initial [:players :player-1 :spawn-locked?])))
     (is (true? (get-in before-landing [:players :player-1 :spawn-locked?])))
     (is (near? 400 (get-in before-landing [:players :player-1 :x])))
@@ -76,11 +76,11 @@
 
 (deftest ground-and-air-jump-cycle-restores-one-jump-on-landing
   (let [world (grounded-world {})
-        ground-jump (game/step world {:jump? true} dt)
-        air-jump (game/step ground-jump {:jump? true} dt)
-        rejected-third (game/step air-jump {:jump? true} dt)
+        ground-jump (fixtures/step world {:jump? true} dt)
+        air-jump (fixtures/step ground-jump {:jump? true} dt)
+        rejected-third (fixtures/step air-jump {:jump? true} dt)
         landed (run-until-grounded rejected-third)
-        fresh-ground-jump (when landed (game/step landed {:jump? true} dt))]
+        fresh-ground-jump (when landed (fixtures/step landed {:jump? true} dt))]
     (is (near? -395.5 (get-in ground-jump [:players :player-1 :vy])))
     (is (near? 254.1125 (get-in ground-jump [:players :player-1 :y])))
     (is (= 1 (get-in ground-jump [:players :player-1 :air-jumps-left]))
@@ -101,8 +101,8 @@
 
 (deftest exhausted-air-jump-request-on-landing-tick-is-not-buffered
   (let [world (grounded-world {:y 260 :vy 150 :air-jumps-left 0})
-        landing-tick (game/step world {:jump? true} dt)
-        following-tick (game/step landing-tick {} dt)]
+        landing-tick (fixtures/step world {:jump? true} dt)
+        following-tick (fixtures/step landing-tick {} dt)]
     (is (game/grounded? (player-of landing-tick) (first (:platforms landing-tick))))
     (is (near? 264 (get-in landing-tick [:players :player-1 :y])))
     (is (zero? (get-in landing-tick [:players :player-1 :vy])))
@@ -120,15 +120,15 @@
                [:corner (update-in base [:players :player-1] merge {:x 158 :y 267 :vx 220 :vy 500})
                 {:horizontal 1}]]]
     (doseq [[label initial inputs] cases]
-      (let [world (game/step initial inputs dt)]
+      (let [world (fixtures/step initial inputs dt)]
         (testing (name label)
           (is (= 0 (get-in world [:players :player-1 :air-jumps-left])))
           (is (not (game/grounded? (player-of world) (first (:platforms world))))))))))
 
 (deftest edge-departure-keeps-controls-unlocked-and-air-jump-available
   (let [world (grounded-world {:x 629.75 :vx 220})
-        departed (game/step world {:horizontal 1} dt)
-        edge-jump (game/step departed {:jump? true} dt)]
+        departed (fixtures/step world {:horizontal 1} dt)
+        edge-jump (fixtures/step departed {:jump? true} dt)]
     (is (> (get-in departed [:players :player-1 :x]) 630))
     (is (not (game/grounded? (player-of departed) (first (:platforms departed)))))
     (is (false? (get-in departed [:players :player-1 :spawn-locked?])))

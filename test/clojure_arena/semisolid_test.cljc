@@ -59,7 +59,7 @@
   (let [world (scene [semisolid]
                      {:x 150 :y 235 :vy -1000
                       :spawn-locked? true :air-jumps-left 0})
-        states (take 120 (iterate #(game/step % {} dt) world))
+        states (take 120 (iterate #(fixtures/step % {} dt) world))
         rose-above? (some #(and (< (get-in % [:players :player-1 :y])
                                    (- (:y semisolid) player-radius))
                                 (neg? (get-in % [:players :player-1 :vy])))
@@ -105,7 +105,7 @@
     (let [world (scene [semisolid]
                        {:x x :y 160 :vy 600
                         :spawn-locked? true :air-jumps-left 0})
-          result (game/step world {} 0.1)
+          result (fixtures/step world {} 0.1)
           player (fixtures/player-of result)]
       (is (>= (rectangle-clearance player semisolid) (- player-radius 1e-6)))
       (is (= direction (if (neg? (:vx player)) -1 1)))
@@ -125,7 +125,7 @@
         (let [world (scene [semisolid]
                            {:x start-x :vx vx :vy 0 :spawn-locked? false})
               states (take 31
-                           (iterate #(game/step % {:horizontal horizontal} dt) world))
+                           (iterate #(fixtures/step % {:horizontal horizontal} dt) world))
               players (map fixtures/player-of states)
               edge (if (= direction :left) left right)
               outside? (fn [player]
@@ -154,7 +154,7 @@
   (let [lower (assoc semisolid :id :lower :y 300)
         orders [[semisolid lower] [lower semisolid]]
         results (mapv (fn [platforms]
-                        (game/step (scene platforms
+                        (fixtures/step (scene platforms
                                           {:x 150 :y 80 :vy 10000
                                            :spawn-locked? true :air-jumps-left 0})
                                    {} 0.05))
@@ -170,7 +170,7 @@
   (let [world (scene [semisolid]
                      {:x 150 :y (- (:y semisolid) player-radius)
                       :spawn-locked? false :air-jumps-left 0})
-        jumped (game/step world {:jump? true} dt)]
+        jumped (fixtures/step world {:jump? true} dt)]
     (is (= -395.5 (get-in jumped [:players :player-1 :vy])))
     (is (= 0 (get-in jumped [:players :player-1 :air-jumps-left])))
     (is (< (get-in jumped [:players :player-1 :y]) (- (:y semisolid) player-radius)))))
@@ -179,8 +179,8 @@
   (let [world (update-in game/initial-world [:players :player-1] assoc
                       :x 260 :y 264 :vx 0 :vy 0 :spawn-locked? false :air-jumps-left 0)
         left (first (filter #(= :left (:id %)) (:platforms world)))
-        jumped (game/step world {:jump? true} dt)
-        states (take 120 (iterate #(game/step % {} dt) jumped))
+        jumped (fixtures/step world {:jump? true} dt)
+        states (take 120 (iterate #(fixtures/step % {} dt) jumped))
         above (some #(< (get-in % [:players :player-1 :y]) (- (:y left) player-radius)) states)
         landed (first (filter #(game/grounded? (fixtures/player-of %) left) states))]
     (is above)

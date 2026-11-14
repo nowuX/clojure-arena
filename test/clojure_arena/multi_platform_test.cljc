@@ -26,7 +26,7 @@
         top (solid :b-top 170 100 460 16)
         supported (assoc (player 400 84 0 0) :air-jumps-left 0)
         world {:platforms [far top] :players {:player-1 supported}}
-        jumped (game/step world {:jump? true} 0.025)]
+        jumped (fixtures/step world {:jump? true} 0.025)]
     (is (= top (game/supporting-platform supported [far top])))
     (is (near? -395.5 (get-in jumped [:players :player-1 :vy])))
     (is (zero? (get-in jumped [:players :player-1 :air-jumps-left])))))

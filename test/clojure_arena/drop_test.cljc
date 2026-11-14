@@ -35,7 +35,7 @@
   (<= (- expected tolerance) actual (+ expected tolerance)))
 
 (defn stepped [world inputs]
-  (game/step world inputs dt))
+  (fixtures/step world inputs dt))
 
 (deftest drop-beats-jump-adds-no-impulse-and-preserves-air-allowance
   (is (nil? (get-in game/initial-world [:players :player-1 :drop-through-platform-id])))
@@ -95,7 +95,7 @@
     (doseq [platforms [[upper-semisolid lower]
                        [lower upper-semisolid]]]
       (let [world (scene platforms {})
-            result (game/step world {:drop? true} 0.35)
+            result (fixtures/step world {:drop? true} 0.35)
             player (fixtures/player-of result)]
         (is (== (- (:y lower) player-radius) (:y player)))
         (is (zero? (:vy player)))

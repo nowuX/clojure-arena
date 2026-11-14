@@ -61,6 +61,12 @@ A browser can verify event ordering, focus behavior, native `requestAnimationFra
 
 ## Player record checks
 
-The local input advances cyan `:player-1`; the other three fixture bodies remain
-at their initial positions until independent stepping is introduced. Automated
-recording tests draw one through four records without modifying the world.
+All four bodies fall and unlock after landing. A/D, W, and S control only cyan
+`:player-1`; the other fixtures receive neutral input. Their jumps, locks, and
+drop exceptions remain independent. These fixtures are local records, not
+network connections.
+
+Automated recording tests draw one through four records without modifying the
+world. Pure tests exercise simultaneous independent inputs, missing and unknown
+IDs, nil inputs, and reversed map order. Client event tests verify that controls
+reach only `:player-1` and never create it if it is absent.

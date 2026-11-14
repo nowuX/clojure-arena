@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–28 complete (28/70). The scene stores four local player records by stable ID and draws their distinct bodies. Player-1 retains the existing movement, jumps, and drop controls; the other records are static fixtures until independent stepping.
+Checkpoints 01–29 complete (29/70). Four ID-keyed local players advance independently with shared platforms. A/D, W, and S are routed only to cyan player-1; other fixtures receive neutral input, with separate spawn locks, jumps, and drop exceptions.
 Future mechanics remain specified in the roadmap.
 
 ## Run

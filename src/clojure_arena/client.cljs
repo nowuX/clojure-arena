@@ -1,6 +1,7 @@
 (ns clojure-arena.client
   (:require [clojure-arena.game :as game]))
 
+(def local-player-id :player-1)
 (def tick-ms 25)
 (def max-frame-ms 100)
 (defonce world (atom game/initial-world))
@@ -85,7 +86,7 @@
   (loop [remaining-ms elapsed-ms]
     (if (>= remaining-ms tick-ms)
       (do
-        (swap! world game/step (consume-inputs!) (/ tick-ms 1000))
+        (swap! world game/step {local-player-id (consume-inputs!)} (/ tick-ms 1000))
         (recur (- remaining-ms tick-ms)))
       remaining-ms)))
 

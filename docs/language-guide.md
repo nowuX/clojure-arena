@@ -13,13 +13,14 @@ La simulación compartida está en `src/clojure_arena/game.cljc`; los eventos y 
           :spawn-locked? true :air-jumps-left 1}}}
 ```
 
-`step` recibe mundo, entradas y `dt` en segundos. El argumento `{:keys [horizontal jump? drop?] :or {horizontal 0 jump? false drop? false}}` extrae valores del mapa y fija sus valores por defecto. La simulación devuelve mapas nuevos; no consulta el navegador ni cambia el argumento original.
+`step` recibe mundo, entradas por ID y `dt` en segundos; `step-player` recibe
+un personaje, las plataformas, sus entradas y `dt`. El argumento `{:keys [horizontal jump? drop?] :or {horizontal 0 jump? false drop? false}}` extrae valores del mapa y fija sus valores por defecto. La simulación devuelve mapas nuevos; no consulta el navegador ni cambia el argumento original.
 
 ### Condiciones y valores nuevos
 
 Las funciones con `?`, como `grounded?`, responden una pregunta. `supporting-platform` devuelve el mapa de plataforma si el jugador está apoyado arriba o `nil` si no lo está. `if`, `and` y `not` combinan condiciones; `cond` elige una rama según varios casos. `assoc` devuelve un mapa con un valor reemplazado y `update` calcula un valor nuevo para una clave.
 
-`apply-jump` usa el estado del jugador, las plataformas y el pulso `jump?`. Con controles desbloqueados, acepta el salto terrestre si `grounded?` es verdadero y conserva la recarga aérea; en el aire acepta un solo salto si `:air-jumps-left` es positivo y reduce el contador. En otro caso deja el jugador sin lanzamiento. `step` aplica esta decisión antes de sumar gravedad.
+`apply-jump` usa el estado del jugador, las plataformas y el pulso `jump?`. Con controles desbloqueados, acepta el salto terrestre si `grounded?` es verdadero y conserva la recarga aérea; en el aire acepta un solo salto si `:air-jumps-left` es positivo y reduce el contador. En otro caso deja el jugador sin lanzamiento. `step-player` aplica esta decisión antes de sumar gravedad.
 
 ### Composición, bucles y portabilidad
 
@@ -58,16 +59,17 @@ Un evento W o S nuevo y no repetido marca su pulso. Soltar la tecla quita su est
 ## Recorrido de A/D y W
 
 Al mantener D, el evento agrega `KeyD` al conjunto y `horizontal-input` produce
-`1`. `consume-inputs!` entrega esa intención a `step`, que acelera si el jugador
+`1`. `consume-inputs!` entrega esa intención al cliente, que la coloca bajo
+`:player-1` antes de llamar a `step`. `step-player` acelera si ese jugador
 está desbloqueado. Al soltar la tecla, la dirección es `0` y actúa la fricción;
 con A y D juntas también se obtiene `0`.
 
 
-Al presionar W, `handle-key-down!` marca `pending-jump` solo para una pulsación nueva; autorepeat y mantener W no crean pulsos adicionales. En un tick, `consume-inputs!` pasa `:jump? true` a `game/step` y limpia el pulso. `apply-jump` revisa el bloqueo de aparición, el apoyo y la recarga aérea. El mundo siguiente guarda `vy`, el contador y los cambios por contacto; el cliente lo dibuja. Si W se presiona durante la caída inicial, el pulso se consume mientras el jugador sigue bloqueado y no se reproduce después: hay que volver a pulsar W ya en tierra.
+Al presionar W, `handle-key-down!` marca `pending-jump` solo para una pulsación nueva; autorepeat y mantener W no crean pulsos adicionales. En un tick, `consume-inputs!` entrega `:jump? true` y el cliente lo envía a `game/step` bajo `:player-1` y limpia el pulso. `apply-jump` revisa el bloqueo de aparición, el apoyo y la recarga aérea. El mundo siguiente guarda `vy`, el contador y los cambios por contacto; el cliente lo dibuja. Si W se presiona durante la caída inicial, el pulso se consume mientras el jugador sigue bloqueado y no se reproduce después: hay que volver a pulsar W ya en tierra.
 
 ### Colección de plataformas
 
-`:platforms` es un vector de mapas con `:id` estable y `:type`. `step` pasa
+`:platforms` es un vector de mapas con `:id` estable y `:type`. `step-player` pasa
 el vector a `supporting-platform`, `apply-jump` y `collide-platforms`. El
 renderizador usa `doseq` para dibujar cada entrada. La escena contiene la plataforma principal sólida y tres semisólidas.
 `case` elige la regla de contacto según `:type`; `filter` selecciona apoyos
@@ -91,7 +93,7 @@ depende del orden del vector. Las transiciones siguen siendo funciones puras.
 
 `pending-drop` es independiente de `pending-jump`: leer no los consume,
 `consume-inputs!` limpia ambos y conserva las teclas mantenidas. Al pulsar S
-sobre una semisólida, `step` crea la excepción y deja que la gravedad haga
+sobre una semisólida, `step-player` crea la excepción y deja que la gravedad haga
 bajar el cuerpo. Si también se pulsó W, la bajada tiene prioridad allí.
 En el aire, S se descarta; W aún puede usar el salto aéreo disponible para
 volver arriba y aterrizar. Blur, `stop!` e `init` borran las solicitudes.
@@ -103,3 +105,18 @@ construye sus datos; `get-in` consulta rutas como `[:players :player-1 :x]`
 y `assoc-in` o `update-in` devuelve un mundo con esa ruta actualizada.
 Cambiar el color no cambia la identidad. `vals` obtiene los personajes para
 que `doseq` dibuje cada cuerpo sin modificar el mapa.
+
+`reduce-kv` recorre las claves y valores de `:players` y construye otro mapa:
+para cada ID llama a `step-player` con `(get inputs-by-player player-id)`.
+Una entrada ausente o `nil` se interpreta como neutral. Como se recorre el
+mapa de personajes existentes, una entrada con ID desconocido no crea cuerpos.
+El estado de un personaje no depende del orden de los otros.
+
+```clojure
+(game/step world {:player-1 {:horizontal 1}
+                  :player-2 {:horizontal -1 :jump? true}} 0.025)
+```
+
+El navegador usa solo `{local-player-id (consume-inputs!)}`, con
+`local-player-id` igual a `:player-1`. Los demás personajes siguen recibiendo
+gravedad y colisiones aunque no tengan controles asignados.

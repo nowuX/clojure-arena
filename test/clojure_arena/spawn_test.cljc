@@ -11,9 +11,9 @@
 (deftest locked-fall-unlocks-on-top-and-moves-on-the-following-tick
   (let [inputs {:horizontal 1 :jump? true}
         falling (take-while #(get-in % [:players :player-1 :spawn-locked?])
-                           (iterate #(game/step % inputs dt) fixtures/single-platform-world))
-        landed (game/step (last falling) inputs dt)
-        next-world (game/step landed {:horizontal 1} dt)]
+                           (iterate #(fixtures/step % inputs dt) fixtures/single-platform-world))
+        landed (fixtures/step (last falling) inputs dt)
+        next-world (fixtures/step landed {:horizontal 1} dt)]
     (is (seq falling))
     (is (every? #(== 400 (get-in % [:players :player-1 :x])) falling))
     (is (every? #(zero? (get-in % [:players :player-1 :vx])) falling))
@@ -39,6 +39,6 @@
       (is (:spawn-locked? result))))
   (let [world (update-in fixtures/single-platform-world [:players :player-1] assoc
                       :spawn-locked? false :x 630 :y 264 :vx 220 :vy 0)
-        result (game/step world {:horizontal 1} dt)]
+        result (fixtures/step world {:horizontal 1} dt)]
     (is (> (get-in result [:players :player-1 :y]) 264))
     (is (false? (get-in result [:players :player-1 :spawn-locked?])))))

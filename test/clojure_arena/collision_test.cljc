@@ -11,8 +11,8 @@
 
 (deftest descending-crossing-and-stable-standing
   (let [world (assoc-in fixtures/single-platform-world [:players :player-1] (player-at 400 50 0 20000))
-        landed (game/step world {} 0.025)
-        standing (nth (iterate #(game/step % {} 0.025) landed) 80)]
+        landed (fixtures/step world {} 0.025)
+        standing (nth (iterate #(fixtures/step % {} 0.025) landed) 80)]
     (is (near? 264 (get-in landed [:players :player-1 :y])))
     (is (zero? (get-in landed [:players :player-1 :vy])))
     (is (= (fixtures/player-of landed) (fixtures/player-of standing)))
@@ -21,12 +21,12 @@
 (deftest top-support-ends-at-both-center-endpoints
   (doseq [[x horizontal] [[170 -1] [630 1]]]
     (let [world (assoc-in fixtures/single-platform-world [:players :player-1] (player-at x 264 0 0))
-          next-world (game/step world {:horizontal horizontal} 0.025)]
+          next-world (fixtures/step world {:horizontal horizontal} 0.025)]
       (is (> (get-in next-world [:players :player-1 :y]) 264))
       (is (pos? (get-in next-world [:players :player-1 :vy])))))
   (doseq [x [150 650]]
     (let [world (assoc-in fixtures/single-platform-world [:players :player-1] (player-at x 263 0 100))]
-      (is (> (get-in (game/step world {} 0.025) [:players :player-1 :y]) 264)))))
+      (is (> (get-in (fixtures/step world {} 0.025) [:players :player-1 :y]) 264)))))
 
 (deftest landing-uses-x-at-crossing-time
   (let [player (player-at 150 250 2000 1000)

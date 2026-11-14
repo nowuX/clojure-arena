@@ -17,7 +17,15 @@ The main platform entry and first player are:
 
 The background is `#101010`; the platform is neutral gray and only the player body is colored. Gravity is `980` units/s² downward. Horizontal intention targets ±220 units/s at up to 880 units/s². Neutral input applies `horizontal-friction` at 1100 units/s² toward zero, without reversing velocity. At the client's 25 ms tick those changes are at most 22 and 27.5 units/s respectively. A locked spawn forces horizontal intention to zero while gravity and collision continue. From rest, ten held-direction ticks reach 220; from 220, neutral braking stops in eight ticks and travels another 19.25 units in free space.
 
-`step` receives a world, `{:horizontal ... :jump? ... :drop? ...}`, and `dt` in seconds. A missing direction defaults to zero; missing action flags default to false. Its order is:
+`step` receives a world, an inputs-by-player map, and `dt` in seconds. For
+example, `{:player-1 {:horizontal 1 :jump? true}}` controls only that ID. It
+reduces over existing players, calling `step-player` once per record with the
+same platforms and dt. Missing or nil input is neutral; unknown IDs never
+create players.
+
+`step-player` receives one player, the platforms,
+`{:horizontal ... :jump? ... :drop? ...}`, and dt. A missing direction defaults
+to zero; missing action flags default to false. Its order is:
 
 1. Clear a finished or stale drop exception and neutralize horizontal intention while spawn locked.
 2. Find current support. An unlocked S request on a semisolid records its ID as `:drop-through-platform-id`; this wins over simultaneous W. Otherwise call `apply-jump` before gravity. Ground jumps preserve the air allowance; airborne jumps spend one. Locked or exhausted requests are discarded.
@@ -81,5 +89,8 @@ radius 16, locked spawn controls, one air jump, and no drop exception.
 `local-player-fixtures` supplies cyan at (400, 160), crimson at (260, 160),
 amber at (540, 160), and green at (350, 160). IDs are map keys, independent
 of color. `draw-world` draws each value from `:players` without changing it.
-At this checkpoint the existing flat input and simulation path still advance
-only `:player-1`; the other three records are visible fixtures.
+`step` advances all four records independently. The browser wraps each consumed
+input in `{local-player-id inputs}`, where `local-player-id` is `:player-1`.
+The other three records receive neutral input and still fall, land, and brake.
+Physics reads no other player record, so map iteration order cannot change the
+result. Locks, air jumps, and drop exceptions remain local to each record.

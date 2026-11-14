@@ -170,7 +170,7 @@
       (fire-frame! 10)
       (is (:jump? (client/read-inputs)))
       (fire-frame! 100)
-      (is (= [true false false false] (mapv :jump? @seen)))
+      (is (= [true false false false] (mapv #(get-in % [:player-1 :jump?]) @seen)))
       (is (false? (:jump? (client/read-inputs)))))))
 
 (deftest held-w-requires-a-fresh-press
@@ -256,7 +256,7 @@
     (is (= -395.5 (get-in fast [19 :world :players :player-1 :vy])))
     (is (= -395.5 (get-in fast [29 :world :players :player-1 :vy])))
     (is (zero? (get-in fast [29 :world :players :player-1 :air-jumps-left])))
-    (is (true? (get-in fast [59 :input :jump?])))
+    (is (true? (get-in fast [59 :input :player-1 :jump?])))
     (is (pos? (get-in fast [59 :world :players :player-1 :vy])))
     (is (= 1 (get-in (last fast) [:world :players :player-1 :air-jumps-left])))))
 
@@ -316,7 +316,7 @@
       (fire-frame! 10)
       (is (:drop? (client/read-inputs)))
       (fire-frame! 100)
-      (is (= [true false false false] (mapv :drop? @seen)))
+      (is (= [true false false false] (mapv #(get-in % [:player-1 :drop?]) @seen)))
       (is (false? (:drop? (client/read-inputs)))))))
 
 (deftest held-s-and-autorepeat-need-a-fresh-press
@@ -409,3 +409,36 @@
         (is (= n (count @drawn)))
         (is (= (set (vals players)) (set @drawn)))
         (is (= players (:players snapshot)))))))
+
+(deftest local-controls-reach-only-player-1-while-every-body-advances
+  (reset! client/world (-> game/initial-world
+                           (assoc :platforms [])
+                           (update :players update-vals #(assoc % :spawn-locked? false))))
+  (client/init)
+  (fire-frame! 0)
+  (doseq [code ["KeyD" "KeyW" "KeyS"]] (key-event! "keydown" code))
+  (fire-frame! 25)
+  (let [players (:players @client/world)]
+    (is (= 22 (get-in players [:player-1 :vx])))
+    (is (= -395.5 (get-in players [:player-1 :vy])))
+    (is (= 0 (get-in players [:player-1 :air-jumps-left])))
+    (doseq [id [:player-2 :player-3 :player-4]]
+      (is (zero? (get-in players [id :vx])))
+      (is (= 24.5 (get-in players [id :vy])))
+      (is (= 1 (get-in players [id :air-jumps-left]))))
+  (is (= {:horizontal 1 :jump? false :drop? false} (client/read-inputs)))))
+
+(deftest local-controls-do-not-create-a-missing-player-1
+  (reset! client/world (-> game/initial-world
+                           (assoc :platforms [])
+                           (update :players dissoc :player-1)))
+  (client/init)
+  (fire-frame! 0)
+  (key-event! "keydown" "KeyD")
+  (key-event! "keydown" "KeyW")
+  (fire-frame! 25)
+  (is (= #{:player-2 :player-3 :player-4} (set (keys (:players @client/world)))))
+  (doseq [player (vals (:players @client/world))]
+    (is (zero? (:vx player)))
+    (is (= 24.5 (:vy player))))
+  (is (false? (:jump? (client/read-inputs)))))

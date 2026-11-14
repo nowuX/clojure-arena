@@ -21,7 +21,8 @@ flowchart LR
     end
 
     subgraph Shared[Shared values: game.cljc]
-        Step[step]
+        Step[step: iterate existing IDs]
+        Player[step-player: one record]
         Jump[drop request or apply-jump]
         Eligibility[support / spawn lock / air allowance / drop ID]
         Motion[accelerate-horizontal / gravity]
@@ -40,8 +41,8 @@ flowchart LR
     RAF --> Frame -->|elapsed + carried remainder| Advance
     Advance --> Consume
     Consume -->|inputs| Advance
-    Advance -->|world + inputs + dt| Step
-    Step --> Jump --> Eligibility --> Motion --> Collision
+    Advance -->|world + inputs-by-player + dt| Step
+    Step --> Player --> Jump --> Eligibility --> Motion --> Collision
     Collision -->|supported top contact| Landing --> World
     Collision -->|other result| World
     World --> Draw --> Canvas
@@ -55,7 +56,7 @@ flowchart LR
 
 | Concern | Owner | Current functions or values |
 | --- | --- | --- |
-| World, support, jump eligibility, physics | Shared simulation | `initial-world`, `earliest-contact`, `semisolid-contact`, `grounded?`, `supporting-platform`, `apply-jump`, `step`, `collide-platforms` |
+| World, support, jump eligibility, physics | Shared simulation | `initial-world`, `earliest-contact`, `semisolid-contact`, `grounded?`, `supporting-platform`, `apply-jump`, `step-player`, `step`, `collide-platforms` |
 | Held directions and one-shot W/S requests | Browser client | `pressed-keys`, `pending-jump`, `pending-drop`, `handle-key-down!`, `handle-key-up!`, `handle-blur!` |
 | Input snapshot and action lifetime | Browser client | `horizontal-input`, `read-inputs`, `consume-inputs!` |
 | Frame clock and fixed ticks | Browser client | `frame`, `advance-world!`, `tick-ms`, `max-frame-ms` |
@@ -64,7 +65,7 @@ flowchart LR
 
 `frame` caps one measured interval at 100 ms and passes that elapsed time plus the prior fractional remainder to `advance-world!`. The latter processes every complete 25 ms tick and returns the new fractional remainder for `frame` to carry into the next animation frame. Each tick calls `consume-inputs!`, which snapshots `read-inputs` and then clears `pending-jump` and `pending-drop`; held A/D state remains. Quick W/S taps survive until a tick; only one tick receives each action.
 
-`step` forces horizontal input to zero while spawn locked. It clears stale drop state, selects drop or `apply-jump` before gravity and movement, then resolves contact and clears finished drop state. Only a supported top contact unlocks spawn and restores the one air jump. Drawing happens after simulation and does not change world state.
+`step-player` forces horizontal input to zero while spawn locked. It clears stale drop state, selects drop or `apply-jump` before gravity and movement, then resolves contact and clears finished drop state. Only a supported top contact unlocks spawn and restores the one air jump. Drawing happens after simulation and does not change world state.
 
 `init` calls `stop!` before registering listeners and scheduling a frame. `stop!` removes listeners, clears held keys and pending W/S through `handle-blur!`, cancels the scheduled frame, and resets its ID. `game.cljc` uses a reader conditional for `sqrt`; browser APIs remain in `client.cljs`.
 
@@ -80,5 +81,8 @@ platform vector nor the browser clock is modified to implement a drop.
 
 The world stores identity-keyed records in `:players`. `make-player` constructs
 fresh physics and input-eligibility values; `draw-world` reads every record.
-At this stage `step` still accepts flat input and advances only `:player-1`;
-the other three local fixtures are drawn but do not simulate yet.
+`advance-world!` routes each consumed input to `local-player-id` (`:player-1`).
+`step` reduces over the existing `:players` map, calling `step-player` once per
+record with shared platform data and dt. Other IDs receive neutral input.
+Unknown input IDs cannot add a player, and each result depends only on that
+player, its input, and the shared platforms.

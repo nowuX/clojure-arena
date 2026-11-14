@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**28 of 70 checkpoints complete.** Checkpoints 01–28 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**29 of 70 checkpoints complete.** Checkpoints 01–29 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -407,7 +407,7 @@ Checkpoints **28–30**. Move identity and per-player state into shared immutabl
 
 ### 29 — Route inputs and advance players independently
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Give step an inputs-by-player map. Step every player once with
   shared platforms and dt; missing input is neutral, and unknown IDs do not create bodies.
   The local page explicitly controls only player-1.
