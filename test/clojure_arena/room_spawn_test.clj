@@ -44,6 +44,7 @@
 (defn- expected-player [{:keys [x fill]}]
   {:x x
    :y 160
+   :spawn-x x :spawn-y 160
    :vx 0
    :vy 0
    :knockback-vx 0

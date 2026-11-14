@@ -157,7 +157,7 @@ and pending hit effects, and enters respawning or eliminated. Percentage stays
 visible until a fresh life replaces it. Inactive records neither move nor hit
 nor receive hits. Drawing omits their bodies; connection identity and input
 ownership remain. Room ticks consume inactive action pulses normally, retaining
-only the latest direction. At this stage inactive bodies do not return yet.
+only the latest direction. Surviving bodies return through the stored-spawn factory at delay expiry.
 
 ## Opportunity panel
 
@@ -174,4 +174,14 @@ does not reduce it. Only later inactive ticks subtract dt. The shared epsilon
 clamps tiny residuals to zero, reaching readiness on the 120th later 25 ms tick.
 Eliminated players have no timer. Snapshots validate finite values from 0 to 3;
 the panel rounds up simulation-owned seconds and never measures wall time.
-At this checkpoint, expiry remains inactive until fresh-body return is added.
+At expiry, rebuild a fresh body without moving it again on the return tick.
+
+## Fresh-body return
+
+The factory stores `:spawn-x/:spawn-y`. On delay expiry, `step-respawn` rebuilds
+through that factory, preserving only the outer player ID, color and remaining
+stocks. Percentage, total/received motion, facing, jumps, drop exception,
+cooldown, sequences and targets reset. Controls stay locked until supported
+landing. The return branch ignores actions and performs no physics; later
+ticks resume ordinary falling. Inactive action pulses are consumed by room
+and local input clocks, so no old jump/attack can replay after landing.

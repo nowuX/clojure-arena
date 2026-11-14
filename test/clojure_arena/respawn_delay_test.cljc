@@ -17,10 +17,10 @@
     (is (= 3 (get-in loss [:players :player-1 :respawn-seconds-left])))
     (is (< 0 (get-in at119 [:players :player-1 :respawn-seconds-left]) 0.026))
     (is (= 0 (:respawn-seconds-left player)))
-    (is (= :respawning (:lifecycle player)))
+    (is (= :active (:lifecycle player)))
     (is (= 2 (:stocks player)))
-    (is (= (get-in loss [:players :player-1 :x]) (:x player)))
-    (is (= at120 (tick at120)))
+    (is (= [400 160] ((juxt :x :y) player)))
+    (is (> (get-in (tick at120) [:players :player-1 :y]) (:y player)))
     (is (protocol/snapshot-message? {:type :snapshot :tick 120 :world at120}))))
 
 (deftest timer-progress-is-independent-and-zero-stock-records-never-count-down

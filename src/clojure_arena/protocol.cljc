@@ -9,7 +9,7 @@
 (def safe-integer-maximum 9007199254740991)
 
 (def platform-fields #{:id :type :x :y :width :height :color})
-(def player-fields #{:stocks :lifecycle :respawn-seconds-left :x :y :vx :vy :knockback-vx :knockback-vy
+(def player-fields #{:spawn-x :spawn-y :stocks :lifecycle :respawn-seconds-left :x :y :vx :vy :knockback-vx :knockback-vy
                      :facing :spawn-locked? :air-jumps-left
                      :drop-through-platform-id :melee-cooldown-left
                      :melee-strike-id :melee-resolved-strike-id
@@ -86,7 +86,7 @@
          (= player-fields (set (keys player)))
          (stock-state? player)
          (every? finite-number?
-                 (map player [:x :y :vx :vy :knockback-vx :knockback-vy
+                 (map player [:x :y :spawn-x :spawn-y :vx :vy :knockback-vx :knockback-vy
                               :melee-cooldown-left :accumulated-percentage
                               :radius]))
          (pos? (:radius player))

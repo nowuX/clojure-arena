@@ -27,3 +27,10 @@
                                 [:active 0] [:respawning 0] [:eliminated 1]]]
       (is (not (protocol/snapshot-message?
                  (update-in snapshot path assoc :lifecycle lifecycle :stocks stocks)))))))
+
+(deftest snapshots-require-finite-stored-spawns
+  (let [snapshot {:type :snapshot :tick 0 :world game/initial-world}]
+    (doseq [field [:spawn-x :spawn-y]
+            value [nil "160" ##Inf ##NaN]]
+      (is (not (protocol/snapshot-message?
+                 (assoc-in snapshot [:world :players :player-1 field] value)))))))

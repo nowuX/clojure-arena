@@ -306,3 +306,11 @@ cambia las vidas ni el ciclo del jugador.
 pérdida restan `dt`; `remaining-seconds` elimina residuos numéricos pequeños
 para alcanzar cero exactamente. El navegador usa `js/Math.ceil` para mostrar
 segundos redondeados hacia arriba sin controlar la espera.
+
+### Reconstruir una vida
+
+`step-respawn` llama de nuevo a `make-player` con `:spawn-x`, `:spawn-y` y el
+color guardados. Luego restaura solo las vidas restantes; la clave externa del
+mapa mantiene el ID. Así reinicia porcentaje y estado físico/de combate sin
+una segunda lista de valores iniciales. La rama de retorno no ejecuta física
+ni interpreta acciones; el siguiente tick inicia la caída con controles bloqueados.

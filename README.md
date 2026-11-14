@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–54 complete (54/70). Surviving losses start a full three-second simulation-owned countdown, published and rounded up in the player panel.
+Checkpoints 01–55 complete (55/70). After three seconds, survivors return at their stored spawn with fresh physics/combat state, preserved identity and stocks, and movement locked until landing.
 Future mechanics remain specified in the roadmap.
 
 ## Run

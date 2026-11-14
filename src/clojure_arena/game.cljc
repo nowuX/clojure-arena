@@ -16,7 +16,7 @@
 (def respawn-delay 3)
 
 (defn make-player [color x y]
-  {:x x :y y :vx 0 :vy 0 :knockback-vx 0 :knockback-vy 0 :radius 16
+  {:x x :y y :spawn-x x :spawn-y y :vx 0 :vy 0 :knockback-vx 0 :knockback-vy 0 :radius 16
    :spawn-locked? true :air-jumps-left 1
    :drop-through-platform-id nil :color color :facing :right
    :melee-cooldown-left 0 :melee-strike-id 0 :melee-resolved-strike-id 0
@@ -57,7 +57,11 @@
 
 (defn- step-respawn [player dt]
   (if (and (= :respawning (:lifecycle player)) (pos? (:stocks player)))
-    (update player :respawn-seconds-left remaining-seconds dt)
+    (let [remaining (remaining-seconds (:respawn-seconds-left player) dt)]
+      (if (zero? remaining)
+        (assoc (make-player (:color player) (:spawn-x player) (:spawn-y player))
+               :stocks (:stocks player))
+        (assoc player :respawn-seconds-left remaining)))
     player))
 
 (defn resolve-ring-out
@@ -440,7 +444,8 @@
         targeted-players
         (reduce-kv
           (fn [result player-id player]
-            (if (and (active-player? player)
+            (if (and (active-player? (get players player-id))
+                     (active-player? player)
                      (> (:melee-strike-id player 0)
                         (:melee-strike-id (get players player-id) 0)))
               (assoc-in result [player-id :melee-target-ids]
