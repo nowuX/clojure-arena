@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–58 complete (58/70). Two to four connected players start together after a cancellable three-second countdown, with fresh stocks and spawn protection.
+Checkpoints 01–59 complete (59/70). Running matches keep a fixed contender roster; later connections occupy free slots as waiting observers without physics or combat.
 Future mechanics remain specified in the roadmap.
 
 ## Run

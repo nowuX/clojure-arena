@@ -19,3 +19,12 @@ later 25 ms tick, the room captures current entrants, increments the match ID
 and rebuilds factory state with three stocks and two full seconds of protection.
 That start tick performs no physics. Waiting/countdown one-shot inputs are
 discarded; the latest horizontal direction can take effect only after landing.
+
+## Late arrivals
+
+Admission still uses a free slot and a fresh ID/color. During running or
+finished phases it adds a waiting observer with zero stocks, without changing
+the fixed contender roster. Running simulation receives only nonforfeited
+roster players, then merges their results into the connection-owned player map.
+Observer one-shot actions are discarded and cannot affect the current match.
+Observers still count toward the four-connection capacity.

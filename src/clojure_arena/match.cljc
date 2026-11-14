@@ -13,6 +13,7 @@
 
 (defn playing? [world player-id]
   (and (= :running (get-in world [:match :phase]))
+       (contender? world player-id)
        (game/active-player? (get-in world [:players player-id]))))
 
 (defn- reconcile-entrants [world]
@@ -44,14 +45,23 @@
   (merge contender (select-keys player [:color :stocks :accumulated-percentage])))
 
 (defn- step-running [world inputs-by-player dt]
-  (let [advanced (game/step world inputs-by-player dt)]
-    (update-in advanced [:match :contenders]
-               (fn [contenders]
-                 (reduce-kv (fn [result player-id contender]
-                              (if-let [player (get-in advanced [:players player-id])]
-                                (assoc result player-id (capture-contender contender player))
-                                result))
-                            contenders contenders)))))
+  (let [player-ids (filter #(contender? world %) (keys (:players world)))
+        players (:players world)
+        simulation-world (if (= (count player-ids) (count players))
+                           world
+                           (assoc world :players (select-keys players player-ids)))
+        advanced (game/step simulation-world inputs-by-player dt)
+        next-world (assoc advanced :players (merge players (:players advanced)))]
+    (-> next-world
+        (update-in [:match :contenders]
+                   (fn [contenders]
+                     (reduce-kv
+                       (fn [result player-id contender]
+                         (if-let [player (when-not (:forfeited? contender)
+                                          (get-in next-world [:players player-id]))]
+                           (assoc result player-id (capture-contender contender player))
+                           result))
+                       contenders contenders))))))
 
 (defn- start-match [world]
   (let [players (into {}

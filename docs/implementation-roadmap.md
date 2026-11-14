@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**58 of 70 checkpoints complete.** Checkpoints 01–58 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**59 of 70 checkpoints complete.** Checkpoints 01–59 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -793,7 +793,7 @@ Checkpoints **57–66**. Separate connections from contenders and compose match 
 
 ### 59 — Keep late arrivals as observers
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Admit free-slot joins during running/finished with fresh
   identity, waiting lifecycle, zero stocks, and no body. Keep them in snapshots for
   ownership but outside the contender roster, physics, hits, and ranking.
