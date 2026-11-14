@@ -169,3 +169,10 @@ El ID de secuencia aceptado se compara con `:melee-resolved-strike-id` del
 mismo atacante. `filter` conserva solo los pendientes y `reduce` guarda sus
 marcadores junto con los efectos en un mapa nuevo. Un fallo también se consume.
 Reutilizar el mapa devuelto no vuelve a sumar porcentaje: es idempotencia.
+
+### Una función con dos aridades
+
+`melee-knockback-impulse` acepta dos argumentos para usar la configuración
+normal, o tres para recibir un mapa de configuración explícito. `frequencies`
+cuenta miradas y devuelve la suma por eje. Recibe el porcentaje final de todos
+los impactos del tick; el resultado es un cambio de velocidad, no una posición.

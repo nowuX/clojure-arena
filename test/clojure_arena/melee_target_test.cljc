@@ -63,5 +63,5 @@
                :players {:a (player 100 184 :right)
                          :b (assoc (player 150 100 :left) :vy 4000)}}
         hit (game/step world {:a {:attack? true}} 0.025)]
-    (is (= 184 (get-in hit [:players :b :y])))
+    (is (== 184 (get-in hit [:players :b :y])))
     (is (= #{:b} (get-in hit [:players :a :melee-target-ids])))))

@@ -54,7 +54,7 @@
         struck (game/step world {:a {:attack? true :horizontal -1 :jump? true}} dt)
         next-world (game/step struck {:a {:attack? true} :b {:attack? true}} dt)]
     (is (= :left (get-in struck [:players :a :facing])))
-    (is (= -22 (get-in struck [:players :a :vx])))
+    (is (== -22 (get-in struck [:players :a :vx])))
     (is (= -395.5 (get-in struck [:players :a :vy])))
     (is (= 0 (get-in struck [:players :a :air-jumps-left])))
     (is (= 1 (get-in next-world [:players :a :melee-strike-id])))

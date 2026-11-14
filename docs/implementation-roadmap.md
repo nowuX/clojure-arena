@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**35 of 70 checkpoints complete.** Checkpoints 01–35 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**36 of 70 checkpoints complete.** Checkpoints 01–36 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -489,7 +489,7 @@ Checkpoints **31–38**. Accept input, select targets, resolve percentage once, 
 
 ### 36 — Define the trial knockback calculation
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Add the pure K = 200 + 3P calculation with configurable named
   defaults. Use the final post-hit percentage for every hit that tick; sum left/right axis
   contributions without averaging or applying voluntary caps. Do not integrate impulses

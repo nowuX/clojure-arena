@@ -46,3 +46,18 @@ and returns all effects with the updated markers in one immutable map. Even
 an empty target set or a disappeared target consumes the strike. Reapplying
 this result cannot add percentage again. Separate attackers may both resolve
 sequence 1; a later accepted sequence can hit the same target again.
+
+## Trial impulse calculation
+
+`melee-knockback-impulse` is a pure calculator returning `{:dvx ... :dvy ...}`
+in units/s. Its default named config is `{:base-impulse 200 :percentage-scale 3}`;
+a third argument can replace both values. Magnitude is `K = 200 + 3P`, where P
+includes every selected hit on that target in the tick. Right contributes
+`(0.8K, -0.6K)`, left contributes `(-0.8K, -0.6K)`. Count directions before
+scaling to make their combined axes independent of hit order. Do not average
+or clamp to voluntary speed. Zero hits returns zero; percentages above 100
+continue scaling.
+
+One right hit at final P = 10 gives (184, -138); two opposing hits at final
+P = 20 give (0, -312). This function does not move a body or update velocity;
+physical integration follows separately.

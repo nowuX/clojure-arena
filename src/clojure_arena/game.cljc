@@ -8,6 +8,8 @@
 (def melee-cooldown 0.25)
 (def melee-reach 60)
 (def melee-hit-percentage 10)
+(def melee-knockback-config
+  {:base-impulse 200 :percentage-scale 3})
 (def cooldown-epsilon 1e-9)
 
 (defn make-player [color x y]
@@ -265,6 +267,18 @@
         (< vx target) (min target (+ vx change))
         (> vx target) (max target (- vx change))
         :else vx))))
+
+(defn melee-knockback-impulse
+  ([facings post-hit-percentage]
+   (melee-knockback-impulse facings post-hit-percentage melee-knockback-config))
+  ([facings post-hit-percentage {:keys [base-impulse percentage-scale]}]
+   ;; Count directions before scaling so hit order cannot change the sum.
+   (let [directions (frequencies facings)
+         right (get directions :right 0)
+         left (get directions :left 0)
+         magnitude (+ base-impulse (* percentage-scale post-hit-percentage))]
+     {:dvx (* (- right left) 0.8 magnitude)
+      :dvy (* (+ right left) -0.6 magnitude)})))
 
 (defn melee-target-ids [players attacker-id]
   (if-let [attacker (get players attacker-id)]
