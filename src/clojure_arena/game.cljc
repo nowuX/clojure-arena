@@ -182,7 +182,7 @@
           (fn [player]
             (let [horizontal (if (:spawn-locked? player) 0 horizontal)]
               (-> player
-                (apply-jump (:platform world) jump?)
-                (update :vx accelerate-horizontal horizontal dt)
-                (update :vy + (* gravity dt))
-                (collide-platform (:platform world) dt))))))
+                  (apply-jump (:platform world) jump?)
+                  (update :vx accelerate-horizontal horizontal dt)
+                  (update :vy + (* gravity dt))
+                  (collide-platform (:platform world) dt))))))

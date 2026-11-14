@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–20 complete (20/70). The character can jump from support and once in the air; landing restores the allowance and initial spawn controls stay locked until landing.
+Checkpoints 01–21 complete (21/70). Milestone 1 is complete: one colored character, one solid platform, fixed-step movement, spawn locking, ground jump, and one air jump, with integrated regression coverage and guides.
 Future mechanics remain specified in the roadmap.
 
 ## Run

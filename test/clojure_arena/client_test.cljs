@@ -209,3 +209,84 @@
     (fire-frame! (* 25 (inc landed-at)))
     (is (> (get-in @client/world [:player :x]) 400))
     (is (game/grounded? (:player @client/world) (:platform @client/world)))))
+
+(deftest real-key-jump-sequence-agrees-across-frame-cadences
+  (let [consume client/consume-inputs!
+        step game/step
+        simulate (fn [timestamps]
+                   (let [tick (atom 0)
+                         seen (atom [])]
+                     (client/stop!)
+                     (reset! client/world game/initial-world)
+                     (with-redefs
+                       [client/consume-inputs!
+                        (fn []
+                          (case (swap! tick inc)
+                            1 (do (key-event! "keydown" "KeyD")
+                                  (key-event! "keydown" "KeyW"))
+                            2 (key-event! "keyup" "KeyW")
+                            20 (do (key-event! "keyup" "KeyD")
+                                   (key-event! "keydown" "KeyA")
+                                   (key-event! "keydown" "KeyW"))
+                            21 (key-event! "keyup" "KeyW")
+                            30 (do (key-event! "keyup" "KeyA")
+                                   (key-event! "keydown" "KeyD")
+                                   (key-event! "keydown" "KeyW"))
+                            31 (key-event! "keyup" "KeyW")
+                            40 (key-event! "keyup" "KeyD")
+                            60 (key-event! "keydown" "KeyW")
+                            61 (key-event! "keyup" "KeyW")
+                            nil)
+                          (consume))
+                        game/step
+                        (fn [world inputs dt]
+                          (let [next-world (step world inputs dt)]
+                            (swap! seen conj {:input inputs :world next-world})
+                            next-world))]
+                       (client/init)
+                       (doseq [timestamp timestamps] (fire-frame! timestamp))
+                       (is (= 80 @tick))
+                       @seen)))
+        fast (simulate (range 0 2001 10))
+        slow (simulate (range 0 2001 100))]
+    (is (= fast slow))
+    (is (= -395.5 (get-in fast [19 :world :player :vy])))
+    (is (= -395.5 (get-in fast [29 :world :player :vy])))
+    (is (zero? (get-in fast [29 :world :player :air-jumps-left])))
+    (is (true? (get-in fast [59 :input :jump?])))
+    (is (pos? (get-in fast [59 :world :player :vy])))
+    (is (= 1 (get-in (last fast) [:world :player :air-jumps-left])))))
+
+(deftest repeated-lifecycle-clears-stale-jumps-and-allows-a-fresh-launch
+  (dotimes [_ 4]
+    (client/init)
+    (is (= 1 (count @callbacks)))
+    (is (= {"keydown" 1 "keyup" 1 "blur" 1} (update-vals @listeners count)))
+    (key-event! "keydown" "KeyD")
+    (key-event! "keydown" "KeyW")
+    (client/stop!)
+    (is (empty? @callbacks))
+    (is (every? empty? (vals @listeners)))
+    (is (= {:horizontal 0 :jump? false} (client/read-inputs))))
+  (reset! client/world (update playable-world :player assoc :y 264 :vy 0))
+  (client/init)
+  (fire-frame! 0)
+  (fire-frame! 25)
+  (is (zero? (get-in @client/world [:player :vy])))
+  (key-event! "keydown" "KeyW")
+  (key-event! "keyup" "KeyW")
+  (fire-frame! 50)
+  (is (= -395.5 (get-in @client/world [:player :vy]))))
+
+(deftest focus-loss-discards-a-jump-before-its-tick
+  (reset! client/world (update playable-world :player assoc :y 264 :vy 0))
+  (client/init)
+  (fire-frame! 0)
+  (key-event! "keydown" "KeyW")
+  (key-event! "keyup" "KeyW")
+  (.dispatchEvent @target (js/Event. "blur"))
+  (fire-frame! 25)
+  (is (game/grounded? (:player @client/world) (:platform @client/world)))
+  (key-event! "keydown" "KeyW")
+  (fire-frame! 50)
+  (is (= -395.5 (get-in @client/world [:player :vy]))))

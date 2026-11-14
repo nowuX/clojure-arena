@@ -1,59 +1,69 @@
 # Architecture
 
-The current build is a local browser game. `game.cljc` owns deterministic world transitions; `client.cljs` owns input events, elapsed browser time, mutable storage, and Canvas drawing. There is no server or network boundary in this checkpoint.
-
-See [Simulation](simulation.md) for current rules and [Simulation verification](simulation-verification.md) for local checks.
+`game.cljc` owns world data, support queries, movement, contact, and jump eligibility. `client.cljs` owns browser events, fixed-step scheduling, mutable references, and Canvas drawing.
 
 ```mermaid
 flowchart LR
     subgraph Browser[Browser effects: client.cljs]
         Events[window keydown / keyup / blur]
-        Keys[pressed-keys atom]
-        Read[horizontal-input / read-inputs]
+        Keys[pressed-keys atom: A D W]
+        Pending[pending-jump atom]
+        Clear[handle-blur!: clear both input states]
+        Read[read-inputs]
+        Consume[consume-inputs!: read, then clear jump]
         RAF[requestAnimationFrame]
-        Frame[frame]
-        Advance[advance-world! fixed 25 ms ticks]
+        Frame[frame: cap elapsed, carry remainder]
+        Advance[advance-world!: complete 25 ms ticks]
         World[world atom]
         Draw[draw-world]
         Canvas[Canvas 2D]
-        Init[init / stop!]
+        Lifecycle[init / stop!]
     end
 
     subgraph Shared[Shared values: game.cljc]
         Step[step]
-        Accel[accelerate-horizontal]
+        Jump[apply-jump]
+        Eligibility[spawn lock / grounded? / air-jumps-left]
+        Motion[accelerate-horizontal / gravity]
         Collision[collide-platform]
-        Contacts[platform-contact / resolve-contact]
+        Landing[supported top: unlock / restore allowance]
     end
 
-    Events --> Keys --> Read
-    RAF --> Frame --> Advance
-    Read --> Advance
+    Events --> Keys
+    Events -->|fresh non-repeat W| Pending
+    Events -->|blur| Clear
+    Lifecycle -->|stop calls| Clear
+    Clear --> Keys
+    Clear --> Pending
+    Keys --> Read
+    Pending --> Read --> Consume
+    RAF --> Frame -->|elapsed + carried remainder| Advance
+    Advance --> Consume
+    Consume -->|inputs| Advance
     Advance -->|world + inputs + dt| Step
-    Step --> Accel
-    Step --> Collision --> Contacts
-    Step -->|next immutable world| World
+    Step --> Jump --> Eligibility --> Motion --> Collision
+    Collision -->|supported top contact| Landing --> World
+    Collision -->|other result| World
     World --> Draw --> Canvas
+    Advance -->|fractional remainder| Frame
     Frame -->|schedule next frame| RAF
-    Init --> Events
-    Init --> RAF
-    Init -->|cleanup listeners and RAF| Events
-    Init -->|cleanup listeners and RAF| RAF
+    Lifecycle --> Events
+    Lifecycle -->|clear pending action; cancel frame| RAF
 ```
 
-## Ownership
+## Ownership and data flow
 
-| Concern | Owner | Current entry points |
+| Concern | Owner | Current functions or values |
 | --- | --- | --- |
-| Scene and physics values | Shared simulation | `initial-world`, `step`, `accelerate-horizontal`, `collide-platform` |
-| Key lifetime and direction | Browser client | `handle-key-down!`, `handle-key-up!`, `handle-blur!`, `horizontal-input`, `read-inputs` |
-| Fixed simulation cadence | Browser client | `frame`, `advance-world!`, `tick-ms`, `max-frame-ms` |
-| Current displayed world | Browser client | `world` atom |
-| Canvas effects | Browser client | `draw-background`, `draw-platform`, `draw-player`, `draw-world` |
+| World, support, jump eligibility, physics | Shared simulation | `initial-world`, `grounded?`, `supporting-platform`, `apply-jump`, `step`, `collide-platform` |
+| Held directions and one-shot W request | Browser client | `pressed-keys`, `pending-jump`, `handle-key-down!`, `handle-key-up!`, `handle-blur!` |
+| Input snapshot and action lifetime | Browser client | `horizontal-input`, `read-inputs`, `consume-inputs!` |
+| Frame clock and fixed ticks | Browser client | `frame`, `advance-world!`, `tick-ms`, `max-frame-ms` |
+| Storage and presentation | Browser client | `world`, `draw-world`, Canvas drawing functions |
 | Startup and cleanup | Browser client | `init`, `stop!` |
 
-`frame` caps one measured frame interval at 100 ms, combines it with the fractional remainder from the prior frame, and advances as many complete 25 ms ticks as fit. Each tick reads current inputs and calls `game/step` with `0.025` seconds. Rendering occurs once after those simulation updates; it does not advance physics.
+`frame` caps one measured interval at 100 ms and passes that elapsed time plus the prior fractional remainder to `advance-world!`. The latter processes every complete 25 ms tick and returns the new fractional remainder for `frame` to carry into the next animation frame. Each tick calls `consume-inputs!`, which snapshots `read-inputs` and then clears only `pending-jump`; held A/D state remains. Thus a quick W tap can survive until a tick, while at most its first tick receives `:jump? true`.
 
-`game.cljc` is portable Clojure/ClojureScript code. Its `sqrt` function uses a reader conditional to select the JVM or JavaScript math implementation. All other browser effects stay in `client.cljs`. The simulation returns values; the client stores them with `swap!` and draws from the stored value.
+`step` forces horizontal input to zero while spawn locked. It calls `apply-jump` before gravity and movement, then resolves contact. Only a supported top contact unlocks spawn and restores the one air jump. Drawing happens after simulation and does not change world state.
 
-`init` first calls `stop!`, then registers the keyboard and blur listeners, draws the current world, and starts animation frames. `stop!` removes those listeners, clears held keys, cancels a scheduled frame, and clears its frame ID. This makes the lifecycle's effects explicit and repeatable.
+`init` calls `stop!` before registering listeners and scheduling a frame. `stop!` removes listeners, clears held keys and pending W through `handle-blur!`, cancels the scheduled frame, and resets its ID. `game.cljc` uses a reader conditional for `sqrt`; browser APIs remain in `client.cljs`.

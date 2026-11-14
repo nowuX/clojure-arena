@@ -1,59 +1,66 @@
 # Guía breve de Clojure y ClojureScript
 
-La simulación compartida está en `src/clojure_arena/game.cljc`; los eventos del navegador y el Canvas están en `src/clojure_arena/client.cljs`. Esta guía explica solo conceptos que aparecen en esos archivos. Para las reglas actuales, consulta [Simulación](simulation.md).
+La simulación compartida está en `src/clojure_arena/game.cljc`; los eventos y el dibujo del navegador están en `src/clojure_arena/client.cljs`. Esta guía cubre los conceptos que usa el juego. Consulta [Simulación](simulation.md) para las reglas.
 
 ## Clojure compartido: `game.cljc`
 
-### Datos y funciones
+### Mapas y funciones
 
-`def` nombra un valor; `defn` define una función. El mundo es un mapa con keywords como `:platform`, `:player` y `:x`:
-
-```clojure
-(def horizontal-speed 220)
-
-(def initial-world
-  {:platform {:x 170 :y 280 :width 460 :height 16 :color "#9c9c9c"}
-   :player {:x 400 :y 160 :vx 0 :vy 0 :radius 16 :color "#22d3ee"}})
-```
-
-`step` recibe el mundo, las entradas y `dt` en segundos. Su argumento de entradas usa `{:keys [horizontal] :or {horizontal 0}}`: toma `:horizontal` del mapa, o usa cero si falta. La simulación produce mapas nuevos; no lee el reloj ni cambia el argumento original.
-
-### Cálculo y composición
-
-`->` pasa un valor por varias operaciones. `step` actualiza `:vx`, luego `:vy`, y finalmente llama a `collide-platform`. `update` calcula el nuevo valor de una clave del mapa. Por ejemplo, la función de fricción usa `let` para nombrar el cambio de velocidad y `cond` para elegir la regla según el signo:
+`def` nombra un valor y `defn` define una función. El mundo es un mapa; sus claves son keywords como `:player`, `:spawn-locked?` y `:air-jumps-left`:
 
 ```clojure
-(defn apply-horizontal-friction [vx dt]
-  (let [change (* horizontal-friction dt)]
-    (cond
-      (pos? vx) (max 0 (- vx change))
-      (neg? vx) (min 0 (+ vx change))
-      :else 0)))
+{:player {:x 400 :y 160 :vx 0 :vy 0 :radius 16
+          :spawn-locked? true :air-jumps-left 1}}
 ```
 
-`game.cljc` compila como Clojure y ClojureScript. El reader conditional de `sqrt` elige la operación de cada entorno:
+`step` recibe mundo, entradas y `dt` en segundos. El argumento `{:keys [horizontal jump?] :or {horizontal 0 jump? false}}` extrae valores del mapa y fija sus valores por defecto. La simulación devuelve mapas nuevos; no consulta el navegador ni cambia el argumento original.
+
+### Condiciones y valores nuevos
+
+Las funciones con `?`, como `grounded?`, responden una pregunta. `supporting-platform` devuelve el mapa de plataforma si el jugador está apoyado arriba o `nil` si no lo está. `if`, `and` y `not` combinan condiciones; `cond` elige una rama según varios casos. `assoc` devuelve un mapa con un valor reemplazado y `update` calcula un valor nuevo para una clave.
+
+`apply-jump` usa el estado del jugador, la plataforma y el pulso `jump?`. Con controles desbloqueados, acepta el salto terrestre si `grounded?` es verdadero y conserva la recarga aérea; en el aire acepta un solo salto si `:air-jumps-left` es positivo y reduce el contador. En otro caso deja el jugador sin lanzamiento. `step` aplica esta decisión antes de sumar gravedad.
+
+### Composición, bucles y portabilidad
+
+`let` da nombres locales a valores intermedios. El macro `->` pasa el valor
+por operaciones sucesivas; por ejemplo, `move-player` devuelve un mapa nuevo:
+
+```clojure
+(-> player
+    (update :x + (* (:vx player) dt))
+    (update :y + (* (:vy player) dt)))
+```
+
+`loop` y `recur` repiten cálculos con valores nuevos, sin cambiar el mundo
+recibido. `collide-platform` los usa para continuar el tiempo restante tras
+cada contacto, con un máximo de cuatro contactos por tick. `keep` descarta
+candidatos nulos y `sort-by` ordena contactos por tiempo.
+
+Un archivo `.cljc` se puede compilar en Clojure y ClojureScript. `sqrt` usa
+un reader conditional para seleccionar la biblioteca de cada entorno:
 
 ```clojure
 #?(:clj (Math/sqrt value)
    :cljs (js/Math.sqrt value))
 ```
 
-Así, movimiento y colisiones son reutilizables sin importar APIs del navegador.
-
 ## ClojureScript del navegador: `client.cljs`
 
-### Estado y eventos
+### Átomos y eventos
 
-`defonce` conserva referencias durante recargas de código en desarrollo. `atom` crea estado mutable controlado por el cliente, como `world` y `pressed-keys`. `@world` lee el valor actual; `swap!` aplica una función al valor actual y guarda el resultado.
+`defonce` conserva referencias entre recargas de desarrollo; `atom` contiene una referencia mutable del cliente; `@world` la lee y `swap!` guarda el resultado de aplicar una función al valor actual. `reset!` reemplaza el contenido completo de un átomo. `pressed-keys` representa teclas mantenidas en un conjunto (`#{}`); `conj`, `disj` y `contains?` agregan, quitan y consultan sus elementos. `pending-jump` es aparte: conserva un pulso W hasta un tick. `read-inputs` solo lee ambos estados; `consume-inputs!` lee y luego limpia `pending-jump`.
 
-`handle-key-down!`, `handle-key-up!` y `handle-blur!` manejan efectos del navegador. `horizontal-input` convierte `KeyD` y `KeyA` en `1`, `-1` o `0`; `read-inputs` lo entrega como `{:horizontal ...}`. Expresiones como `js/window`, `.addEventListener`, `.-code` y `(.preventDefault event)` acceden a objetos de JavaScript. `stop!` quita listeners, limpia teclas y cancela el frame pendiente.
+Un evento W nuevo y no repetido marca el pulso. Soltar W quita la tecla mantenida, pero no borra el pulso capturado. `handle-blur!` limpia ambos estados; `stop!` también lo hace mediante esa función. Así, un toque rápido puede llegar al siguiente tick y un pulso no se repite en los ticks siguientes.
 
-### Tiempo y dibujo
+`js/window`, `.addEventListener`, `.-code` y `(.preventDefault event)` son interoperabilidad con JavaScript. `frame` usa `requestAnimationFrame`; `advance-world!` ejecuta ticks de 25 ms. Después, `draw-world` llama a las funciones que pintan el fondo, la plataforma y el jugador. Dibujar no avanza la simulación. El estado visible de inicio es `Arena lista.`.
 
-`frame` usa `requestAnimationFrame`; `advance-world!` acumula tiempo y ejecuta ticks de 25 ms, pasando `0.025` segundos a `game/step`. Después, `draw-world` dibuja el mundo actual mediante `draw-background`, `draw-platform` y `draw-player` sobre Canvas. Dibujar no avanza la simulación.
+## Recorrido de A/D y W
 
-`init` muestra en español el estado `Arena lista.`. Esa cadena pertenece a la presentación del cliente, no al mundo de juego.
+Al mantener D, el evento agrega `KeyD` al conjunto y `horizontal-input` produce
+`1`. `consume-inputs!` entrega esa intención a `step`, que acelera si el jugador
+está desbloqueado. Al soltar la tecla, la dirección es `0` y actúa la fricción;
+con A y D juntas también se obtiene `0`.
 
-## Recorrido de una tecla
 
-Al mantener D, el listener agrega `KeyD` a `pressed-keys`. En el siguiente tick, `read-inputs` produce `{:horizontal 1}`. `game/step` devuelve el mundo siguiente, `world` lo guarda y el frame lo dibuja. Al soltar D, el input se vuelve neutral y `apply-horizontal-friction` reduce la velocidad. Al perder el foco, `handle-blur!` limpia las teclas.
+Al presionar W, `handle-key-down!` marca `pending-jump` solo para una pulsación nueva; autorepeat y mantener W no crean pulsos adicionales. En un tick, `consume-inputs!` pasa `:jump? true` a `game/step` y limpia el pulso. `apply-jump` revisa el bloqueo de aparición, el apoyo y la recarga aérea. El mundo siguiente guarda `vy`, el contador y los cambios por contacto; el cliente lo dibuja. Si W se presiona antes del aterrizaje, el pulso se consume mientras el jugador sigue bloqueado y no se reproduce después: hay que volver a pulsar W ya en tierra.

@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**20 of 70 checkpoints complete.** Checkpoints 01–20 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**21 of 70 checkpoints complete.** Checkpoints 01–21 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -305,7 +305,7 @@ Checkpoints **01–21**. Introduce rendering, immutable data, input, fixed time,
 
 ### 21 — Verify the first playable platform loop
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Integrate movement, spawn lock, support, both jumps, timing, and
   restart behavior. Extend the simulation guide, Spanish language manual, and local
   verification checklist using only implemented concepts.

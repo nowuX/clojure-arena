@@ -1,41 +1,35 @@
 # Simulation
 
-The shared simulation lives in `src/clojure_arena/game.cljc`. It receives ordinary values and returns a new world value; it does not read the DOM, Canvas, keyboard state, or wall clock. The browser client owns those effects and calls `game/step` with fixed simulation time.
+The shared simulation is `src/clojure_arena/game.cljc`. Its functions receive values and return a new world; keyboard, clock, DOM, and Canvas effects belong to `client.cljs`.
 
-## Current world
+## World and movement
 
-`initial-world` contains one solid rectangular platform and one circular player:
+`initial-world` contains one solid platform and one player:
 
-- Platform: top-left `(170, 280)`, size `460 × 16`, neutral gray `#9c9c9c`.
-- Player: center `(400, 160)`, radius `16`, initial velocity `(0, 0)`, cyan `#22d3ee`.
-- Gravity is `980` world units per second squared, in the positive-Y direction.
+```clojure
+{:platform {:x 170 :y 280 :width 460 :height 16 :color "#9c9c9c"}
+ :player {:x 400 :y 160 :vx 0 :vy 0 :radius 16
+          :spawn-locked? true :air-jumps-left 1 :color "#22d3ee"}}
+```
 
-The arena background is `#101010`. The player body is the only colored gameplay object; the platform remains neutral.
+The background is `#101010`; the platform is neutral gray and only the player body is colored. Gravity is `980` units/s² downward. Horizontal intention targets ±220 units/s at up to 880 units/s². Neutral input applies `horizontal-friction` at 1100 units/s² toward zero, without reversing velocity. At the client's 25 ms tick those changes are at most 22 and 27.5 units/s respectively. A locked spawn forces horizontal intention to zero while gravity and collision continue. From rest, ten held-direction ticks reach 220; from 220, neutral braking stops in eight ticks and travels another 19.25 units in free space.
 
-## One simulation step
+`step` receives a world, `{:horizontal ... :jump? ...}`, and `dt` in seconds. A missing direction defaults to zero and a missing jump action to false. Its order is:
 
-`step` accepts a world, an input map, and `dt` in seconds. Missing `:horizontal` input defaults to zero. For the current player it:
+1. While `:spawn-locked?` is true, replace horizontal intention with zero.
+2. Call `apply-jump` before gravity. A locked player rejects the request. An unlocked supported player launches with `vy = -420` and keeps the air-jump allowance. An unlocked airborne player launches with `vy = -420` only if `:air-jumps-left` is positive, then spends one. Requests with no allowance are rejected.
+3. Accelerate or brake horizontally, add `980 × dt` to `vy`, then call `collide-platform`.
 
-1. Updates horizontal velocity with `accelerate-horizontal`. A/D intention targets `-220` or `+220` units per second, approaching the target by at most `880 × dt`. Neutral intention calls `apply-horizontal-friction`, which uses `horizontal-friction` (`1100` units per second squared) to approach zero without crossing it. Both rules apply in the air and on the platform.
-2. Adds gravity to vertical velocity by `980 × dt`.
-3. Calls `collide-platform` to integrate movement and resolve contact with the single platform.
+From a supported center Y of 264, the first launch tick ends at Y = 254.1125 with vy = −395.5. Holding W does not change jump height. Each fresh W press is one request. A grounded jump and the single allowed air jump both replace vertical velocity with -420 before gravity is added.
 
-At the client's 25 ms tick, acceleration changes horizontal speed by at most `22` units per second; neutral friction changes it by at most `27.5`. Starting from rest, ten sustained movement ticks reach the 220-unit/s target. Starting at 220, neutral braking stops in eight ticks and covers 19.25 additional units in free space.
+## Support, spawn, and allowance
 
-## Movement and contact
+`grounded?` is true when vertical velocity is zero, the circle center lies within the platform's horizontal span, and its feet meet the top within `contact-epsilon`. `supporting-platform` returns that platform when grounded, otherwise `nil`.
 
-`move-player` advances the circle center using velocity and elapsed seconds. When the player is standing on the platform's top, `supported-travel-time` limits horizontal travel to the platform edge. If the player leaves that edge, the remaining time is simulated as a fall.
+The initial player falls with controls locked. A resolved supported top landing sets `:spawn-locked?` to false and restores `:air-jumps-left` to one. Side, underside, and corner contacts do neither. A ground jump preserves the allowance; walking off an edge also preserves it. An accepted air jump reduces it to zero, and a later supported landing restores it. `apply-jump` checks support at the start of the tick, so an action rejected during the landing tick is not buffered for after landing.
 
-`platform-contact` checks an existing overlap and swept contact with each rectangular face and rounded corner. `overlap-contact`, `face-contact`, and `corner-contact` produce contact geometry. `resolve-contact` removes only velocity directed into the contact normal, preserving separating and tangential motion. `collide-platform` can process up to four contacts in one tick and uses a `1e-9` contact tolerance.
+## Contact and integration
 
-The scene has one platform. W captures a fresh jump request, consumed by one tick; an unlocked supported player launches at −420 units/s before gravity. Airborne requests without an allowance are discarded. Initial spawn controls stay locked until a flat-top landing; gravity and contact continue during the lock. `grounded?` checks the center within the top span, feet at the top, and zero vertical speed. `supporting-platform` returns that platform or nil. The code does not impose an arena-edge rule.
+`move-player` advances the circle center using velocity and seconds. `supported-travel-time` bounds motion along a supported top and lets gravity begin after leaving an edge. `platform-contact` checks overlap and swept contact against the single rectangle's faces and rounded corners; `resolve-contact` removes only inward normal velocity. `collide-platform` allows up to four contacts per tick and uses a `1e-9` tolerance.
 
-## Inputs and rendering
-
-The client turns `KeyD` and `KeyA` into `:horizontal` values `1`, `-1`, or `0`. With both keys held the result is zero, so neutral friction applies. A browser blur clears held keys; it does not directly edit the world. `client/advance-world!` calls `game/step` once for each accumulated 25 ms tick, and `client/draw-world` renders the resulting world.
-
-See [Architecture](architecture.md) for ownership and [Simulation verification](simulation-verification.md) for checks.
-
-The player tracks `:air-jumps-left`, initially one. Only supported top landing
-restores it. Ground launch and edge departure preserve it; side, underside,
-and rounded-corner contact do not refill it. A fresh airborne request with allowance remaining replaces vertical velocity with −420, then spends the allowance. A third request is rejected.
+The world has one platform and no arena-edge rule. See [Architecture](architecture.md) for ownership and [Simulation verification](simulation-verification.md) for checks.
