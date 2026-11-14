@@ -28,3 +28,12 @@ the fixed contender roster. Running simulation receives only nonforfeited
 roster players, then merges their results into the connection-owned player map.
 Observer one-shot actions are discarded and cannot affect the current match.
 Observers still count toward the four-connection capacity.
+
+## Trusted departures
+
+`remove-player` captures a departing contender's latest color, stocks and
+percentage and marks its roster entry forfeited before ordinary room cleanup.
+Disconnect and timeout use the same trusted leave path. An observer departure
+only removes ownership. Reused colors receive a new ID and do not restore the
+old contender. Departure does not charge a stock or grant elimination credit;
+result resolution is added separately.

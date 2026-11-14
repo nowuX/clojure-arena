@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–59 complete (59/70). Running matches keep a fixed contender roster; later connections occupy free slots as waiting observers without physics or combat.
+Checkpoints 01–60 complete (60/70). The authoritative match records contender departures as forfeits while ordinary cleanup frees connection ownership and colors.
 Future mechanics remain specified in the roadmap.
 
 ## Run

@@ -38,11 +38,18 @@
       reconcile-entrants))
 
 
-(defn remove-player [world player-id]
-  (reconcile-entrants (update world :players dissoc player-id)))
-
 (defn- capture-contender [contender player]
   (merge contender (select-keys player [:color :stocks :accumulated-percentage])))
+
+(defn remove-player [world player-id]
+  (let [player (get-in world [:players player-id])
+        world (if (and player (get-in world [:match :contenders player-id]))
+                (update-in world [:match :contenders player-id]
+                           #(assoc (capture-contender % player) :forfeited? true))
+                world)]
+    (-> world
+        (update :players dissoc player-id)
+        reconcile-entrants)))
 
 (defn- step-running [world inputs-by-player dt]
   (let [player-ids (filter #(contender? world %) (keys (:players world)))
