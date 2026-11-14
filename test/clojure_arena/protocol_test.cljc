@@ -41,8 +41,12 @@
 
 (deftest server-message-validation-and-roundtrip-test
   (testing "server messages accept only the documented exact maps"
+    (is (= [:cyan :crimson :amber :green] protocol/player-colors))
     (doseq [message [{:type :ready}
                      {:type :pong}
+                     {:type :identity :player-id :player-1 :color :cyan}
+                     {:type :identity :player-id :player-24 :color :green}
+                     {:type :room-full}
                      {:type :error :code :invalid-edn}
                      {:type :error :code :invalid-message}
                      {:type :error :code :unsupported-type}]]
@@ -50,6 +54,18 @@
           (str "expected valid server message: " (pr-str message))))
     (doseq [message [{:type :ready :extra true}
                      {:type :pong :extra true}
+                     {:type :identity :player-id :player-1 :color :cyan
+                      :extra true}
+                     {:type :identity :player-id "player-1" :color :cyan}
+                     {:type :identity :player-id :other :color :cyan}
+                     {:type :identity :player-id :player-0 :color :cyan}
+                     {:type :identity :player-id :arena/player-1 :color :cyan}
+                     {:type :identity :player-id :player-1 :color :unknown}
+                     {:type :identity :player-id :player-1}
+                     {:type :identity :player-id :player-1 :color :cyan
+                      :code :invalid-message}
+                     {:type :room-full :extra true}
+                     {:type :room-full :player-id :player-5}
                      {:type :error :code :unknown}
                      {:type :error :code :invalid-edn :extra true}
                      {:type :error}
@@ -66,4 +82,11 @@
             decoded (protocol/decode (pr-str reply))]
         (is (= expected reply))
         (is (= reply decoded))
+        (is (protocol/server-message? decoded)))))
+  (testing "admission messages survive EDN wire encoding and decode exactly"
+    (doseq [message [{:type :identity :player-id :player-1 :color :cyan}
+                     {:type :identity :player-id :player-4 :color :green}
+                     {:type :room-full}]]
+      (let [decoded (protocol/decode (pr-str message))]
+        (is (= message decoded))
         (is (protocol/server-message? decoded))))))

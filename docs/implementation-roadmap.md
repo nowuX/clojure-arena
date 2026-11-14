@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**40 of 70 checkpoints complete.** Checkpoints 01–40 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**41 of 70 checkpoints complete.** Checkpoints 01–41 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -556,7 +556,7 @@ Checkpoints **39–49**. Add HTTP/WebSocket, exact EDN messages, connection-owne
 
 ### 41 — Admit at most four unique identities
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Introduce one room agent and a pure transition envelope.
   Serialize trusted joins, allocate a monotonic player ID and free palette keyword, bind
   them to a private connection token, and return captured post-commit identity/full

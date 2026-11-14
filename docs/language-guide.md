@@ -210,3 +210,11 @@ comprueba el fin del texto; `try`/`catch` distingue los errores del protocolo.
 `server-message?` valida mapas exactos antes de aceptarlos. En ClojureScript,
 `js/URL` obtiene el endpoint y `js/WebSocket` administra eventos. `identical?`
 comprueba que un callback todavía pertenezca al socket actual.
+
+### Agente de sala y efectos capturados
+
+`agent` guarda el envelope de sala. `send` encola una función y serializa sus
+transiciones; el núcleo puro devuelve `{:room ... :effects ...}`. `add-watch`
+recibe ese valor después de guardarlo y entrega las respuestas capturadas.
+El token es un objeto privado de la conexión; la identidad visible es otro dato.
+Así la capacidad y la elección de color forman una sola decisión de estado.

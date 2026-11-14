@@ -45,3 +45,22 @@ watcher, which has no gameplay WebSocket; use the query or the server's :8082 pa
 `init` starts transport; `stop!` detaches callbacks and closes its owned socket.
 Callbacks check their socket identity. Failure keeps the local fighting sandbox
 playable. No automatic reconnect or shared simulation exists at this stage.
+
+## Serialized admission
+
+`room/initial-room` contains private `:members` and `:next-player-number`.
+`apply-room-message` accepts only trusted exact `{:type :join :connection-token
+...}` maps. Its pure result is an envelope `{:room next-room :effects [...]}`.
+A free palette keyword is allocated with monotonic `:player-N` identity; the
+fifth connection receives exact `{:type :room-full}` without changing the room.
+A duplicate token keeps its original identity and emits that captured reply.
+
+`make-room` owns one Clojure agent. `enqueue-room-message!` serializes actions
+with `send`; its watch delivers effects after the new envelope is committed.
+The server maps fresh private Object tokens to channels; neither token nor
+client claims determine a wire-selected ID. Each server creates its own room.
+
+Wire identity is exactly `{:type :identity :player-id :player-N :color :cyan}`
+with one of `:cyan/:crimson/:amber/:green`. The browser shows ID/color. Gameplay
+is still local, and this stage reserves membership after socket closure until
+explicit leave handling is introduced. No player body is spawned on the server yet.

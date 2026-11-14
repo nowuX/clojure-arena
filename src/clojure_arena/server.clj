@@ -1,6 +1,7 @@
 (ns clojure-arena.server
   (:require [clojure.string :as str]
             [clojure-arena.protocol :as protocol]
+            [clojure-arena.room :as room]
             [org.httpkit.server :as http]
             [ring.middleware.content-type :refer [wrap-content-type]]
             [ring.middleware.file :refer [wrap-file]]
@@ -8,14 +9,26 @@
 
 (def default-options {:host "127.0.0.1" :port 8082})
 
-(defn websocket-response [request]
+(defn deliver-effects! [connections effects]
+  (doseq [{:keys [connection-token message]} effects]
+    (when-let [channel (get @connections connection-token)]
+      (http/send! channel (pr-str message)))))
+
+(defn websocket-response [request room-agent connections]
   (if (:websocket? request)
-    (http/as-channel request
-                     {:on-open (fn [channel]
-                                 (http/send! channel (pr-str {:type :ready})))
-                      :on-receive (fn [channel message]
-                                    (http/send! channel
-                                                (pr-str (protocol/reply-to-message message))))})
+    (let [connection-token (Object.)]
+      (http/as-channel request
+                       {:on-open (fn [channel]
+                                   (swap! connections assoc connection-token channel)
+                                   (http/send! channel (pr-str {:type :ready}))
+                                   (room/enqueue-room-message!
+                                    room-agent {:type :join
+                                                :connection-token connection-token}))
+                        :on-receive (fn [channel message]
+                                      (http/send! channel
+                                                  (pr-str (protocol/reply-to-message message))))
+                        :on-close (fn [_channel _status]
+                                    (swap! connections dissoc connection-token))}))
     {:status 426
      :headers {"Content-Type" "text/plain; charset=utf-8"
                "Upgrade" "websocket"}
@@ -31,13 +44,15 @@
      :body "Not found\n"}))
 
 (defn make-handler [public-dir]
-  (let [static-handler (-> routes
+  (let [connections (atom {})
+        room-agent (room/make-room (partial deliver-effects! connections))
+        static-handler (-> routes
                            (wrap-file public-dir)
                            wrap-content-type
                            wrap-head)]
     (fn [request]
       (if (and (= :get (:request-method request)) (= "/ws" (:uri request)))
-        (websocket-response request)
+        (websocket-response request room-agent connections)
         (static-handler request)))))
 
 (defn parse-options [args]

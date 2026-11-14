@@ -16,13 +16,16 @@
 (defn set-state! [state]
   (reset! connection-state state)
   (when-let [element (.getElementById js/document "connection-status")]
-    (set! (.-textContent element)
-          (case (:status state)
-            :connecting "Conectando al servidor…"
-            :open "Conectado al servidor."
-            :ready "Comunicación con el servidor verificada."
-            :error "Servidor no disponible; el juego continúa en modo local."
-            "Conexión cerrada; el juego continúa en modo local."))))
+    (let [label (case (:status state)
+                  :connecting "Conectando al servidor…"
+                  :open "Conectado al servidor."
+                  :ready "Comunicación con el servidor verificada."
+                  :error "Servidor no disponible; el juego continúa en modo local."
+                  "Conexión cerrada; el juego continúa en modo local.")
+          {:keys [player-id color]} (:identity state)]
+      (set! (.-textContent element)
+            (str label (when player-id
+                         (str " ID: " (name player-id) " · " (name color) ".")))))))
 
 (defn stop! []
   (when-let [socket @connection]
@@ -53,18 +56,24 @@
                 (try
                   (let [message (protocol/decode (.-data event))]
                     (if (protocol/server-message? message)
-                      (set-state! {:status (case (:type message)
-                                            :pong :ready
-                                            :ready :open
-                                            :error)
-                                   :url url :message message})
-                      (set-state! {:status :error :url url})))
+                      (let [state (assoc @connection-state :url url :message message)]
+                        (set-state!
+                         (case (:type message)
+                           :identity (assoc state :admission :accepted
+                                            :identity (select-keys message [:player-id :color]))
+                           :room-full (-> state
+                                          (assoc :admission :full)
+                                          (dissoc :identity))
+                           :pong (assoc state :status :ready)
+                           :ready (assoc state :status :open)
+                           (assoc state :status :error))))
+                      (set-state! (assoc @connection-state :status :error :url url))))
                   (catch :default _
-                    (set-state! {:status :error :url url}))))))
+                    (set-state! (assoc @connection-state :status :error :url url)))))))
       (set! (.-onerror socket)
             (fn [_]
               (when (identical? socket @connection)
-                (set-state! {:status :error :url url}))))
+                (set-state! (assoc @connection-state :status :error :url url)))))
       (set! (.-onclose socket)
             (fn [_]
               (when (identical? socket @connection)

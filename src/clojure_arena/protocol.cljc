@@ -4,6 +4,7 @@
             #?(:cljs [cljs.tools.reader.reader-types :as readers])))
 
 (def error-codes #{:invalid-edn :invalid-message :unsupported-type})
+(def player-colors [:cyan :crimson :amber :green])
 
 (defn decode [text]
   (let [reader #?(:clj (java.io.PushbackReader. (java.io.StringReader. text))
@@ -37,6 +38,14 @@
 (defn server-message? [message]
   (or (= {:type :ready} message)
       (= {:type :pong} message)
+      (= {:type :room-full} message)
+      (and (map? message)
+           (= #{:type :player-id :color} (set (keys message)))
+           (= :identity (:type message))
+           (keyword? (:player-id message))
+           (nil? (namespace (:player-id message)))
+           (re-matches #"player-[1-9][0-9]*" (name (:player-id message)))
+           (contains? (set player-colors) (:color message)))
       (and (map? message)
            (= #{:type :code} (set (keys message)))
            (= :error (:type message))

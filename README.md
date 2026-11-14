@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–40 complete (40/70). The Clojure server serves assets and exchanges validated single-value EDN over /ws with ready/ping/pong and typed errors. The browser derives its endpoint from origin or an HTTP(S) server query and retains playable local fallback; shared gameplay is not active yet.
+Checkpoints 01–41 complete (41/70). A room agent serializes trusted admission and allocates at most four monotonic player IDs with unique cyan/crimson/amber/green identities. Private tokens own connections and captured effects are delivered after commit. Browsers still play locally; server spawn and simulation follow.
 Future mechanics remain specified in the roadmap.
 
 ## Run

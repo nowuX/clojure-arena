@@ -101,6 +101,79 @@
     (is (= :error (:status @transport/connection-state)))
     (is (= 1 (alength (aget socket "sent"))))))
 
+(deftest identity-survives-the-ping-exchange-in-either-arrival-order
+  (doseq [identity-first? [true false]]
+    (transport/start! "http://arena.example/")
+    (let [socket @transport/connection
+          identity {:player-id :player-41 :color :green}
+          message (pr-str (assoc identity :type :identity))]
+      (open! socket)
+      (receive! socket "{:type :ready}")
+      (if identity-first?
+        (do (receive! socket message)
+            (receive! socket "{:type :pong}"))
+        (do (receive! socket "{:type :pong}")
+            (receive! socket message)))
+      (is (= identity (:identity @transport/connection-state)))
+      (is (= :accepted (:admission @transport/connection-state)))
+      (is (= :ready (:status @transport/connection-state)))
+      (is (= "Comunicación con el servidor verificada. ID: player-41 · green."
+             (.-textContent @status-element)))
+      (receive! socket message)
+      (is (= identity (:identity @transport/connection-state)))
+      (is (= 1 (alength (aget socket "sent")))))))
+
+(deftest invalid-identity-cannot-replace-the-assigned-identity
+  (transport/start! "http://arena.example/")
+  (let [socket @transport/connection
+        identity {:player-id :player-3 :color :amber}]
+    (open! socket)
+    (receive! socket (pr-str (assoc identity :type :identity)))
+    (doseq [message [{:type :identity :player-id :player-4 :color :orange}
+                     {:type :identity :player-id "player-4" :color :green}
+                     {:type :identity :player-id :player-4}
+                     {:type :identity :player-id :player-4 :color :green :extra 1}]]
+      (receive! socket (pr-str message))
+      (is (= :error (:status @transport/connection-state)))
+      (is (= identity (:identity @transport/connection-state))))
+    (receive! socket "{:type :pong}")
+    (is (= identity (:identity @transport/connection-state)))
+    (is (= :ready (:status @transport/connection-state)))))
+
+(deftest full-room-is-recorded-without-assigning-an-identity
+  (transport/start! "http://arena.example/")
+  (let [socket @transport/connection]
+    (open! socket)
+    (receive! socket "{:type :ready}")
+    (receive! socket "{:type :room-full}")
+    (receive! socket "{:type :pong}")
+    (is (= :full (:admission @transport/connection-state)))
+    (is (nil? (:identity @transport/connection-state)))
+    (is (= :ready (:status @transport/connection-state)))
+    (is (identical? socket @transport/connection))
+    (is (zero? (aget socket "closeCount")))))
+
+(deftest replaced-or-closed-sessions-clear-their-identity
+  (transport/start! "http://arena.example/")
+  (let [old @transport/connection
+        identity-message "{:type :identity :player-id :player-1 :color :cyan}"]
+    (open! old)
+    (receive! old identity-message)
+    (let [old-handler (.-onmessage old)]
+      (transport/start! "http://arena.example/")
+      (is (nil? (:identity @transport/connection-state)))
+      (is (nil? (:admission @transport/connection-state)))
+      (old-handler #js {:data identity-message})
+      (is (nil? (:identity @transport/connection-state)))
+      (let [current @transport/connection]
+        (open! current)
+        (receive! current "{:type :identity :player-id :player-2 :color :crimson}")
+        (is (= :player-2 (get-in @transport/connection-state [:identity :player-id])))
+        ((.-onclose current) #js {})
+        (is (nil? (:identity @transport/connection-state)))
+        (is (nil? (:admission @transport/connection-state)))
+        (is (nil? @transport/connection))))))
+
 (deftest restart-detaches-old-callbacks-and-ignores-queued-events
   (transport/start! "http://arena.example/")
   (let [old @transport/connection

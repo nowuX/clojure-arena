@@ -65,6 +65,21 @@
                                              listener))]
     {:websocket websocket :events events}))
 
+(defn- connect-tracked! [connections host port]
+  (let [connection (connect! host port)]
+    (swap! connections conj connection)
+    connection))
+
+(defn- connect-async! [host port]
+  (let [{:keys [events listener]} (new-listener)]
+    {:future (.buildAsync (.newWebSocketBuilder client)
+                          (websocket-uri host port)
+                          listener)
+     :events events}))
+
+(defn- await-connect! [{:keys [^CompletableFuture future events]}]
+  {:websocket (await-future future) :events events})
+
 (defn- next-event! [events]
   (or (.poll ^LinkedBlockingQueue events timeout-ms TimeUnit/MILLISECONDS)
       (throw (ex-info "Timed out waiting for a WebSocket event"
@@ -77,16 +92,55 @@
       (throw (ex-info "Expected a WebSocket text message"
                       {:event event})))))
 
+(defn- await-server-message! [events]
+  (let [message (protocol/decode (await-text! events))]
+    (is (protocol/server-message? message)
+        (str "reply failed server-message? validation: " (pr-str message)))
+    message))
+
+(defn- await-ready! [events]
+  (let [message (await-server-message! events)]
+    (is (= {:type :ready} message)
+        (str "expected the ready message first, got " (pr-str message)))
+    message))
+
+(defn- await-admission! [events]
+  (let [message (await-server-message! events)]
+    (is (contains? #{:identity :room-full} (:type message))
+        (str "expected an admission result after ready, got " (pr-str message)))
+    message))
+
+(defn- assert-identity! [message]
+  (is (= #{:type :player-id :color} (set (keys message)))
+      (str "identity must have exactly the documented keys: " (pr-str message)))
+  (is (= :identity (:type message)))
+  (is (keyword? (:player-id message))
+      (str "player-id must be a keyword: " (pr-str message)))
+  (is (and (keyword? (:player-id message))
+           (re-matches #"player-[1-9][0-9]*" (name (:player-id message))))
+      (str "player-id must be a :player-N keyword: " (pr-str message)))
+  (is (some #{(:color message)} protocol/player-colors)
+      (str "unknown player color: " (pr-str message)))
+  (is (protocol/server-message? message)
+      (str "identity failed server-message? validation: " (pr-str message)))
+  message)
+
+(defn- await-identity! [events]
+  (assert-identity! (await-admission! events)))
+
+(defn- assert-no-event! [events context]
+  (let [event (.poll ^LinkedBlockingQueue events 100 TimeUnit/MILLISECONDS)]
+    (is (nil? event)
+        (str "unexpected extra WebSocket event " (pr-str event) " " context))))
+
 (defn- send-text! [websocket text last-fragment?]
   (await-future (.sendText ^WebSocket websocket text last-fragment?)))
 
 (defn- expect-reply! [websocket events text expected]
   (send-text! websocket text true)
-  (let [reply (protocol/decode (await-text! events))]
+  (let [reply (await-server-message! events)]
     (is (= expected reply)
         (str "unexpected reply to " (pr-str text)))
-    (is (protocol/server-message? reply)
-        (str "reply failed server-message? validation: " (pr-str reply)))
     reply))
 
 (defn- close-websocket! [websocket events]
@@ -137,42 +191,55 @@
       (is (pos? port) "port 0 should bind an ephemeral port")
       (let [{websocket :websocket events :events} (connect! host port)]
         (try
-          (testing "open sends the ready message"
-            (let [welcome (protocol/decode (await-text! events))]
-              (is (= {:type :ready} welcome))
-              (is (protocol/server-message? welcome))))
+          (testing "open sends ready, then one automatic identity"
+            (await-ready! events)
+            (is (= {:type :identity :player-id :player-1 :color :cyan}
+                   (await-identity! events))))
           (testing "repeated pings each receive a pong"
             (dotimes [_ 3]
-              (expect-reply! websocket events "{:type :ping}" {:type :pong})))
+              (expect-reply! websocket events "{:type :ping}" {:type :pong}))
+            (assert-no-event! events "pings must not allocate another identity"))
           (testing "fragmented text is assembled into one ping"
             (send-text! websocket "{:type " false)
             (send-text! websocket ":ping}" true)
-            (let [reply (protocol/decode (await-text! events))]
+            (let [reply (await-server-message! events)]
               (is (= {:type :pong} reply))
-              (is (protocol/server-message? reply))))
+              (assert-no-event! events "fragmented ping")))
           (testing "malformed EDN reports an error and a later ping still works"
             (expect-reply! websocket events "{"
                            {:type :error :code :invalid-edn})
             (expect-reply! websocket events "{:type :ping}" {:type :pong}))
-          (testing "internal actions and binary messages are rejected"
+          (testing "internal actions, forged identities, and extra ping fields are rejected"
             (doseq [action [:join :tick :leave]]
               (expect-reply! websocket events
                              (pr-str {:type action})
                              {:type :error :code :unsupported-type}))
+            (expect-reply! websocket events
+                           "{:type :ping :player-id :player-99 :color :green}"
+                           {:type :error :code :invalid-message})
+            (expect-reply! websocket events
+                           "{:type :identity :player-id :player-99 :color :green}"
+                           {:type :error :code :unsupported-type})
+            (expect-reply! websocket events
+                           "{:type :join :player-id :player-99 :color :green}"
+                           {:type :error :code :unsupported-type})
             (await-future
              (.sendBinary ^WebSocket websocket
                           (ByteBuffer/wrap (.getBytes "{:type :ping}"))
                           true))
-            (let [reply (protocol/decode (await-text! events))]
+            (let [reply (await-server-message! events)]
               (is (= {:type :error :code :invalid-message} reply))
-              (is (protocol/server-message? reply))))
+              (assert-no-event! events "invalid wire messages")))
+          (testing "a later ping still works after rejected wire messages"
+            (expect-reply! websocket events "{:type :ping}" {:type :pong}))
           (testing "a normal close is acknowledged and a new connection works"
             (close-websocket! websocket events)
             (let [{reconnected :websocket reconnect-events :events}
                   (connect! host port)]
               (try
-                (is (= {:type :ready}
-                       (protocol/decode (await-text! reconnect-events))))
+                (await-ready! reconnect-events)
+                (is (= {:type :identity :player-id :player-2 :color :crimson}
+                       (await-identity! reconnect-events)))
                 (expect-reply! reconnected reconnect-events
                                "{:type :ping}" {:type :pong})
                 (close-websocket! reconnected reconnect-events)
@@ -191,7 +258,18 @@
       (is (pos? port) "port 0 should bind an ephemeral port")
       (let [{websocket :websocket events :events} (connect! host port)]
         (try
-          (is (= {:type :ready} (protocol/decode (await-text! events))))
+          (await-ready! events)
+          (is (= {:type :identity :player-id :player-1 :color :cyan}
+                 (await-identity! events)))
+          (close-websocket! websocket events)
+          (finally
+            (abort-websocket! websocket))))
+      (let [{websocket :websocket events :events} (connect! host port)]
+        (try
+          (await-ready! events)
+          (is (= {:type :identity :player-id :player-2 :color :crimson}
+                 (await-identity! events))
+              "closing a socket must not release its point-33 reservation")
           (close-websocket! websocket events)
           (finally
             (abort-websocket! websocket))))
@@ -203,10 +281,113 @@
             "the stopped WebSocket server's port should be reusable")
         (let [{websocket :websocket events :events} (connect! host port)]
           (try
-            (is (= {:type :ready} (protocol/decode (await-text! events))))
+            (await-ready! events)
+            (is (= {:type :identity :player-id :player-1 :color :cyan}
+                   (await-identity! events)))
             (expect-reply! websocket events "{:type :ping}" {:type :pong})
             (close-websocket! websocket events)
             (finally
               (abort-websocket! websocket))))
         (finally
           (server/stop! second-server))))))
+
+(defn- player-number [identity]
+  (Long/parseLong (subs (name (:player-id identity)) 7)))
+
+(defn- cleanup-async-connections! [pending]
+  (doseq [{:keys [^CompletableFuture future]} pending]
+    (when (.isDone future)
+      (try
+        (abort-websocket! (.getNow future nil))
+        (catch Exception _ nil)))
+    (.cancel future true)))
+
+(deftest websocket-simultaneous-admission-capacity-test
+  (let [host (test-host)
+        instance (start-test-server! host 0)
+        port (http/server-port instance)
+        pending (vec (repeatedly 9 #(connect-async! host port)))]
+    (try
+      (is (pos? port) "port 0 should bind an ephemeral port")
+      (let [connections (mapv await-connect! pending)
+            admissions (mapv (fn [{:keys [events]}]
+                              (await-ready! events)
+                              (await-admission! events))
+                            connections)
+            identities (filterv #(= :identity (:type %)) admissions)
+            full (filterv #(= :room-full (:type %)) admissions)
+            expected-ids (set (map #(keyword (str "player-" %)) (range 1 5)))]
+        (testing "simultaneous opens reserve exactly four unique identities"
+          (is (= 4 (count identities)))
+          (doseq [identity identities]
+            (assert-identity! identity))
+          (is (= expected-ids (set (map :player-id identities))))
+          (is (= 4 (count (set (map :player-id identities)))))
+          (is (= (vec protocol/player-colors)
+                 (mapv :color (sort-by player-number identities))))
+          (is (= 5 (count full)))
+          (is (every? #(= {:type :room-full} %) full))
+          (is (every? protocol/server-message? full)))
+        (testing "admitted and full sockets remain usable, and pings never allocate"
+          (doseq [[{:keys [websocket events]} admission]
+                  (map vector connections admissions)]
+            (is (contains? #{:identity :room-full} (:type admission)))
+            (dotimes [_ 2]
+              (expect-reply! websocket events "{:type :ping}" {:type :pong}))
+            (assert-no-event! events "ping must not cause another identity or a close")))
+        (testing "wire clients cannot invoke reserved room operations or forge identities"
+          (let [index (first (keep-indexed (fn [index admission]
+                                             (when (= :identity (:type admission))
+                                               index))
+                                           admissions))]
+            (when (some? index)
+              (let [{:keys [websocket events]} (nth connections index)]
+                (doseq [[text expected] [["{:type :join}" {:type :error
+                                                              :code :unsupported-type}]
+                                         ["{:type :tick}" {:type :error
+                                                             :code :unsupported-type}]
+                                         ["{:type :leave}" {:type :error
+                                                              :code :unsupported-type}]
+                                         ["{:type :ping :player-id :player-99 :color :green}"
+                                          {:type :error :code :invalid-message}]
+                                         ["{:type :identity :player-id :player-99 :color :green}"
+                                          {:type :error :code :unsupported-type}]
+                                         ["{:type :join :player-id :player-99 :color :green}"
+                                          {:type :error :code :unsupported-type}]]]
+                  (expect-reply! websocket events text expected))
+                (expect-reply! websocket events "{:type :ping}" {:type :pong})
+                (assert-no-event! events "forged input must not add an identity"))))))
+      (finally
+        (cleanup-async-connections! pending)
+        (server/stop! instance)))))
+
+(deftest websocket-server-room-isolation-test
+  (let [host (test-host)
+        first-server (start-test-server! host 0)
+        second-server (start-test-server! host 0)
+        first-port (http/server-port first-server)
+        second-port (http/server-port second-server)
+        connections (atom [])]
+    (try
+      (is (pos? first-port))
+      (is (pos? second-port))
+      (let [first-a (connect-tracked! connections host first-port)
+            second-a (connect-tracked! connections host first-port)
+            first-b (connect-tracked! connections host second-port)
+            second-b (connect-tracked! connections host second-port)]
+        (doseq [[connection expected] [[first-a {:type :identity
+                                                 :player-id :player-1 :color :cyan}]
+                                       [second-a {:type :identity
+                                                  :player-id :player-2 :color :crimson}]
+                                       [first-b {:type :identity
+                                                 :player-id :player-1 :color :cyan}]
+                                       [second-b {:type :identity
+                                                  :player-id :player-2 :color :crimson}]]]
+          (let [{:keys [events]} connection]
+            (await-ready! events)
+            (is (= expected (await-identity! events))))))
+      (finally
+        (doseq [{:keys [websocket]} @connections]
+          (abort-websocket! websocket))
+        (server/stop! second-server)
+        (server/stop! first-server)))))
