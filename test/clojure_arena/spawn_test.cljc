@@ -10,21 +10,21 @@
 
 (deftest locked-fall-unlocks-on-top-and-moves-on-the-following-tick
   (let [inputs {:horizontal 1 :jump? true}
-        falling (take-while #(get-in % [:player :spawn-locked?])
+        falling (take-while #(get-in % [:players :player-1 :spawn-locked?])
                            (iterate #(game/step % inputs dt) fixtures/single-platform-world))
         landed (game/step (last falling) inputs dt)
         next-world (game/step landed {:horizontal 1} dt)]
     (is (seq falling))
-    (is (every? #(== 400 (get-in % [:player :x])) falling))
-    (is (every? #(zero? (get-in % [:player :vx])) falling))
-    (is (false? (get-in landed [:player :spawn-locked?])))
-    (is (near? 400 (get-in landed [:player :x])))
-    (is (game/grounded? (:player landed) platform))
-    (is (near? 400.55 (get-in next-world [:player :x])))
+    (is (every? #(== 400 (get-in % [:players :player-1 :x])) falling))
+    (is (every? #(zero? (get-in % [:players :player-1 :vx])) falling))
+    (is (false? (get-in landed [:players :player-1 :spawn-locked?])))
+    (is (near? 400 (get-in landed [:players :player-1 :x])))
+    (is (game/grounded? (fixtures/player-of landed) platform))
+    (is (near? 400.55 (get-in next-world [:players :player-1 :x])))
     (is (= inputs {:horizontal 1 :jump? true}))))
 
 (deftest support-is-only-the-flat-top-with-zero-vertical-speed
-  (let [player (assoc (:player fixtures/single-platform-world) :y 264 :vy 0)]
+  (let [player (assoc (fixtures/player-of fixtures/single-platform-world) :y 264 :vy 0)]
     (doseq [x [170 400 630]]
       (is (game/grounded? (assoc player :x x) platform)))
     (doseq [changes [{:x 169.999} {:x 630.001} {:vy 1} {:y 264.001} {:y 312}]]
@@ -34,11 +34,11 @@
 
 (deftest non-top-contacts-do-not-unlock-and-edge-departure-does-not-relock
   (doseq [[x y vx vy] [[150 288 1000 0] [400 330 0 -1000] [150 260 1000 400]]]
-    (let [player (assoc (:player fixtures/single-platform-world) :x x :y y :vx vx :vy vy)
+    (let [player (assoc (fixtures/player-of fixtures/single-platform-world) :x x :y y :vx vx :vy vy)
           result (game/collide-platforms player [platform] dt)]
       (is (:spawn-locked? result))))
-  (let [world (update fixtures/single-platform-world :player assoc
+  (let [world (update-in fixtures/single-platform-world [:players :player-1] assoc
                       :spawn-locked? false :x 630 :y 264 :vx 220 :vy 0)
         result (game/step world {:horizontal 1} dt)]
-    (is (> (get-in result [:player :y]) 264))
-    (is (false? (get-in result [:player :spawn-locked?])))))
+    (is (> (get-in result [:players :player-1 :y]) 264))
+    (is (false? (get-in result [:players :player-1 :spawn-locked?])))))

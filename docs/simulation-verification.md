@@ -25,7 +25,7 @@ A successful release compile does not establish browser startup or appearance.
 
 Start locally with `just dev` and open `http://127.0.0.1:8081/` on the service host.
 
-- Confirm `Arena lista.` appears with the dark background, filled main platform, three neutral outlined semisolids, and colored player.
+- Confirm `Arena lista.` appears with the dark background, filled main platform, three neutral outlined semisolids, and four distinct player bodies (cyan, crimson, amber, green).
 - On first fall, hold D and press W. The player should stay at its spawn X and should not jump. After landing on the platform top, controls unlock; the earlier W request must not replay. A held D direction should begin moving on the following tick.
 - Hold D, release it, then reverse with A. Check acceleration and gradual braking. Hold both keys together and check neutral braking.
 - Walk off either platform edge and confirm falling resumes. A fresh W press after leaving an edge can use the single air jump. Reload to restore the initial scene after falling out of view.
@@ -58,3 +58,9 @@ A browser can verify event ordering, focus behavior, native `requestAnimationFra
 - Tap S and lose focus before the next tick: the pending drop is discarded.
   Automated fixtures additionally test full-body clearance, missing IDs,
   coincident contacts, and lower solid/semisolid interception.
+
+## Player record checks
+
+The local input advances cyan `:player-1`; the other three fixture bodies remain
+at their initial positions until independent stepping is introduced. Automated
+recording tests draw one through four records without modifying the world.

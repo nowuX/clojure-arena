@@ -77,3 +77,8 @@ four-contact budget process both types.
 The per-player `:drop-through-platform-id` belongs to immutable simulation
 state. It changes surface eligibility for one platform only; neither the
 platform vector nor the browser clock is modified to implement a drop.
+
+The world stores identity-keyed records in `:players`. `make-player` constructs
+fresh physics and input-eligibility values; `draw-world` reads every record.
+At this stage `step` still accepts flat input and advances only `:player-1`;
+the other three local fixtures are drawn but do not simulate yet.

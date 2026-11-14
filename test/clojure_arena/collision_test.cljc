@@ -7,26 +7,26 @@
 (def platform (first (:platforms fixtures/single-platform-world)))
 (defn near? [a b] (< (abs (- a b)) 1e-8))
 (defn player-at [x y vx vy]
-  (assoc (:player fixtures/single-platform-world) :x x :y y :vx vx :vy vy :spawn-locked? false))
+  (assoc (fixtures/player-of fixtures/single-platform-world) :x x :y y :vx vx :vy vy :spawn-locked? false))
 
 (deftest descending-crossing-and-stable-standing
-  (let [world (assoc fixtures/single-platform-world :player (player-at 400 50 0 20000))
+  (let [world (assoc-in fixtures/single-platform-world [:players :player-1] (player-at 400 50 0 20000))
         landed (game/step world {} 0.025)
         standing (nth (iterate #(game/step % {} 0.025) landed) 80)]
-    (is (near? 264 (get-in landed [:player :y])))
-    (is (zero? (get-in landed [:player :vy])))
-    (is (= (:player landed) (:player standing)))
-    (is (= 50 (get-in world [:player :y])))))
+    (is (near? 264 (get-in landed [:players :player-1 :y])))
+    (is (zero? (get-in landed [:players :player-1 :vy])))
+    (is (= (fixtures/player-of landed) (fixtures/player-of standing)))
+    (is (= 50 (get-in world [:players :player-1 :y])))))
 
 (deftest top-support-ends-at-both-center-endpoints
   (doseq [[x horizontal] [[170 -1] [630 1]]]
-    (let [world (assoc fixtures/single-platform-world :player (player-at x 264 0 0))
+    (let [world (assoc-in fixtures/single-platform-world [:players :player-1] (player-at x 264 0 0))
           next-world (game/step world {:horizontal horizontal} 0.025)]
-      (is (> (get-in next-world [:player :y]) 264))
-      (is (pos? (get-in next-world [:player :vy])))))
+      (is (> (get-in next-world [:players :player-1 :y]) 264))
+      (is (pos? (get-in next-world [:players :player-1 :vy])))))
   (doseq [x [150 650]]
-    (let [world (assoc fixtures/single-platform-world :player (player-at x 263 0 100))]
-      (is (> (get-in (game/step world {} 0.025) [:player :y]) 264)))))
+    (let [world (assoc-in fixtures/single-platform-world [:players :player-1] (player-at x 263 0 100))]
+      (is (> (get-in (game/step world {} 0.025) [:players :player-1 :y]) 264)))))
 
 (deftest landing-uses-x-at-crossing-time
   (let [player (player-at 150 250 2000 1000)

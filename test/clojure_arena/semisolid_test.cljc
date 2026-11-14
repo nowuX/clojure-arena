@@ -1,5 +1,6 @@
 (ns clojure-arena.semisolid-test
   (:require [clojure-arena.game :as game]
+            [clojure-arena.fixtures :as fixtures]
             #?(:clj [clojure.test :refer [deftest is testing]]
                :cljs [cljs.test :refer-macros [deftest is testing]])))
 
@@ -11,11 +12,11 @@
    :width 100
    :height 8})
 
-(def player-radius (get-in game/initial-world [:player :radius]))
+(def player-radius (get-in game/initial-world [:players :player-1 :radius]))
 (def dt 0.025)
 
 (defn player-at [state]
-  (merge (:player game/initial-world)
+  (merge (fixtures/player-of game/initial-world)
          {:x 150
           :y (- (:y semisolid) player-radius)
           :vx 0
@@ -27,7 +28,7 @@
 
 (defn scene [platforms player-state]
   {:platforms (vec platforms)
-   :player (player-at player-state)})
+   :players {:player-1 (player-at player-state)}})
 
 (defn close-to? [actual expected tolerance]
   (<= (- expected tolerance) actual (+ expected tolerance)))
@@ -59,17 +60,17 @@
                      {:x 150 :y 235 :vy -1000
                       :spawn-locked? true :air-jumps-left 0})
         states (take 120 (iterate #(game/step % {} dt) world))
-        rose-above? (some #(and (< (get-in % [:player :y])
+        rose-above? (some #(and (< (get-in % [:players :player-1 :y])
                                    (- (:y semisolid) player-radius))
-                                (neg? (get-in % [:player :vy])))
+                                (neg? (get-in % [:players :player-1 :vy])))
                           states)
-        landed (first (filter #(game/grounded? (:player %) semisolid) states))]
+        landed (first (filter #(game/grounded? (fixtures/player-of %) semisolid) states))]
     (is rose-above?)
     (is (some? landed))
     (when landed
-      (is (== (- (:y semisolid) player-radius) (get-in landed [:player :y])))
-      (is (false? (get-in landed [:player :spawn-locked?])))
-      (is (= 1 (get-in landed [:player :air-jumps-left]))))))
+      (is (== (- (:y semisolid) player-radius) (get-in landed [:players :player-1 :y])))
+      (is (false? (get-in landed [:players :player-1 :spawn-locked?])))
+      (is (= 1 (get-in landed [:players :player-1 :air-jumps-left]))))))
 
 (deftest rising-side-and-underside-paths-pass-through
   (let [rising (game/collide-platforms
@@ -105,7 +106,7 @@
                        {:x x :y 160 :vy 600
                         :spawn-locked? true :air-jumps-left 0})
           result (game/step world {} 0.1)
-          player (:player result)]
+          player (fixtures/player-of result)]
       (is (>= (rectangle-clearance player semisolid) (- player-radius 1e-6)))
       (is (= direction (if (neg? (:vx player)) -1 1)))
       (is (true? (:spawn-locked? player)))
@@ -125,7 +126,7 @@
                            {:x start-x :vx vx :vy 0 :spawn-locked? false})
               states (take 31
                            (iterate #(game/step % {:horizontal horizontal} dt) world))
-              players (map :player states)
+              players (map fixtures/player-of states)
               edge (if (= direction :left) left right)
               outside? (fn [player]
                          (if (= direction :left)
@@ -158,35 +159,35 @@
                                            :spawn-locked? true :air-jumps-left 0})
                                    {} 0.05))
                       orders)]
-    (is (= (get-in (first results) [:player :y])
-           (get-in (second results) [:player :y])))
+    (is (= (get-in (first results) [:players :player-1 :y])
+           (get-in (second results) [:players :player-1 :y])))
     (doseq [result results]
-      (is (== (- (:y semisolid) player-radius) (get-in result [:player :y])))
-      (is (zero? (get-in result [:player :vy])))
-      (is (= 1 (get-in result [:player :air-jumps-left]))))))
+      (is (== (- (:y semisolid) player-radius) (get-in result [:players :player-1 :y])))
+      (is (zero? (get-in result [:players :player-1 :vy])))
+      (is (= 1 (get-in result [:players :player-1 :air-jumps-left]))))))
 
 (deftest a-semisolid-flat-top-supports-the-ordinary-ground-jump
   (let [world (scene [semisolid]
                      {:x 150 :y (- (:y semisolid) player-radius)
                       :spawn-locked? false :air-jumps-left 0})
         jumped (game/step world {:jump? true} dt)]
-    (is (= -395.5 (get-in jumped [:player :vy])))
-    (is (= 0 (get-in jumped [:player :air-jumps-left])))
-    (is (< (get-in jumped [:player :y]) (- (:y semisolid) player-radius)))))
+    (is (= -395.5 (get-in jumped [:players :player-1 :vy])))
+    (is (= 0 (get-in jumped [:players :player-1 :air-jumps-left])))
+    (is (< (get-in jumped [:players :player-1 :y]) (- (:y semisolid) player-radius)))))
 
 (deftest a-real-scene-ground-jump-rises-through-and-lands-on-the-left-platform
-  (let [world (update game/initial-world :player assoc
+  (let [world (update-in game/initial-world [:players :player-1] assoc
                       :x 260 :y 264 :vx 0 :vy 0 :spawn-locked? false :air-jumps-left 0)
         left (first (filter #(= :left (:id %)) (:platforms world)))
         jumped (game/step world {:jump? true} dt)
         states (take 120 (iterate #(game/step % {} dt) jumped))
-        above (some #(< (get-in % [:player :y]) (- (:y left) player-radius)) states)
-        landed (first (filter #(game/grounded? (:player %) left) states))]
+        above (some #(< (get-in % [:players :player-1 :y]) (- (:y left) player-radius)) states)
+        landed (first (filter #(game/grounded? (fixtures/player-of %) left) states))]
     (is above)
     (is (some? landed))
     (when landed
-      (is (= 1 (get-in landed [:player :air-jumps-left])))
-      (is (false? (get-in landed [:player :spawn-locked?]))))))
+      (is (= 1 (get-in landed [:players :player-1 :air-jumps-left])))
+      (is (false? (get-in landed [:players :player-1 :spawn-locked?]))))))
 
 (deftest a-semisolid-landing-can-continue-into-a-solid-wall
   (let [floor (assoc semisolid :width 200)

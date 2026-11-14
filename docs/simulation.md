@@ -4,15 +4,15 @@ The shared simulation is `src/clojure_arena/game.cljc`. Its functions receive va
 
 ## World and movement
 
-`initial-world` contains one solid, three visible semisolid entries, and one player.
+`initial-world` contains one solid, three visible semisolid entries, and four ID-keyed local fixture players.
 Descending players land on semisolid tops and upper endpoint arcs; rising,
 side, and underside movement passes through.
-The main entry and player are:
+The main platform entry and first player are:
 
 ```clojure
 {:platforms [{:id :main :type :solid :x 170 :y 280 :width 460 :height 16 :color "#9c9c9c"}]
- :player {:x 400 :y 160 :vx 0 :vy 0 :radius 16
-          :spawn-locked? true :air-jumps-left 1 :drop-through-platform-id nil :color "#22d3ee"}}
+ :players {:player-1 {:x 400 :y 160 :vx 0 :vy 0 :radius 16
+          :spawn-locked? true :air-jumps-left 1 :drop-through-platform-id nil :color "#22d3ee"}}}
 ```
 
 The background is `#101010`; the platform is neutral gray and only the player body is colored. Gravity is `980` units/s² downward. Horizontal intention targets ±220 units/s at up to 880 units/s². Neutral input applies `horizontal-friction` at 1100 units/s² toward zero, without reversing velocity. At the client's 25 ms tick those changes are at most 22 and 27.5 units/s respectively. A locked spawn forces horizontal intention to zero while gravity and collision continue. From rest, ten held-direction ticks reach 220; from 220, neutral braking stops in eight ticks and travels another 19.25 units in free space.
@@ -73,3 +73,13 @@ It preserves the air jump. Other platforms retain their normal collision rules.
 1e-9 tolerance, or the platform is missing or no longer semisolid. Cleanup runs
 before and after movement. An air jump during partial traversal can rise back
 above the top, clear the exception, and land on the same platform again.
+
+## Player records
+
+`make-player(color, x, y)` creates a plain immutable record with zero velocity,
+radius 16, locked spawn controls, one air jump, and no drop exception.
+`local-player-fixtures` supplies cyan at (400, 160), crimson at (260, 160),
+amber at (540, 160), and green at (350, 160). IDs are map keys, independent
+of color. `draw-world` draws each value from `:players` without changing it.
+At this checkpoint the existing flat input and simulation path still advance
+only `:player-1`; the other three records are visible fixtures.

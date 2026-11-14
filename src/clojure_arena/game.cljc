@@ -6,14 +6,23 @@
 (def gravity 980)
 (def jump-velocity -420)
 
+(defn make-player [color x y]
+  {:x x :y y :vx 0 :vy 0 :radius 16
+   :spawn-locked? true :air-jumps-left 1
+   :drop-through-platform-id nil :color color})
+
+(def local-player-fixtures
+  {:player-1 (make-player "#22d3ee" 400 160)
+   :player-2 (make-player "#e11d48" 260 160)
+   :player-3 (make-player "#f59e0b" 540 160)
+   :player-4 (make-player "#4ade80" 350 160)})
+
 (def initial-world
   {:platforms [{:id :main :type :solid :x 170 :y 280 :width 460 :height 16 :color "#9c9c9c"}
                {:id :left :type :semisolid :x 200 :y 210 :width 120 :height 8 :color "#9c9c9c"}
                {:id :right :type :semisolid :x 480 :y 210 :width 120 :height 8 :color "#9c9c9c"}
                {:id :upper :type :semisolid :x 340 :y 130 :width 120 :height 8 :color "#9c9c9c"}]
-   :player {:x 400 :y 160 :vx 0 :vy 0 :radius 16
-            :spawn-locked? true :air-jumps-left 1
-            :drop-through-platform-id nil :color "#22d3ee"}})
+   :players local-player-fixtures})
 
 (defn move-player [player dt]
   (-> player
@@ -253,18 +262,21 @@
 (defn step [world {:keys [horizontal jump? drop?]
                    :or {horizontal 0 jump? false drop? false}} dt]
   (let [platforms (:platforms world)]
-    (update world :player
-            (fn [player]
-              (let [player (clear-drop-through player platforms)
-                    locked? (:spawn-locked? player)
-                    horizontal (if locked? 0 horizontal)
-                    support (supporting-platform player platforms)
-                    dropping? (and (not locked?) drop? (= :semisolid (:type support)))
-                    player (if dropping?
-                             (assoc player :drop-through-platform-id (:id support))
-                             (apply-jump player platforms jump?))]
-                (-> player
-                    (update :vx accelerate-horizontal horizontal dt)
-                    (update :vy + (* gravity dt))
-                    (collide-platforms platforms dt)
-                    (clear-drop-through platforms)))))))
+    (if (contains? (:players world) :player-1)
+      (update-in world [:players :player-1]
+                 (fn [player]
+                   (let [player (clear-drop-through player platforms)
+                         locked? (:spawn-locked? player)
+                         horizontal (if locked? 0 horizontal)
+                         support (supporting-platform player platforms)
+                         dropping? (and (not locked?) drop?
+                                        (= :semisolid (:type support)))
+                         player (if dropping?
+                                  (assoc player :drop-through-platform-id (:id support))
+                                  (apply-jump player platforms jump?))]
+                     (-> player
+                         (update :vx accelerate-horizontal horizontal dt)
+                         (update :vy + (* gravity dt))
+                         (collide-platforms platforms dt)
+                         (clear-drop-through platforms)))))
+      world)))

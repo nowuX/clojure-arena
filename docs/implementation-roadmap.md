@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**27 of 70 checkpoints complete.** Checkpoints 01–27 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**28 of 70 checkpoints complete.** Checkpoints 01–28 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -395,7 +395,7 @@ Checkpoints **28–30**. Move identity and per-player state into shared immutabl
 
 ### 28 — Store and draw players by ID
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Introduce a player factory and an ID-keyed map of one to four
   fixtures using cyan/crimson/amber/green and the specified local positions. Each record
   owns fresh physical/input eligibility state; rendering remains read-only.

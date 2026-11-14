@@ -5,7 +5,7 @@
             [clojure-arena.fixtures :as fixtures]))
 
 (def playable-world
-  (assoc-in fixtures/single-platform-world [:player :spawn-locked?] false))
+  (assoc-in fixtures/single-platform-world [:players :player-1 :spawn-locked?] false))
 
 (def draw-scene client/draw-world)
 
@@ -120,23 +120,23 @@
         fast (simulate (range 0 1001 10))
         slow (simulate (range 0 1001 100))]
     (is (= fast slow))
-    (is (< (abs (- 595.25 (get-in fast [:player :x]))) 1e-8))))
+    (is (< (abs (- 595.25 (get-in fast [:players :player-1 :x]))) 1e-8))))
 
 (deftest blur-and-both-directions-brake-the-existing-motion
   (client/init)
   (fire-frame! 0)
   (key-event! "keydown" "KeyD")
   (doseq [timestamp (range 25 251 25)] (fire-frame! timestamp))
-  (is (= 220 (get-in @client/world [:player :vx])))
+  (is (= 220 (get-in @client/world [:players :player-1 :vx])))
   (key-event! "keydown" "KeyA")
   (fire-frame! 275)
-  (is (= 192.5 (get-in @client/world [:player :vx])))
+  (is (= 192.5 (get-in @client/world [:players :player-1 :vx])))
   (key-event! "keyup" "KeyA")
   (.dispatchEvent @target (js/Event. "blur"))
   (fire-frame! 300)
-  (is (= 165 (get-in @client/world [:player :vx])))
+  (is (= 165 (get-in @client/world [:players :player-1 :vx])))
   (doseq [timestamp (range 325 476 25)] (fire-frame! timestamp))
-  (is (zero? (get-in @client/world [:player :vx])))
+  (is (zero? (get-in @client/world [:players :player-1 :vx])))
   (client/stop!)
   (key-event! "keydown" "KeyD")
   (is (zero? (client/horizontal-input)))
@@ -203,15 +203,15 @@
   (let [landed-at (loop [tick 1]
                     (assert (< tick 50))
                     (fire-frame! (* 25 tick))
-                    (if (get-in @client/world [:player :spawn-locked?])
-                      (do (is (= 400 (get-in @client/world [:player :x])))
+                    (if (get-in @client/world [:players :player-1 :spawn-locked?])
+                      (do (is (= 400 (get-in @client/world [:players :player-1 :x])))
                           (recur (inc tick)))
                       tick))]
-    (is (= 400 (get-in @client/world [:player :x])))
+    (is (= 400 (get-in @client/world [:players :player-1 :x])))
     (is (false? (:jump? (client/read-inputs))))
     (fire-frame! (* 25 (inc landed-at)))
-    (is (> (get-in @client/world [:player :x]) 400))
-    (is (game/grounded? (:player @client/world) (first (:platforms @client/world))))))
+    (is (> (get-in @client/world [:players :player-1 :x]) 400))
+    (is (game/grounded? (fixtures/player-of @client/world) (first (:platforms @client/world))))))
 
 (deftest real-key-jump-sequence-agrees-across-frame-cadences
   (let [consume client/consume-inputs!
@@ -253,12 +253,12 @@
         fast (simulate (range 0 2001 10))
         slow (simulate (range 0 2001 100))]
     (is (= fast slow))
-    (is (= -395.5 (get-in fast [19 :world :player :vy])))
-    (is (= -395.5 (get-in fast [29 :world :player :vy])))
-    (is (zero? (get-in fast [29 :world :player :air-jumps-left])))
+    (is (= -395.5 (get-in fast [19 :world :players :player-1 :vy])))
+    (is (= -395.5 (get-in fast [29 :world :players :player-1 :vy])))
+    (is (zero? (get-in fast [29 :world :players :player-1 :air-jumps-left])))
     (is (true? (get-in fast [59 :input :jump?])))
-    (is (pos? (get-in fast [59 :world :player :vy])))
-    (is (= 1 (get-in (last fast) [:world :player :air-jumps-left])))))
+    (is (pos? (get-in fast [59 :world :players :player-1 :vy])))
+    (is (= 1 (get-in (last fast) [:world :players :player-1 :air-jumps-left])))))
 
 (deftest repeated-lifecycle-clears-stale-jumps-and-allows-a-fresh-launch
   (dotimes [_ 4]
@@ -271,28 +271,28 @@
     (is (empty? @callbacks))
     (is (every? empty? (vals @listeners)))
     (is (= {:horizontal 0 :jump? false :drop? false} (client/read-inputs))))
-  (reset! client/world (update playable-world :player assoc :y 264 :vy 0))
+  (reset! client/world (update-in playable-world [:players :player-1] assoc :y 264 :vy 0))
   (client/init)
   (fire-frame! 0)
   (fire-frame! 25)
-  (is (zero? (get-in @client/world [:player :vy])))
+  (is (zero? (get-in @client/world [:players :player-1 :vy])))
   (key-event! "keydown" "KeyW")
   (key-event! "keyup" "KeyW")
   (fire-frame! 50)
-  (is (= -395.5 (get-in @client/world [:player :vy]))))
+  (is (= -395.5 (get-in @client/world [:players :player-1 :vy]))))
 
 (deftest focus-loss-discards-a-jump-before-its-tick
-  (reset! client/world (update playable-world :player assoc :y 264 :vy 0))
+  (reset! client/world (update-in playable-world [:players :player-1] assoc :y 264 :vy 0))
   (client/init)
   (fire-frame! 0)
   (key-event! "keydown" "KeyW")
   (key-event! "keyup" "KeyW")
   (.dispatchEvent @target (js/Event. "blur"))
   (fire-frame! 25)
-  (is (game/grounded? (:player @client/world) (first (:platforms @client/world))))
+  (is (game/grounded? (fixtures/player-of @client/world) (first (:platforms @client/world))))
   (key-event! "keydown" "KeyW")
   (fire-frame! 50)
-  (is (= -395.5 (get-in @client/world [:player :vy]))))
+  (is (= -395.5 (get-in @client/world [:players :player-1 :vy]))))
 
 (deftest renderer-uses-each-platform-entry-once
   (let [drawn (atom [])
@@ -350,43 +350,43 @@
 
 (deftest captured-drop-leaves-the-supporting-semisolid
   (let [platform (first (filter #(= :left (:id %)) (:platforms game/initial-world)))]
-    (reset! client/world (update game/initial-world :player assoc
+    (reset! client/world (update-in game/initial-world [:players :player-1] assoc
                                  :x 260 :y 194 :vy 0 :spawn-locked? false))
     (client/init)
     (fire-frame! 0)
     (key-event! "keydown" "KeyS")
     (fire-frame! 25)
-    (is (not (game/grounded? (:player @client/world) platform)))
-    (is (= :left (get-in @client/world [:player :drop-through-platform-id])))
-    (is (> (get-in @client/world [:player :y]) 194))
+    (is (not (game/grounded? (fixtures/player-of @client/world) platform)))
+    (is (= :left (get-in @client/world [:players :player-1 :drop-through-platform-id])))
+    (is (> (get-in @client/world [:players :player-1 :y]) 194))
     (is (false? (:drop? (client/read-inputs))))))
 
 (deftest holding-s-does-not-drop-again-after-landing-on-the-next-semisolid
   (let [upper {:id :upper :type :semisolid :x 100 :y 200 :width 100 :height 8}
         lower (assoc upper :id :lower :y 260)]
     (reset! client/world {:platforms [upper lower]
-                          :player (assoc (:player game/initial-world)
-                                         :x 150 :y 184 :vy 0 :vx 0 :spawn-locked? false)})
+                          :players {:player-1 (assoc (fixtures/player-of game/initial-world)
+                                         :x 150 :y 184 :vy 0 :vx 0 :spawn-locked? false)}})
     (client/init)
     (fire-frame! 0)
     (key-event! "keydown" "KeyS")
     (fire-frame! 25)
-    (is (= :upper (get-in @client/world [:player :drop-through-platform-id])))
+    (is (= :upper (get-in @client/world [:players :player-1 :drop-through-platform-id])))
     (doseq [timestamp (range 50 1001 25)] (fire-frame! timestamp))
-    (is (= :lower (:id (game/supporting-platform (:player @client/world)
+    (is (= :lower (:id (game/supporting-platform (fixtures/player-of @client/world)
                                                 (:platforms @client/world)))))
     (key-event! "keydown" "KeyS" true)
     (fire-frame! 1025)
-    (is (game/grounded? (:player @client/world) lower))
+    (is (game/grounded? (fixtures/player-of @client/world) lower))
     (key-event! "keyup" "KeyS")
     (key-event! "keydown" "KeyS")
     (fire-frame! 1050)
-    (is (= :lower (get-in @client/world [:player :drop-through-platform-id])))
-    (is (> (get-in @client/world [:player :y]) 244))))
+    (is (= :lower (get-in @client/world [:players :player-1 :drop-through-platform-id])))
+    (is (> (get-in @client/world [:players :player-1 :y]) 244))))
 
 (deftest a-drop-tap-lost-on-blur-does-not-cross-the-platform
   (let [semi (first (filter #(= :left (:id %)) (:platforms game/initial-world)))]
-    (reset! client/world (update game/initial-world :player assoc
+    (reset! client/world (update-in game/initial-world [:players :player-1] assoc
                                  :x 260 :y 194 :vy 0 :spawn-locked? false))
     (client/init)
     (fire-frame! 0)
@@ -394,5 +394,18 @@
     (key-event! "keyup" "KeyS")
     (.dispatchEvent @target (js/Event. "blur"))
     (fire-frame! 25)
-    (is (game/grounded? (:player @client/world) semi))
-    (is (nil? (get-in @client/world [:player :drop-through-platform-id])))))
+    (is (game/grounded? (fixtures/player-of @client/world) semi))
+    (is (nil? (get-in @client/world [:players :player-1 :drop-through-platform-id])))))
+
+(deftest renderer-draws-one-to-four-independent-bodies-without-changing-state
+  (doseq [n (range 1 5)]
+    (let [players (into {} (take n (:players game/initial-world)))
+          snapshot (assoc game/initial-world :players players)
+          drawn (atom [])]
+      (with-redefs [client/draw-background (fn [_])
+                    client/draw-platform (fn [_ _])
+                    client/draw-player (fn [_ player] (swap! drawn conj player))]
+        (draw-scene nil snapshot)
+        (is (= n (count @drawn)))
+        (is (= (set (vals players)) (set @drawn)))
+        (is (= players (:players snapshot)))))))

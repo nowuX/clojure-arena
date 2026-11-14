@@ -74,11 +74,12 @@
     (.arc context x y radius 0 (* 2 js/Math.PI))
     (.fill context)))
 
-(defn draw-world [canvas {:keys [platforms player]}]
+(defn draw-world [canvas {:keys [platforms players]}]
   (draw-background canvas)
   (doseq [platform platforms]
     (draw-platform canvas platform))
-  (draw-player canvas player))
+  (doseq [player (vals players)]
+    (draw-player canvas player)))
 
 (defn advance-world! [elapsed-ms]
   (loop [remaining-ms elapsed-ms]

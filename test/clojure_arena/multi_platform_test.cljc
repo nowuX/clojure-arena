@@ -1,12 +1,13 @@
 (ns clojure-arena.multi-platform-test
   (:require [clojure-arena.game :as game]
+            [clojure-arena.fixtures :as fixtures]
             #?(:clj [clojure.test :refer [deftest is]]
                :cljs [cljs.test :refer-macros [deftest is]])))
 
 (defn solid [id x y width height]
   {:id id :type :solid :x x :y y :width width :height height})
 (defn player [x y vx vy]
-  (assoc (:player game/initial-world) :x x :y y :vx vx :vy vy :spawn-locked? false))
+  (assoc (fixtures/player-of game/initial-world) :x x :y y :vx vx :vy vy :spawn-locked? false))
 (defn near? [a b] (< (abs (- a b)) 1e-8))
 
 (deftest earliest-solid-wins-regardless-of-collection-order
@@ -24,11 +25,11 @@
   (let [far (solid :a-far 0 400 100 16)
         top (solid :b-top 170 100 460 16)
         supported (assoc (player 400 84 0 0) :air-jumps-left 0)
-        world {:platforms [far top] :player supported}
+        world {:platforms [far top] :players {:player-1 supported}}
         jumped (game/step world {:jump? true} 0.025)]
     (is (= top (game/supporting-platform supported [far top])))
-    (is (near? -395.5 (get-in jumped [:player :vy])))
-    (is (zero? (get-in jumped [:player :air-jumps-left])))))
+    (is (near? -395.5 (get-in jumped [:players :player-1 :vy])))
+    (is (zero? (get-in jumped [:players :player-1 :air-jumps-left])))))
 
 (deftest coincident-contacts-use-stable-id-order
   (let [a (solid :a 0 100 100 16)

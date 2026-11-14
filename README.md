@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–27 complete (27/70). Milestone 2 is complete: four platforms with stable contact ordering, rounded semisolid landings, and one fresh S request to drop through only the supporting semisolid.
+Checkpoints 01–28 complete (28/70). The scene stores four local player records by stable ID and draws their distinct bodies. Player-1 retains the existing movement, jumps, and drop controls; the other records are static fixtures until independent stepping.
 Future mechanics remain specified in the roadmap.
 
 ## Run

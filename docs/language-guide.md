@@ -6,11 +6,11 @@ La simulación compartida está en `src/clojure_arena/game.cljc`; los eventos y 
 
 ### Mapas y funciones
 
-`def` nombra un valor y `defn` define una función. El mundo es un mapa; sus claves son keywords como `:player`, `:spawn-locked?` y `:air-jumps-left`:
+`def` nombra un valor y `defn` define una función. El mundo es un mapa; sus claves son keywords como `:players`, `:spawn-locked?` y `:air-jumps-left`:
 
 ```clojure
-{:player {:x 400 :y 160 :vx 0 :vy 0 :radius 16
-          :spawn-locked? true :air-jumps-left 1}}
+{:players {:player-1 {:x 400 :y 160 :vx 0 :vy 0 :radius 16
+          :spawn-locked? true :air-jumps-left 1}}}
 ```
 
 `step` recibe mundo, entradas y `dt` en segundos. El argumento `{:keys [horizontal jump? drop?] :or {horizontal 0 jump? false drop? false}}` extrae valores del mapa y fija sus valores por defecto. La simulación devuelve mapas nuevos; no consulta el navegador ni cambia el argumento original.
@@ -95,3 +95,11 @@ sobre una semisólida, `step` crea la excepción y deja que la gravedad haga
 bajar el cuerpo. Si también se pulsó W, la bajada tiene prioridad allí.
 En el aire, S se descarta; W aún puede usar el salto aéreo disponible para
 volver arriba y aterrizar. Blur, `stop!` e `init` borran las solicitudes.
+
+### Jugadores por ID
+
+`:players` es un mapa cuya clave identifica a cada personaje. `make-player`
+construye sus datos; `get-in` consulta rutas como `[:players :player-1 :x]`
+y `assoc-in` o `update-in` devuelve un mundo con esa ruta actualizada.
+Cambiar el color no cambia la identidad. `vals` obtiene los personajes para
+que `doseq` dibuje cada cuerpo sin modificar el mapa.
