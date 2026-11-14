@@ -4,7 +4,9 @@ The shared simulation is `src/clojure_arena/game.cljc`. Its functions receive va
 
 ## World and movement
 
-`initial-world` contains one solid platform and one player:
+`initial-world` contains one solid, three visible semisolid entries, and one player.
+The semisolids are currently traversable; only solids participate in contact.
+The main entry and player are:
 
 ```clojure
 {:platforms [{:id :main :type :solid :x 170 :y 280 :width 460 :height 16 :color "#9c9c9c"}]
@@ -32,4 +34,11 @@ The initial player falls with controls locked. A resolved supported top landing 
 
 `move-player` advances the circle center using velocity and seconds. `supported-travel-time` bounds motion along a supported top and lets gravity begin after leaving an edge. `earliest-contact` chooses the earliest contact across solid entries, using stable ID order for exact time ties. `platform-contact` checks overlap and swept contact against each rectangle's faces and rounded corners; `resolve-contact` removes only inward normal velocity. `collide-platforms` allows up to four contacts per tick and uses a `1e-9` tolerance.
 
-The initial world still has one platform; constructed solid collections share the same four-contact budget. Any solid flat top supports jumping. See [Architecture](architecture.md) for ownership and [Simulation verification](simulation-verification.md) for checks.
+The world contains the main solid plus three neutral outlined semisolids; constructed solid collections share the same four-contact budget. Any solid flat top supports jumping. See [Architecture](architecture.md) for ownership and [Simulation verification](simulation-verification.md) for checks.
+
+## Platform presentation
+
+The left and right outlines are at (200, 210) and (480, 210), each 120 × 8.
+The upper outline is at (340, 130), also 120 × 8. `draw-platform` uses
+`fillRect` for solids and `strokeRect` for semisolids; type is conveyed by
+shape treatment with neutral colors.

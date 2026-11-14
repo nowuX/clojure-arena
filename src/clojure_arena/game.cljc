@@ -7,7 +7,10 @@
 (def jump-velocity -420)
 
 (def initial-world
-  {:platforms [{:id :main :type :solid :x 170 :y 280 :width 460 :height 16 :color "#9c9c9c"}]
+  {:platforms [{:id :main :type :solid :x 170 :y 280 :width 460 :height 16 :color "#9c9c9c"}
+               {:id :left :type :semisolid :x 200 :y 210 :width 120 :height 8 :color "#9c9c9c"}
+               {:id :right :type :semisolid :x 480 :y 210 :width 120 :height 8 :color "#9c9c9c"}
+               {:id :upper :type :semisolid :x 340 :y 130 :width 120 :height 8 :color "#9c9c9c"}]
    :player {:x 400 :y 160 :vx 0 :vy 0 :radius 16 :spawn-locked? true :air-jumps-left 1 :color "#22d3ee"}})
 
 (defn move-player [player dt]

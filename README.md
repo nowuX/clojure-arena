@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–23 complete (23/70). Solid collections resolve the earliest swept contact with stable ID ties, support on any solid, and a shared four-contact budget.
+Checkpoints 01–24 complete (24/70). Four platform entries render with neutral fill or outline; the three outlined semisolids are still physically traversable at this stage.
 Future mechanics remain specified in the roadmap.
 
 ## Run

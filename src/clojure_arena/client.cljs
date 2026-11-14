@@ -49,10 +49,16 @@
     (set! (.-fillStyle context) "#101010")
     (.fillRect context 0 0 (.-width canvas) (.-height canvas))))
 
-(defn draw-platform [canvas {:keys [x y width height color]}]
+(defn draw-platform [canvas {:keys [x y width height color type]}]
   (let [context (.getContext canvas "2d")]
-    (set! (.-fillStyle context) color)
-    (.fillRect context x y width height)))
+    (if (= type :semisolid)
+      (do
+        (set! (.-strokeStyle context) color)
+        (set! (.-lineWidth context) 2)
+        (.strokeRect context x y width height))
+      (do
+        (set! (.-fillStyle context) color)
+        (.fillRect context x y width height)))))
 
 (defn draw-player [canvas {:keys [x y radius color]}]
   (let [context (.getContext canvas "2d")]

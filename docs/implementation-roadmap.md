@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**23 of 70 checkpoints complete.** Checkpoints 01–23 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**24 of 70 checkpoints complete.** Checkpoints 01–24 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -344,7 +344,7 @@ Checkpoints **22–27**. Extend the scene while preserving existing movement, su
 
 ### 24 — Draw three semisolid platforms
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Add left/right/upper scene entries using the specification
   table. Draw all three with neutral outlines; distinguish type by fill versus outline,
   never hue. Keep them physically traversable for now.

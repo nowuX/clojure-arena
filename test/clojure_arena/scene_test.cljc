@@ -9,8 +9,14 @@
         airborne (assoc world :platforms [])
         fallen (game/step airborne {} 0.025)]
     (is (vector? platforms))
-    (is (= [:main] (mapv :id platforms)))
-    (is (= [:solid] (mapv :type platforms)))
+    (is (= [:main :left :right :upper] (mapv :id platforms)))
+    (is (= [:solid :semisolid :semisolid :semisolid] (mapv :type platforms)))
     (is (nil? (game/supporting-platform (:player world) [])))
     (is (> (get-in fallen [:player :y]) (get-in airborne [:player :y])))
     (is (= platforms (:platforms (game/step world {} 0.025))))))
+
+(deftest visible-semisolids-do-not-block-physics-yet
+  (let [world (update game/initial-world :player assoc :x 250 :y 160 :vy 0)
+        below (nth (iterate #(game/step % {} 0.025) world) 40)]
+    (is (game/grounded? (:player below) (first (:platforms world))))
+    (is (== 264 (get-in below [:player :y])))))
