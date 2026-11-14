@@ -1,5 +1,6 @@
 (ns clojure-arena.transport-test
   (:require [cljs.test :refer-macros [deftest is testing use-fixtures]]
+            [clojure-arena.game :as game]
             [clojure-arena.protocol :as protocol]
             [clojure-arena.transport :as transport]))
 
@@ -60,6 +61,9 @@
 (defn- admit! [socket]
   (open! socket)
   (receive! socket "{:type :identity :player-id :player-41 :color :green}"))
+
+(defn- snapshot-frame [tick world]
+  (pr-str {:type :snapshot :tick tick :world world}))
 
 (deftest websocket-address-follows-page-or-explicit-game-server
   (doseq [[page expected]
@@ -131,11 +135,106 @@
       (is (= :accepted (:admission @transport/connection-state)))
       (is (true? (transport/connected?)))
       (is (= :ready (:status @transport/connection-state)))
-      (is (= "Simulación en el servidor; visualización compartida pendiente. ID: player-41 · green."
+      (is (= "Esperando estado de la arena… ID: player-41 · green."
              (.-textContent @status-element)))
       (receive! socket message)
       (is (= identity (:identity @transport/connection-state)))
       (is (= 1 (alength (aget socket "sent")))))))
+
+(deftest snapshots-wait-for-open-admitted-player-and-ignore-full-rooms
+  (transport/start! "http://arena.example/")
+  (let [socket @transport/connection]
+    (open! socket)
+    (receive! socket (snapshot-frame 4 game/initial-world))
+    (is (nil? (:snapshot @transport/connection-state))
+        "a valid snapshot before admission does not change connection state")
+    (receive! socket "{:type :identity :player-id :player-1 :color :cyan}")
+    (receive! socket
+              (snapshot-frame 4 (update game/initial-world :players dissoc :player-1)))
+    (is (nil? (:snapshot @transport/connection-state))
+        "a snapshot without the assigned player is ignored")
+    (receive! socket (snapshot-frame 4 game/initial-world))
+    (is (= {:tick 4 :world game/initial-world}
+           (:snapshot @transport/connection-state)))
+    (is (= "Arena compartida conectada. ID: player-1 · cyan."
+           (.-textContent @status-element))))
+
+  (transport/start! "http://arena.example/")
+  (let [socket @transport/connection]
+    (open! socket)
+    (receive! socket "{:type :room-full}")
+    (let [full-state @transport/connection-state]
+      (receive! socket (snapshot-frame 4 game/initial-world))
+      (is (= full-state @transport/connection-state)
+          "a valid snapshot after a full-room rejection is ignored"))))
+
+(deftest snapshots-are-monotonic-and-malformed-frames-preserve-the-last-valid-world
+  (transport/start! "http://arena.example/")
+  (let [socket @transport/connection
+        first-world (assoc-in game/initial-world [:players :player-1 :x] 111)
+        duplicate-world (assoc-in game/initial-world [:players :player-1 :x] 222)
+        newest-world (assoc-in game/initial-world [:players :player-1 :x] 333)]
+    (open! socket)
+    (receive! socket "{:type :identity :player-id :player-1 :color :cyan}")
+    (receive! socket (snapshot-frame 7 first-world))
+    (receive! socket "{:type :pong}")
+    (is (= {:tick 7 :world first-world}
+           (:snapshot @transport/connection-state))
+        "ping status updates preserve the current snapshot")
+    (is (= :player-1 (get-in @transport/connection-state [:identity :player-id]))
+        "ping status updates preserve the assigned identity")
+    (doseq [frame [(snapshot-frame 7 duplicate-world)
+                    (snapshot-frame 6 duplicate-world)]]
+      (receive! socket frame)
+      (is (= {:tick 7 :world first-world}
+             (:snapshot @transport/connection-state))
+          "equal and older ticks cannot replace the accepted snapshot"))
+    (doseq [frame [(pr-str {:type :snapshot :tick -1 :world newest-world})
+                   (pr-str {:type :snapshot :tick 7.5 :world newest-world})
+                   (pr-str {:type :snapshot :tick 8 :world newest-world :extra true})]]
+      (receive! socket frame)
+      (is (= {:tick 7 :world first-world}
+             (:snapshot @transport/connection-state))
+          "a malformed snapshot leaves the last valid snapshot untouched"))
+    (is (= :accepted (:admission @transport/connection-state)))
+    (is (= :player-1 (get-in @transport/connection-state [:identity :player-id])))
+    (receive! socket (snapshot-frame 8 newest-world))
+    (is (= {:tick 8 :world newest-world}
+           (:snapshot @transport/connection-state)))))
+
+(deftest a-closed-current-socket-cannot-install-a-snapshot
+  (transport/start! "http://arena.example/")
+  (let [socket @transport/connection]
+    (open! socket)
+    (receive! socket "{:type :identity :player-id :player-1 :color :cyan}")
+    (set! (.-readyState socket) 3)
+    (let [closed-state @transport/connection-state]
+      (receive! socket (snapshot-frame 1 game/initial-world))
+      (is (= closed-state @transport/connection-state)
+          "the current callback is ignored once its WebSocket is closed")
+      ((.-onclose socket) #js {})
+      (is (nil? (:snapshot @transport/connection-state))
+          "close clears the per-session snapshot tracker"))))
+
+(deftest a-new-socket-accepts-lower-ticks-and-old-snapshot-callbacks-are-ignored
+  (transport/start! "http://arena.example/")
+  (let [old-socket @transport/connection]
+    (open! old-socket)
+    (receive! old-socket "{:type :identity :player-id :player-1 :color :cyan}")
+    (receive! old-socket (snapshot-frame 20 game/initial-world))
+    (let [old-handler (.-onmessage old-socket)]
+      (transport/start! "http://arena.example/")
+      (let [new-socket @transport/connection]
+        (is (nil? (:snapshot @transport/connection-state)))
+        (old-handler #js {:data (snapshot-frame 99 game/initial-world)})
+        (is (nil? (:snapshot @transport/connection-state))
+            "a stale socket callback cannot affect the replacement")
+        (open! new-socket)
+        (receive! new-socket "{:type :identity :player-id :player-1 :color :cyan}")
+        (receive! new-socket (snapshot-frame 1 game/initial-world))
+        (is (= {:tick 1 :world game/initial-world}
+               (:snapshot @transport/connection-state))
+            "a replacement session starts a fresh tick sequence")))))
 
 (deftest connected-requires-an-open-accepted-socket-but-ignores-status-errors
   (transport/start! "http://arena.example/")
@@ -288,9 +387,12 @@
         identity-message "{:type :identity :player-id :player-1 :color :cyan}"]
     (open! old)
     (receive! old identity-message)
+    (receive! old (snapshot-frame 4 game/initial-world))
+    (is (= 4 (get-in @transport/connection-state [:snapshot :tick])))
     (let [old-handler (.-onmessage old)]
       (transport/start! "http://arena.example/")
       (is (nil? (:identity @transport/connection-state)))
+      (is (nil? (:snapshot @transport/connection-state)))
       (is (nil? (:admission @transport/connection-state)))
       (old-handler #js {:data identity-message})
       (is (nil? (:identity @transport/connection-state)))
@@ -301,6 +403,7 @@
         ((.-onclose current) #js {})
         (is (nil? (:identity @transport/connection-state)))
         (is (nil? (:admission @transport/connection-state)))
+        (is (nil? (:snapshot @transport/connection-state)))
         (is (nil? @transport/connection))))))
 
 (deftest restart-detaches-old-callbacks-and-ignores-queued-events

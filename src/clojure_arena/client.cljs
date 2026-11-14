@@ -7,6 +7,7 @@
 (def tick-ms 25)
 (def max-frame-ms 100)
 (defonce world (atom game/initial-world))
+(defonce ^:private offline-world (atom game/initial-world))
 (defonce frame-id (atom nil))
 (defonce pressed-keys (atom #{}))
 (defonce pending-jump (atom false))
@@ -31,7 +32,14 @@
                             (= :accepted (:admission new-state))))
                (reset! reset-frame-time? true))
              (when (transport/connected?)
-               (clear-pending-actions!))))
+               (clear-pending-actions!))
+             (when (and (transport/connected?)
+                        (not= (:snapshot old-state) (:snapshot new-state))
+                        (get-in new-state [:snapshot :world]))
+               (reset! world (get-in new-state [:snapshot :world])))
+             (when (and (= :accepted (:admission old-state))
+                        (not= :accepted (:admission new-state)))
+               (reset! world @offline-world))))
 
 (defn horizontal-input []
   (- (if (contains? @pressed-keys "KeyD") 1 0)
@@ -146,12 +154,17 @@
 (defn advance-world! [elapsed-ms]
   (if (transport/connected?)
     (do (clear-pending-actions!) 0)
-    (loop [remaining-ms elapsed-ms]
-      (if (>= remaining-ms tick-ms)
-        (do
-          (swap! world game/step {local-player-id (consume-inputs!)} (/ tick-ms 1000))
-          (recur (- remaining-ms tick-ms)))
-        remaining-ms))))
+    (do
+      (when (= :accepted (:admission @transport/connection-state))
+        (reset! world @offline-world))
+      (loop [remaining-ms elapsed-ms]
+        (if (>= remaining-ms tick-ms)
+          (do
+            (swap! offline-world game/step
+                   {local-player-id (consume-inputs!)} (/ tick-ms 1000))
+            (reset! world @offline-world)
+            (recur (- remaining-ms tick-ms)))
+          remaining-ms)))))
 
 (defn frame [canvas previous-time accumulated-ms timestamp]
   (let [reset-time? (compare-and-set! reset-frame-time? true false)
@@ -181,6 +194,7 @@
 
 (defn init []
   (stop!)
+  (reset! offline-world @world)
   (.addEventListener js/window "keydown" handle-key-down!)
   (.addEventListener js/window "keyup" handle-key-up!)
   (.addEventListener js/window "blur" handle-blur!)

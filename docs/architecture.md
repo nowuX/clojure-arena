@@ -142,5 +142,25 @@ flowchart LR
 ```
 
 A tick calls `game/step` once, consumes pending actions, and retains horizontal
-input. Server stop drains owned scheduler work. Snapshots will connect the
-committed world to client drawing in the next checkpoint.
+input. Server stop drains owned scheduler work. Snapshots connect the committed world to client drawing through a bounded
+publication worker.
+
+## Shared rendering boundary
+
+```mermaid
+flowchart LR
+    Commit[Committed room tick] --> Capture[Captured world and recipient tokens]
+    Capture --> Queue[Latest-only publication queue]
+    Queue --> Encode[Worker: encode once]
+    Encode --> Clients[Accepted sockets]
+    Clients --> Validate[Exact schema / newer tick / own ID present]
+    Validate --> World[Visible world]
+    World --> Frame[One captured value per RAF]
+    Frame --> Canvas
+    Frame --> Panel
+    Offline[Separate offline-world] -->|disconnect restores| World
+```
+
+`advance-world!` steps `offline-world` only when disconnected, then copies it to
+`world`. While connected it drops elapsed time and actions. Transport's watch
+replaces `world` with accepted snapshots without touching `offline-world`.

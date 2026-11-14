@@ -241,3 +241,11 @@ pura devuelve `{:room ... :effects ...}` y el watch entrega los efectos ya
 confirmados. El planificador de 25 ms admite como máximo un tick pendiente;
 no acumula una ráfaga para recuperar retrasos. `compare-and-set!` protege esa
 compuerta, mientras `game/step` sigue trabajando solo con valores.
+
+### Publicar valores confirmados
+
+Un snapshot captura el mundo y sus destinatarios en una sola transición. El
+watch pasa ese valor a una cola acotada (`ArrayBlockingQueue`); un worker lo
+codifica una vez. No vuelve a leer la sala para reconstruir el mensaje.
+ClojureScript valida claves, tipos y números finitos antes de reemplazar el
+mundo visible. Un átomo separado conserva el mundo offline para desconexiones.

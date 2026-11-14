@@ -24,7 +24,9 @@
   (reset! connection-state state)
   (when-let [element (.getElementById js/document "connection-status")]
     (let [label (if (= :accepted (:admission state))
-                  "Simulación en el servidor; visualización compartida pendiente."
+                  (if (:snapshot state)
+                    "Arena compartida conectada."
+                    "Esperando estado de la arena…")
                   (case (:status state)
                     :connecting "Conectando al servidor…"
                     :open "Conectado al servidor."
@@ -85,23 +87,36 @@
               (when (identical? socket @connection)
                 (try
                   (let [message (protocol/decode (.-data event))]
-                    (if (protocol/server-message? message)
+                    (if-not (protocol/server-message? message)
+                      (set-state! (assoc @connection-state :status :error :url url))
                       (let [state (assoc @connection-state :url url :message message)]
-                        (set-state!
-                         (case (:type message)
-                           :identity (assoc state :admission :accepted
-                                            :identity (select-keys message [:player-id :color]))
-                           :room-full (-> state
-                                          (assoc :admission :full)
-                                          (dissoc :identity))
-                           :pong (assoc state :status :ready)
-                           :ready (assoc state :status :open)
-                           (assoc state :status :error)))
-                        (case (:type message)
-                          :identity (flush-input!)
-                          :room-full (reset! pending-input nil)
-                          nil))
-                      (set-state! (assoc @connection-state :status :error :url url))))
+                        (if (= :snapshot (:type message))
+                          (let [{:keys [tick world]} message
+                                player-id (get-in state [:identity :player-id])
+                                previous-tick (get-in state [:snapshot :tick])]
+                            (when (and (protocol/snapshot-message? message)
+                                       (= 1 (.-readyState socket))
+                                       (= :accepted (:admission state))
+                                       (contains? (:players world) player-id)
+                                       (or (nil? previous-tick)
+                                           (> tick previous-tick)))
+                              (set-state! (assoc state :snapshot
+                                                 {:tick tick :world world}))))
+                          (do
+                            (set-state!
+                             (case (:type message)
+                               :identity (assoc state :admission :accepted
+                                                :identity (select-keys message [:player-id :color]))
+                               :room-full (-> state
+                                              (assoc :admission :full)
+                                              (dissoc :identity :snapshot))
+                               :pong (assoc state :status :ready)
+                               :ready (assoc state :status :open)
+                               (assoc state :status :error)))
+                            (case (:type message)
+                              :identity (flush-input!)
+                              :room-full (reset! pending-input nil)
+                              nil))))))
                   (catch :default _
                     (set-state! (assoc @connection-state :status :error :url url)))))))
       (set! (.-onerror socket)

@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–44 complete (44/70). One room agent advances all admitted players at 40 Hz; connected browsers render without running local physics.
+Checkpoints 01–45 complete (45/70). Accepted browsers display validated committed snapshots from one shared arena, with bounded asynchronous publication and isolated offline fallback.
 Future mechanics remain specified in the roadmap.
 
 ## Run

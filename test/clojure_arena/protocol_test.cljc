@@ -1,5 +1,6 @@
 (ns clojure-arena.protocol-test
   (:require [clojure-arena.protocol :as protocol]
+            [clojure-arena.game :as game]
             #?(:clj [clojure.test :refer [deftest is testing]]
                :cljs [cljs.test :refer-macros [deftest is testing]])))
 
@@ -188,3 +189,54 @@
       (let [decoded (protocol/decode (pr-str message))]
         (is (= message decoded))
         (is (protocol/server-message? decoded))))))
+
+(deftest snapshot-message-validation-test
+  (let [snapshot {:type :snapshot :tick 0 :world game/initial-world}
+        player-id :player-1
+        infinity #?(:clj Double/POSITIVE_INFINITY :cljs js/Infinity)
+        invalid-messages
+        [(assoc snapshot :room {:members {}})
+         (assoc snapshot :tick nil)
+         (assoc snapshot :tick -1)
+         (assoc snapshot :tick 1.5)
+         (assoc snapshot :tick (inc protocol/safe-integer-maximum))
+         (assoc snapshot :world nil)
+         (assoc-in snapshot [:world :members] {})
+         (assoc-in snapshot [:world :players] nil)
+         (assoc-in snapshot [:world :platforms] nil)
+         (assoc-in snapshot [:world :platforms] (seq (:platforms game/initial-world)))
+         (update-in snapshot [:world :platforms 0] dissoc :height)
+         (update-in snapshot [:world :platforms 0] assoc :extra true)
+         (update-in snapshot [:world :platforms 0] assoc :x infinity)
+         (update-in snapshot [:world :platforms 0] assoc :width 0)
+         (update-in snapshot [:world :platforms 0] assoc :color nil)
+         (update-in snapshot [:world :players player-id] dissoc :radius)
+         (update-in snapshot [:world :players player-id] assoc :extra true)
+         (update-in snapshot [:world :players player-id] assoc :x infinity)
+         (update-in snapshot [:world :players player-id] assoc :vy nil)
+         (update-in snapshot [:world :players player-id] assoc :radius 0)
+         (update-in snapshot [:world :players player-id] assoc :spawn-locked? nil)
+         (update-in snapshot [:world :players player-id] assoc :air-jumps-left -1)
+         (update-in snapshot [:world :players player-id]
+                    assoc :drop-through-platform-id :main)
+         (update-in snapshot [:world :players player-id] assoc :facing :up)
+         (update-in snapshot [:world :players player-id] assoc :color "url(javascript:bad)")
+         (assoc-in snapshot [:world :players "player-1"]
+                   (get-in snapshot [:world :players player-id]))]]
+    (testing "the current game factory scene is a complete snapshot"
+      (is (protocol/snapshot-message? snapshot))
+      (is (protocol/server-message? snapshot))
+      (is (protocol/snapshot-message?
+           (assoc snapshot :tick protocol/safe-integer-maximum)))
+      (is (protocol/snapshot-message?
+           (assoc-in snapshot [:world :players player-id
+                               :drop-through-platform-id] :left)))
+      (is (nil? (:drop-through-platform-id
+                 (get-in snapshot [:world :players player-id])))
+          "the valid nullable platform state remains present in factory players"))
+    (testing "unknown fields, missing fields, nils, and unsafe values are rejected"
+      (doseq [message invalid-messages]
+        (is (not (protocol/snapshot-message? message))
+            (str "expected invalid snapshot: " (pr-str message)))
+        (is (not (protocol/server-message? message))
+            (str "expected invalid server snapshot: " (pr-str message)))))))

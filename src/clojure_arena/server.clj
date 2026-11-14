@@ -1,6 +1,7 @@
 (ns clojure-arena.server
   (:require [clojure.string :as str]
             [clojure-arena.protocol :as protocol]
+            [clojure-arena.publication :as publication]
             [clojure-arena.room :as room]
             [clojure-arena.ticker :as ticker]
             [org.httpkit.server :as http]
@@ -9,12 +10,29 @@
             [ring.middleware.head :refer [wrap-head]]))
 
 (def default-options {:host "127.0.0.1" :port 8082})
-(defonce ^:private tickers (atom {}))
+(defonce ^:private runtimes (atom {}))
 
-(defn deliver-effects! [connections effects]
-  (doseq [{:keys [connection-token message]} effects]
-    (when-let [channel (get @connections connection-token)]
-      (http/send! channel (pr-str message)))))
+(defn broadcast-world! [connections {:keys [connection-tokens message]}]
+  (let [text (pr-str message)
+        channels @connections]
+    (doseq [token connection-tokens]
+      (when-let [channel (get channels token)]
+        (try
+          (http/send! channel text)
+          (catch Exception error
+            (binding [*out* *err*]
+              (println "Snapshot channel send failed:" (.getMessage error)))))))))
+
+(defn deliver-effects!
+  ([connections effects]
+   (deliver-effects! connections nil effects))
+  ([connections publisher effects]
+   (doseq [{:keys [connection-token connection-tokens message] :as effect} effects]
+     (if connection-tokens
+       (when publisher
+         (publication/publish! publisher effect))
+       (when-let [channel (get @connections connection-token)]
+         (http/send! channel (pr-str message)))))))
 
 (defn websocket-response [request room-agent connections]
   (if (:websocket? request)
@@ -53,7 +71,8 @@
 
 (defn make-handler [public-dir]
   (let [connections (atom {})
-        room-agent (room/make-room (partial deliver-effects! connections))
+        publisher (atom nil)
+        room-agent (room/make-room #(deliver-effects! connections @publisher %))
         static-handler (-> routes
                            (wrap-file public-dir)
                            wrap-content-type
@@ -63,7 +82,9 @@
         (if (and (= :get (:request-method request)) (= "/ws" (:uri request)))
           (websocket-response request room-agent connections)
           (static-handler request)))
-      {::room-agent room-agent})))
+      {::room-agent room-agent
+       ::connections connections
+       ::publisher publisher})))
 
 (defn parse-options [args]
   (let [[host port] args
@@ -83,8 +104,17 @@
         server (http/run-server handler
                                 {:ip host :port port :legacy-return-value? false})]
     (try
-      (swap! tickers assoc server (ticker/start! (::room-agent (meta handler))))
-      server
+      (let [publisher (publication/start! (partial broadcast-world!
+                                                  (::connections (meta handler))))]
+        (reset! (::publisher (meta handler)) publisher)
+        (try
+          (swap! runtimes assoc server
+                 {:ticker (ticker/start! (::room-agent (meta handler)))
+                  :publisher publisher})
+          server
+          (catch Exception error
+            (publication/stop! publisher)
+            (throw error))))
       (catch Exception error
         (when-let [stopped (http/server-stop! server {:timeout 1000})]
           @stopped)
@@ -92,12 +122,16 @@
 
 (defn stop! [server]
   (locking server
-    (try
-      (ticker/stop! (get @tickers server))
-      (finally
-        (swap! tickers dissoc server)
-        (when-let [stopped (http/server-stop! server {:timeout 1000})]
-          @stopped))))
+    (let [{:keys [ticker publisher]} (get @runtimes server)]
+      (try
+        (ticker/stop! ticker)
+        (finally
+          (try
+            (publication/stop! publisher)
+            (finally
+              (swap! runtimes dissoc server)
+              (when-let [stopped (http/server-stop! server {:timeout 1000})]
+                @stopped)))))))
   nil)
 
 (defn -main [& args]

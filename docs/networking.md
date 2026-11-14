@@ -23,7 +23,7 @@ obtain `tailscale ip -4`, bind `just server <TAILSCALE_IP> 8082`, and open
 
 The JVM runner discovers `.clj`/`.cljc` test namespaces, uses bounded HTTP waits
 and isolated temporary public roots, and shuts down agents on completion.
-Node client tests remain `just test`. The WebSocket diagnostic contract below does not yet synchronize gameplay.
+Node client tests remain `just test`. The WebSocket contract below carries diagnostics and authoritative gameplay.
 
 ## EDN WebSocket boundary
 
@@ -44,7 +44,7 @@ watcher, which has no gameplay WebSocket; use the query or the server's :8082 pa
 
 `init` starts transport; `stop!` detaches callbacks and closes its owned socket.
 Callbacks check their socket identity. Failure keeps the local fighting sandbox
-playable. There is no automatic reconnect. An admitted OPEN connection now uses the server clock; shared rendering is the next checkpoint.
+playable. There is no automatic reconnect. An admitted OPEN connection now uses the server clock; snapshots provide shared rendering.
 
 ## Serialized admission
 
@@ -105,4 +105,24 @@ scheduler stops before the HTTP handle is released.
 `transport/connected?` requires OPEN and accepted admission. The client keeps
 RAF/drawing but discards connected elapsed time and local action copies. A
 transition between local and authoritative ownership resets fractional time.
-The admitted display stays still until snapshots are introduced next.
+The admitted display renders committed snapshots.
+
+## Committed snapshots
+
+Every tick with members captures one effect with `:connection-tokens` and an
+exact `{:type :snapshot :tick n :world ...}` message from the same next room.
+Only world data crosses the wire: exactly `:platforms` and `:players`, validated
+with exact record keys, finite numeric fields, unique platform IDs, and valid
+player/drop/target identities. Private tokens stay in delivery metadata.
+
+The post-commit watch submits snapshots to `publication/publish!`. Its bounded
+one-item queue replaces an older pending snapshot; the publication worker
+encodes once and broadcasts outside the room queue. A slow send cannot hold
+physics. The ticker and publisher are stopped with their own server handle.
+
+Transport accepts snapshots only for its current OPEN, accepted socket, with
+the assigned player present and a tick greater than the previous accepted tick.
+`client` installs the value immediately. Each RAF passes one captured world to
+both Canvas and panel. No interpolation or local prediction is added. On close,
+the separate saved offline world is restored; it never simulates a network
+world or replays the connected interval.

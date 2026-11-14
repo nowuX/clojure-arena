@@ -63,12 +63,18 @@
 (defn- tick-room [room]
   (let [world (game/step (:world room)
                          (:inputs-by-player room)
-                         tick-seconds)]
-    {:room (-> room
-               (assoc :world world)
-               (update :tick inc)
-               (update :inputs-by-player clear-pending-actions))
-     :effects []}))
+                         tick-seconds)
+        next-room (-> room
+                      (assoc :world world)
+                      (update :tick inc)
+                      (update :inputs-by-player clear-pending-actions))]
+    {:room next-room
+     :effects (if (seq (:members next-room))
+                [{:connection-tokens (vec (keys (:members next-room)))
+                  :message {:type :snapshot
+                            :tick (:tick next-room)
+                            :world (:world next-room)}}]
+                [])}))
 
 (defn apply-room-message [room internal-message]
   (let [{:keys [type connection-token input]} (when (map? internal-message)

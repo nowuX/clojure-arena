@@ -176,6 +176,15 @@
   ((.-onmessage socket)
    #js {:data "{:type :identity :player-id :player-1 :color :cyan}"}))
 
+(defn- admit-as! [socket player-id color]
+  (open-client-socket! socket)
+  ((.-onmessage socket)
+   #js {:data (pr-str {:type :identity :player-id player-id :color color})}))
+
+(defn- receive-snapshot! [socket tick world]
+  ((.-onmessage socket)
+   #js {:data (pr-str {:type :snapshot :tick tick :world world})}))
+
 (defn- start-networked-session! [world]
   (let [sockets (install-websocket!)]
     (begin-session! world)
@@ -521,6 +530,69 @@
               {:steps 0 :players {}}
               {:steps 1 :players {}}]
              @rendered)))))
+
+(deftest network-snapshots-render-as-one-world-and-offline-fallback-keeps-its-own-world
+  (let [offline-world (assoc-in (playable-world) [:players :player-1 :x] 123)
+        first-network-world (-> game/initial-world
+                                (assoc-in [:players :player-1 :x] 700)
+                                (assoc-in [:players :player-2 :accumulated-percentage] 30))
+        latest-network-world (-> game/initial-world
+                                 (assoc-in [:players :player-1 :x] 760)
+                                 (assoc-in [:players :player-2 :accumulated-percentage] 60))
+        {:keys [socket]} (start-networked-session! offline-world)
+        rendered-worlds (atom [])
+        rendered-player-snapshots (atom [])
+        stepped-worlds (atom [])]
+    (admit-as! socket :player-2 :crimson)
+    (dispatch-key! "keydown" "KeyD")
+    (is (= [{:horizontal 1 :jump? false :drop? false :attack? false}]
+           (sent-inputs socket))
+        "the socket identity remains implicit in the exact player-input frame")
+
+    (with-redefs [game/step (fn [world _inputs-by-player _dt]
+                             (swap! stepped-worlds conj world)
+                             (update world :local-steps (fnil inc 0)))
+                  client/draw-world (fn [_canvas world]
+                                      (swap! rendered-worlds conj world))
+                  client/render-players!
+                  (fn [world]
+                    (swap! rendered-player-snapshots conj (:players world)))]
+      (receive-snapshot! socket 5 first-network-world)
+      (is (= first-network-world @client/world)
+          "a snapshot installs immediately even before the pending RAF runs")
+      (deliver-frame! 0)
+      (receive-snapshot! socket 6 latest-network-world)
+      (is (= latest-network-world @client/world)
+          "a newer snapshot replaces the visible world while RAF is between frames")
+      (deliver-frame! 25)
+      (deliver-frame! 50)
+      (is (= [first-network-world latest-network-world latest-network-world]
+             @rendered-worlds))
+      (is (= (mapv :players @rendered-worlds)
+             @rendered-player-snapshots)
+          "canvas and percentage panel render the same captured world on each frame")
+      (is (empty? @stepped-worlds)
+          "network snapshots render without local game/step calls")
+
+      (set! (.-readyState socket) 3)
+      ((.-onclose socket) #js {})
+      (is (= offline-world @client/world)
+          "closing restores the saved local fixture instead of a server world")
+      (is (= 0 (client/advance-world! client/tick-ms)))
+      (is (= [offline-world] @stepped-worlds)
+          "local physics resumes from the local fixture and never from the network snapshot")
+      (is (= offline-world (first @stepped-worlds)))
+
+      (transport/start! "http://arena.example:8082/")
+      (let [pending-socket @transport/connection]
+        (open-client-socket! pending-socket)
+        (receive-snapshot! pending-socket 0 latest-network-world)
+        (is (nil? (:snapshot @transport/connection-state))
+            "a preadmission snapshot on a new connection cannot replace the local world")
+        (let [pending-fallback-world (assoc offline-world :local-steps 1)]
+          (is (= 0 (client/advance-world! client/tick-ms)))
+          (is (= [offline-world pending-fallback-world] @stepped-worlds)
+              "a pending connection continues only its saved local world"))))))
 
 (deftest a-connected-session-with-no-frames-cannot-replay-its-time-on-close
   (let [{:keys [socket]} (start-networked-session! {:steps 0 :players {}})]

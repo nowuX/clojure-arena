@@ -87,8 +87,19 @@
       (throw (ex-info "Timed out waiting for a WebSocket event"
                       {:timeout-ms timeout-ms}))))
 
+(defn- next-control-event! [events timeout]
+  (let [deadline (+ (System/nanoTime) (* timeout 1000000))]
+    (loop []
+      (let [remaining (max 0 (- deadline (System/nanoTime)))
+            [kind value :as event] (.poll ^LinkedBlockingQueue events remaining
+                                          TimeUnit/NANOSECONDS)]
+        (if (and (= :text kind)
+                 (protocol/snapshot-message? (protocol/decode value)))
+          (recur)
+          event)))))
+
 (defn- await-text! [events]
-  (let [[kind value :as event] (next-event! events)]
+  (let [[kind value :as event] (next-control-event! events timeout-ms)]
     (if (= :text kind)
       value
       (throw (ex-info "Expected a WebSocket text message"
@@ -131,7 +142,7 @@
   (assert-identity! (await-admission! events)))
 
 (defn- assert-no-event! [events context]
-  (let [event (.poll ^LinkedBlockingQueue events 100 TimeUnit/MILLISECONDS)]
+  (let [event (next-control-event! events 100)]
     (is (nil? event)
         (str "unexpected extra WebSocket event " (pr-str event) " " context))))
 
@@ -163,7 +174,7 @@
   (await-future (.sendClose ^WebSocket websocket
                             WebSocket/NORMAL_CLOSURE
                             "test complete"))
-  (let [[kind status reason :as event] (next-event! events)]
+  (let [[kind status reason :as event] (next-control-event! events timeout-ms)]
     (is (= :close kind) (str "expected close event, got " (pr-str event)))
     (is (= WebSocket/NORMAL_CLOSURE status)
         (str "unexpected close reason: " reason))

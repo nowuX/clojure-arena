@@ -6,6 +6,14 @@
 (def error-codes #{:invalid-edn :invalid-message :unsupported-type})
 (def player-colors [:cyan :crimson :amber :green])
 (def neutral-input {:horizontal 0 :jump? false :drop? false :attack? false})
+(def safe-integer-maximum 9007199254740991)
+
+(def platform-fields #{:id :type :x :y :width :height :color})
+(def player-fields #{:x :y :vx :vy :knockback-vx :knockback-vy
+                     :facing :spawn-locked? :air-jumps-left
+                     :drop-through-platform-id :melee-cooldown-left
+                     :melee-strike-id :melee-resolved-strike-id
+                     :melee-target-ids :accumulated-percentage :radius :color})
 
 (defn player-input? [input]
   (and (map? input)
@@ -18,6 +26,86 @@
    :jump? (or (:jump? pending) (:jump? input))
    :drop? (or (:drop? pending) (:drop? input))
    :attack? (or (:attack? pending) (:attack? input))})
+
+(defn- safe-nonnegative-integer? [value]
+  #?(:clj (and (integer? value)
+               (<= 0 value safe-integer-maximum))
+     :cljs (and (number? value)
+                (js/Number.isSafeInteger value)
+                (<= 0 value safe-integer-maximum))))
+
+(defn- finite-number? [value]
+  (and (number? value)
+       #?(:clj (Double/isFinite (double value))
+          :cljs (js/Number.isFinite value))))
+
+(defn- player-id? [value]
+  (and (keyword? value)
+       (nil? (namespace value))
+       (re-matches #"player-[1-9][0-9]*" (name value))))
+
+(defn- platform-id? [value]
+  (and (keyword? value)
+       (nil? (namespace value))))
+
+(defn- color? [value]
+  (and (string? value)
+       (re-matches #"#[0-9A-Fa-f]{6}" value)))
+
+(defn- platform? [platform]
+  (and (map? platform)
+       (= platform-fields (set (keys platform)))
+       (platform-id? (:id platform))
+       (contains? #{:solid :semisolid} (:type platform))
+       (every? finite-number? (map platform [:x :y :width :height]))
+       (pos? (:width platform))
+       (pos? (:height platform))
+       (color? (:color platform))))
+
+(defn- player? [player semisolid-platform-ids]
+  (let [drop-through-id (:drop-through-platform-id player)]
+    (and (map? player)
+         (= player-fields (set (keys player)))
+         (every? finite-number?
+                 (map player [:x :y :vx :vy :knockback-vx :knockback-vy
+                              :melee-cooldown-left :accumulated-percentage
+                              :radius]))
+         (pos? (:radius player))
+         (not (neg? (:melee-cooldown-left player)))
+         (not (neg? (:accumulated-percentage player)))
+         (safe-nonnegative-integer? (:air-jumps-left player))
+         (safe-nonnegative-integer? (:melee-strike-id player))
+         (safe-nonnegative-integer? (:melee-resolved-strike-id player))
+         (contains? #{:left :right} (:facing player))
+         (boolean? (:spawn-locked? player))
+         (or (nil? drop-through-id)
+             (contains? semisolid-platform-ids drop-through-id))
+         (set? (:melee-target-ids player))
+         (every? player-id? (:melee-target-ids player))
+         (color? (:color player)))))
+
+(defn snapshot-message? [message]
+  (and (map? message)
+       (= #{:type :tick :world} (set (keys message)))
+       (= :snapshot (:type message))
+       (safe-nonnegative-integer? (:tick message))
+       (let [world (:world message)
+             platforms (when (map? world) (:platforms world))
+             players (when (map? world) (:players world))
+             platform-ids (when (vector? platforms)
+                            (set (map :id platforms)))
+             semisolid-platform-ids (when (vector? platforms)
+                                      (set (map :id
+                                                (filter #(= :semisolid (:type %))
+                                                        platforms))))]
+         (and (map? world)
+              (= #{:platforms :players} (set (keys world)))
+              (vector? platforms)
+              (every? platform? platforms)
+              (= (count platform-ids) (count platforms))
+              (map? players)
+              (every? player-id? (keys players))
+              (every? #(player? % semisolid-platform-ids) (vals players))))))
 
 (defn decode [text]
   (let [reader #?(:clj (java.io.PushbackReader. (java.io.StringReader. text))
@@ -61,6 +149,7 @@
   (or (= {:type :ready} message)
       (= {:type :pong} message)
       (= {:type :room-full} message)
+      (snapshot-message? message)
       (and (map? message)
            (= #{:type :player-id :color} (set (keys message)))
            (= :identity (:type message))

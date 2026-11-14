@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**44 of 70 checkpoints complete.** Checkpoints 01–44 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**45 of 70 checkpoints complete.** Checkpoints 01–45 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -609,7 +609,7 @@ Checkpoints **39–49**. Add HTTP/WebSocket, exact EDN messages, connection-owne
 
 ### 45 — Publish and render committed snapshots
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Capture recipients/message from the same committed tick.
   Validate exact world fields and finite values. Publish through a bounded latest-only
   worker, encode once, and deliver off the physics queue. Browser accepts only newer ticks
