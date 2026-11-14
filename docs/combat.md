@@ -93,8 +93,8 @@ jumps, drop-through, facing, cooldowns, targeting, accumulation, and knockback.
 Connected play uses the same pure mechanics with server-owned inputs and
 snapshots; the fixture controls above describe disconnected fallback only.
 Stocks, respawn and incoming-hit protection use the lifecycle described in
-[Simulation](simulation.md). HP, match phases and automatic opponents are not
-implemented.
+[Simulation](simulation.md). [Matches](matches.md) gates connected combat to
+running contenders. HP and automatic opponents are outside this implementation.
 See the [architecture](architecture.md) for the complete tick and the
 [verification guide](simulation-verification.md) for reproducible checks.
 

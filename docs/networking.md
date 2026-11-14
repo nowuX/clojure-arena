@@ -61,7 +61,7 @@ The server maps fresh private Object tokens to channels; neither token nor
 client claims determine a wire-selected ID. Each server creates its own room.
 
 Wire identity is exactly `{:type :identity :player-id :player-N :color :cyan}`
-with one of `:cyan/:crimson/:amber/:green`. The browser shows ID/color. Socket closure or heartbeat expiry queues atomic leave cleanup. Accepted identities now spawn bodies as described below.
+with one of `:cyan/:crimson/:amber/:green`. The browser shows ID/color. Socket closure or heartbeat expiry queues atomic leave cleanup. Accepted identities own waiting player records as described below.
 
 ## Admission and world data
 
@@ -75,8 +75,10 @@ The same admission transition inserts the member, body under that ID, and
 `protocol/neutral-input` in `:inputs-by-player`. Duplicate admission preserves
 all existing body/input state. Full-room rejection inserts nothing. The world
 is serializable data; private channel tokens belong only to membership and
-captured delivery recipients. Server bodies are active records immediately;
-match phases have not been introduced. The server advances them at 40 Hz.
+captured delivery recipients. `match/add-player` wraps the factory record as
+waiting with zero stocks/timers. The second admission starts a countdown;
+late joins remain observers outside the frozen contender roster. Match phase
+transitions and running gameplay share the same 40 Hz server scheduler.
 
 ## Connection-owned input
 
@@ -89,13 +91,14 @@ Closing or replacing the socket clears this buffer.
 The server attaches its private connection token. `apply-room-message` resolves
 that member and merges only its input; it does not move the world. A neutral
 release preserves an already captured jump, drop or attack until simulation
-consumes it. Keyboard repeat sends no extra action, and blur sends neutral
+consumes it for an active running contender. Waiting, observer, respawning,
+eliminated and finished records discard new one-shot actions immediately. Keyboard repeat sends no extra action, and blur sends neutral
 movement immediately. Only disconnected fallback runs local physics.
 
 ## Authoritative clock
 
 `room/tick-seconds` is 0.025. Trusted exact `{:type :tick}` actions call
-`game/step` once with `:inputs-by-player`, increment `:tick`, consume one-shot
+`match/step` once with `:inputs-by-player`, increment `:tick`, consume one-shot
 flags and retain direction. Input and join actions share the same agent queue.
 `ticker/make-driver` admits at most one pending tick; overloaded pulses are
 dropped without catch-up, so overload slows simulation time. Its owned daemon
@@ -171,9 +174,20 @@ across joins/leaves rather than restarting for an individual session.
 ## Lifecycle snapshots
 
 Player schema includes `:stocks` (integer 0–3), `:lifecycle`
-(active/respawning/eliminated), finite `:spawn-x/:spawn-y`, and finite timers
+(waiting/active/respawning/eliminated), finite `:spawn-x/:spawn-y`, and finite timers
 `:respawn-seconds-left` (0–3) / `:protection-seconds-left` (0–2). Active players
 have stocks and no respawn countdown. Respawning records have stocks and no
 protection; eliminated records have zero stocks and zero timers. Neither
 stock loss nor elimination removes membership or snapshot delivery. Only
 socket retirement removes the body record and frees its color.
+
+## Public match snapshots
+
+The exact world fields are `:blast-bounds`, `:platforms`, `:players` and `:match`.
+See [Matches](matches.md) for the exact phase/roster/result contract. Waiting
+records retain ownership in snapshots with zero stocks, whereas eliminated
+contenders remain in the fixed roster. A forfeited contender may outlive its
+removed player record; a committed winner may therefore be disconnected.
+Reset preserves current IDs/colors and monotonically increasing room ticks,
+clears the old roster/result and admits current observers into the next start.
+No client message can select phase, winners, clocks or reset a match.

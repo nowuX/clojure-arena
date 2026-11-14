@@ -146,8 +146,9 @@ snapshots, independent of platform geometry; the query itself never changes play
 `make-player` initializes `:stocks 3` and `:lifecycle :active`. Stocks are
 remaining opportunities, independent of percentage and motion. Snapshots
 allow active/respawning bodies with 1–3 integer stocks and eliminated records
-with 0. Waiting belongs to future match phases. This stage represents the
-state; the stock-loss transition below controls participation.
+with 0. Match admission adds waiting records with zero stocks and timers.
+Only running roster players enter the connected gameplay simulation; the
+stock-loss transition below controls participation within it.
 
 ## One stock per exit
 
@@ -194,11 +195,13 @@ returns a new active player with `:protection-seconds-left 2`; inactive values
 are unchanged. Respawn grants the full duration on the return tick. Only later
 active ticks consume it, before motion/ring-out and melee targeting. At zero,
 that tick's hits can apply. A protection-rejected strike is still consumed;
-protection does not defer impacts or prevent ring-outs. Initial match-start
-protection is reserved for the future match-start checkpoint.
+protection does not defer impacts or prevent ring-outs. Match start also grants
+two full seconds to each freshly rebuilt entrant without consuming them on its
+start tick.
 
 Canvas adds a neutral white ring around a protected body and the panel adds
 «Protegido N s» with rounded-up simulation time. Both disappear at zero. Body
 colors remain reserved for identity; stocks, lifecycle and protection are
 separate fields. At zero stocks a player remains connected and eliminated;
-match completion and rematches belong to the next milestone.
+the match layer captures victory or time-limit results and later rebuilds current
+connections for a rematch. The offline sandbox keeps its simpler match-free world.

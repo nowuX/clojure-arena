@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–65 complete (65/70). Finished matches wait five simulation seconds, reset current connections and start fresh rematches while keeping sessions and room ticks.
+Checkpoints 01–66 complete (66/70). Shared matches include countdowns, fixed contenders and observers, forfeits, three-minute results, neutral standings and automatic five-second rematches.
 Future mechanics remain specified in the roadmap.
 
 ## Run

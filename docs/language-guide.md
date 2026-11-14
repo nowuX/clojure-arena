@@ -46,6 +46,25 @@ un reader conditional para seleccionar la biblioteca de cada entorno:
    :cljs (js/Math.sqrt value))
 ```
 
+## Clojure compartido: fases y resultados en `match.cljc`
+
+`case` elige una transformación según `:phase`: esperar conserva el mundo,
+la cuenta atrás reconstruye jugadores al llegar a cero, `:running` compone
+`game/step` con reloj y resultado, y `:finished` cuenta el intermedio. No crea
+otro reloj ni muta jugadores; devuelve mapas nuevos.
+
+`contender?` consulta el roster y su marca `:forfeited?`. `select-keys` forma
+el subconjunto que entra a física; `merge` devuelve sus resultados al mapa
+que también conserva observadores. Con `reduce-kv` se copian vidas y porcentaje
+al roster después del tick. Una conexión y un participante de partida son
+registros relacionados por ID, con ciclos de vida distintos.
+
+`ranked-standings` usa `sort-by` y `juxt` para ordenar por abandono, vidas
+negadas, porcentaje e ID. El ID ordena la presentación; comparar vidas y
+porcentaje con `==` detecta el empate real. `result-for` calcula un valor o
+`nil`; `finish-if-decided` lo guarda una sola vez. Reconstruir durante la
+revancha reutiliza la fábrica y conserva únicamente identidad y spawn.
+
 ## ClojureScript del navegador: `client.cljs`
 
 ### Átomos y eventos
@@ -323,3 +342,12 @@ está activo. El tick reduce ese dato antes de buscar objetivos; la consulta y
 el resolver excluyen destinos protegidos. Los marcadores de golpe se confirman
 igual, evitando impactos aplazados. Canvas dibuja un anillo blanco y el panel
 muestra segundos redondeados, sin controlar el reloj de la simulación.
+
+## ClojureScript: presentar la partida autoritativa
+
+`render-match!` recibe el mismo snapshot usado por Canvas. `format-clock`
+combina `js/Math.ceil`, `js/Math.floor` y `.padStart` para mostrar `mm:ss`;
+no resta tiempo. El ganador y la clasificación salen de `:result`, por lo que
+se pueden mostrar aunque su conexión ya no exista. `panel-state-label`
+distingue observadores de contendientes eliminados sin adivinar un ganador.
+`textContent` escribe texto y los colores se limitan a las muestras de identidad.

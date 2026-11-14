@@ -1,71 +1,75 @@
 # Multiplayer verification
 
-This is a reproducible checklist, not a claim that native-browser or remote
-device checks have run. Automated tests use real JVM sockets on the service
-host and Node browser doubles.
+This checklist describes native-browser and remote-device checks to perform.
+Automated evidence uses JVM loopback sockets and Node browser doubles; neither
+establishes native appearance, physical network loss or access from another device.
 
 ## Start one server
 
-Follow [Development](development.md). For a built page, run `just build` then
-`just server <HOST> 8082` and open `http://<HOST>:8082/` in all pages. For watched
-assets use `http://<HOST>:8081/?server=http://<HOST>:8082` with `just dev <HOST>`
-in a separate terminal. Obtain the service machine's Tailscale IP using
-`tailscale ip -4` for another device; use that IP consistently.
+Follow [Development](development.md). Build with `just build`, run
+`just server <HOST> 8082` and open `http://<HOST>:8082/` in every page. For watched
+assets, keep `just dev <HOST>` and `just server <HOST> 8082` in separate terminals
+and use `http://<HOST>:8081/?server=http://<HOST>:8082`. For another device obtain
+the service machine's address with `tailscale ip -4` and use it consistently.
 
-1. Open two pages. Both should say «Arena compartida conectada.» with distinct
-   IDs/colors and show exactly those two bodies and panel rows. Four local
-   fixtures or a local-fallback notice means the shared session is not active.
-2. Wait for the first supported landing. Move one page with A/D, jump with
-   fresh W presses, drop from an outline using S, and click inside the canvas.
-   The other page should display that movement and hit effects. Only the
-   originating page's assigned player responds to its controls.
-3. Bring two players within 60 px, face the opponent and primary-click.
-   All pages should show +10 percentage points on that target and the same
-   knockback trajectory. Repeated valid strikes require 0.25 simulation
-   seconds. Ordinary movement should match even on pages with different RAF
-   rates; no client predicts physics.
-4. Open two more pages. Confirm four unique IDs/colors and the same four bodies.
-   Open a fifth: it should retain «La sala está llena; el juego continúa en modo
-   local.» and control only its local sandbox. Accepted pages remain unchanged.
-5. Close one accepted page. Its row/body should disappear from survivors.
-   Explicitly reload the rejected page after cleanup: it should enter with a
-   larger ID, available color, 0%, fresh motion and locked spawn. No automatic
-   retry or cookie-based resume occurs.
-6. Hold a direction and lose focus: movement intention becomes neutral. Reload
-   that page and verify no old jump, attack, percentage or velocity reappears.
-   Tabs sharing cookies still receive separate connection identities.
-7. Stop the game server. Pages return to their separate offline worlds without
-   simulating the last network snapshot. Restart it and reload explicitly.
-8. If a second device is available, repeat admission/movement there. Verify
-   `http://<TAILSCALE_IP>:8082/health` and the page from that device. A host-only
-   response cannot establish its connectivity. For silent loss, disconnect a
-   device's network without closing its page and verify its row disappears
-   after the heartbeat deadline is observed (15 s deadline, 5 s pulse cadence).
+## Shared match checklist
+
+1. Open one page. It owns one ID/color and a waiting row with zero opportunities;
+   no body falls and no lone winner is declared. Open a second page: both show
+   the same three-second countdown. Close it before expiry to cancel; reconnect
+   to get a fresh full countdown.
+2. At the start, both get three opportunities, 0%, locked spawns and a two-second
+   neutral ring. Wait for landing and protection expiry, then use A/D, fresh W
+   presses, S on an outline, and primary click inside Canvas. Only the originating
+   page's assigned player responds. Both pages show the same movement and hits.
+3. Face an opponent within 60 px and click. Both pages show +10 percentage points
+   and the same impulse. Repeated valid strikes require 0.25 simulation seconds.
+   Blur neutralizes held direction; held keys do not replay discarded actions.
+4. Open two more pages during running. They occupy unique IDs/colors and appear
+   as observers with zero opportunities and no bodies, without altering the roster.
+   A fifth connection keeps its full-room notice and controls its local sandbox.
+5. Move a complete circle outside the blast bounds. Both pages show one lost
+   opportunity, absent body and three-second respawn. At return verify 0%, original
+   spawn, locked controls and a fresh two-second ring. Partial exits do not charge
+   a life; protected players can still fall. Repeat through permanent elimination.
+6. When one eligible contender remains, including a respawning one, show the same
+   captured winner and ordered standings. Simultaneous final eliminations draw.
+   Observers cannot win. Check that finished physics and the running clock freeze.
+7. On the authoritative clock reaching zero, verify more stocks win before lower
+   percentage, and exact best-score ties draw. Final-tick hits/exits affect ranking;
+   last-contender resolution takes priority. The panel never decides locally.
+8. Keep the result for a full five-second intermission. Current connections,
+   including observers/eliminated players, reset into a fresh countdown. Verify
+   new match ID, unchanged connection IDs/colors and no stale movement/attacks.
+   With fewer than two current connections the room waits instead.
+9. Close a running contender. Capture it as forfeited and check the remaining
+   contender can win. Closing an observer does not alter eligibility. Reload gets
+   a larger fresh ID; color reuse never revives old state. A winner that leaves
+   after finish remains visible in the captured result until reset.
+10. Stop the gameplay server. Each page restores its own offline world. Restart
+    and reload explicitly. For silent network loss, verify the record is retired
+    after the heartbeat deadline (15 s deadline, 5 s probe cadence), using the
+    same forfeit path as ordinary closure.
+11. From another device, verify `http://<TAILSCALE_IP>:8082/health` and the page,
+    then repeat shared controls and match transitions. A host-only response does
+    not establish that device's connectivity.
 
 ## Automated evidence boundaries
 
-`just check` runs JVM/shared simulation, Node and isolated release checks.
-JVM tests exercise concurrent admissions, owner-only inputs, same-tick worlds
-and melee across four real sockets, fifth rejection, delayed publication,
-heartbeat challenges/deadlines, closure, cookies, reloads and color reuse.
-Room-agent tests interleave input/tick/join/leave and verify captured recipients
-and world consistency. Servers use ephemeral ports and are stopped in `finally`.
+`just check` runs all JVM tests, Node tests and an isolated optimized build.
+Pure tests cover exact 119/120 start/respawn, 79/80 protection, 7,199/7,200 clock
+and 199/200 intermission boundaries, score ties and repeated fresh matches.
+Room-agent tests race input/tick/join/leave at finish, reset and start boundaries,
+checking every captured public world and ownership invariant.
 
-Node fixtures verify event delivery before RAF, taps/autorepeat/blur, lifecycle
-cleanup, terminal notices, stale callback/snapshot rejection, and one captured
-world for Canvas/panel with separate offline fallback. They do not render a
-native browser or emulate physical network loss. The release checks compiler
-compatibility only. Native focus, appearance and cross-device behavior require
-the checklist above.
+Owned port-zero WebSocket tests compare same-tick snapshots across clients through
+stock loss, full respawn/protection, elimination victory, observer admission,
+forfeit victory, intermission, rematch and a time-limit draw. They control trusted
+test state/time; no privileged match command is exposed to clients. Existing
+checks retain four-client melee, fifth rejection, delayed publication, heartbeat,
+reload and cleanup coverage. Servers close in `finally`.
 
-
-## Stock lifecycle across connected pages
-
-Drive one player's whole circle outside the blast bounds. All accepted pages
-should show one opportunity lost, the same absent body and countdown. At three
-simulation seconds it returns with 0%, fresh motion, locked spawn and a neutral
-two-second protection ring/text. Verify incoming hits are ignored only while
-protected, then work on a fresh strike after expiry. Repeat through elimination:
-its connected row remains, receives snapshots and still occupies its slot.
-Disconnect/reload creates a fresh session under the ordinary admission rules;
-it does not revive the old ID. Match phases/results are not implemented yet.
+Node doubles cover event/RAF ownership, raw waiting/countdown/result snapshots,
+neutral result text, a departed winner, ordered standings, observer rows and
+safe offline fallback. They do not inspect native Canvas pixels, browser focus
+or a second device. The release check establishes compiler compatibility only.

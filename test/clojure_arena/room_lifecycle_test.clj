@@ -105,3 +105,50 @@
             "captured recipients and world players should describe the same tick"))
       (finally
         (await-for 3000 room-agent)))))
+
+(deftest concurrent-finish-reset-and-start-boundaries-retain-one-consistent-world
+  (let [room-agent (room/make-room (fn [_] nil))
+        commits (atom [])
+        watch-key ::match-boundaries
+        input {:horizontal 1 :jump? true :drop? true :attack? true}
+        seed! (fn [path value]
+                (send room-agent (fn [envelope] (-> envelope (assoc :effects []) (assoc-in path value))))
+                (await-agent! room-agent))]
+    (try
+      (doseq [token [:a :b]]
+        (room/enqueue-room-message! room-agent {:type :join :connection-token token}))
+      (dotimes [_ 120] (room/enqueue-room-message! room-agent {:type :tick}))
+      (await-agent! room-agent)
+      (seed! [:room :world :match :time-seconds-left] 0.025)
+      (add-watch room-agent watch-key (fn [_ _ _ next-state] (swap! commits conj (:room next-state))))
+      (enqueue-concurrently! room-agent [{:type :tick} {:type :input :connection-token :a :input input}])
+      (is (= :finished (get-in @room-agent [:room :world :match :phase])))
+      (is (= 5 (get-in @room-agent [:room :world :match :intermission-seconds-left])))
+      (is (= (assoc protocol/neutral-input :horizontal 1) (get-in @room-agent [:room :inputs-by-player :player-1])))
+      (seed! [:room :world :match :intermission-seconds-left] 0.025)
+      (enqueue-concurrently! room-agent [{:type :tick} {:type :join :connection-token :c}
+                                         {:type :leave :connection-token :a}])
+      (let [state (:room @room-agent)]
+        (is (= #{:b :c} (set (keys (:members state)))))
+        (is (= :countdown (get-in state [:world :match :phase])))
+        (is (= 3 (get-in state [:world :match :countdown-seconds-left])))
+        (is (empty? (get-in state [:world :match :contenders]))))
+      (room/enqueue-room-message! room-agent {:type :join :connection-token :e})
+      (await-agent! room-agent)
+      (seed! [:room :world :match :countdown-seconds-left] 0.025)
+      (enqueue-concurrently! room-agent [{:type :tick} {:type :join :connection-token :d}
+                                         {:type :leave :connection-token :c}])
+      (let [state (:room @room-agent)
+            ids (set (map :player-id (vals (:members state))))]
+        (is (= #{:b :d :e} (set (keys (:members state)))))
+        (is (= ids (set (keys (:inputs-by-player state)))))
+        (is (= ids (set (keys (get-in state [:world :players])))))
+        (is (= :running (get-in state [:world :match :phase])))
+        (is (= 2 (get-in state [:world :match :id])))
+        (is (= 180 (get-in state [:world :match :time-seconds-left]))))
+      (doseq [state @commits]
+        (is (= (set (map :player-id (vals (:members state))))
+               (set (keys (get-in state [:world :players])))
+               (set (keys (:inputs-by-player state)))))
+        (is (protocol/snapshot-message? {:type :snapshot :tick (:tick state) :world (:world state)})))
+      (finally (remove-watch room-agent watch-key) (await-for 3000 room-agent)))))

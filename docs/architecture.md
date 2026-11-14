@@ -5,7 +5,7 @@ http-kit server, room agent, simulation scheduler, publication worker and
 heartbeat scheduler. Shared `.cljc` functions operate on immutable values;
 ClojureScript is the browser implementation of Clojure. See [Networking](networking.md)
 for the wire contract and [Simulation](simulation.md) / [Combat](combat.md)
-for physics and hit rules.
+for physics and hit rules, and [Matches](matches.md) for phase orchestration.
 
 ## Ownership and concurrency
 
@@ -18,8 +18,11 @@ flowchart TD
     Transport --> Socket[Socket boundary: attach private token]
     Socket -->|join / input / leave| Agent[One room agent: serialized pure transitions]
     Tick[25 ms scheduler: at most one pending tick] -->|trusted tick| Agent
-    Agent --> Step[game/step: all players at dt 0.025]
-    Step --> Commit[Committed room envelope]
+    Agent --> Match[match/step: phase orchestration]
+    Match -->|running roster| Step[game/step: eligible contenders at dt 0.025]
+    Step --> Resolve[Capture scores / clock / result]
+    Resolve --> Commit[Committed room envelope]
+    Match -->|waiting / countdown / intermission| Commit
     Commit --> Watch[Watch: captured effects]
     Watch --> Identity[Identity / full response to one token]
     Identity --> Browser
@@ -66,7 +69,12 @@ not resume retired identities.
 | `protocol/read-client-message` | text/binary frame → input or error/reply | Safe EDN decoding; exact one-value contract, no evaluation |
 | `protocol/merge-pending-input` | pending input, new input → merged input | Pure; latest direction, OR of one-shot actions |
 | `protocol/snapshot-message?` | candidate → truthy/falsey | Pure; exact schemas, finite values and valid identities |
-| `room/apply-room-message` | room, trusted message → room/effects envelope | Pure; join/input/tick/leave only; one 0.025-second step per tick |
+| `match/add-player` | world, ID, factory player → world | Pure; waiting ownership; countdown reconciliation |
+| `match/remove-player` | world, ID → world | Pure; capture forfeit before cleanup and result check |
+| `match/step` | world, owned input, dt → world | Pure; phase dispatch, roster simulation, results and resets |
+| `match/result-for` | contenders, remaining time → result or nil | Pure; last-contender priority and score-based ties |
+| `match/ranked-standings` | contenders → ordered vector | Pure; stocks, percentage, forfeits and stable display ID |
+| `room/apply-room-message` | room, trusted message → room/effects envelope | Pure; join/input/tick/leave only; one 0.025-second phase step per tick |
 | `room/make-room` | effect callback → room agent | Creates agent/watch; callback sees committed effects |
 | `room/enqueue-room-message!` | agent, trusted message → agent | Enqueues serialized transition with `send` |
 | `ticker/make-driver` | room agent → pulse/stop driver | At most one tick outstanding; scheduler owns 25 ms pulses |
@@ -82,9 +90,14 @@ not resume retired identities.
 
 ## One complete simulation tick
 
-1. Step each existing player once, using its owned intention or neutral input.
-   Inactive records count respawn time or remain eliminated. Initial lock
-   ignores voluntary movement/actions until supported landing.
+First dispatch the match phase: waiting holds gameplay; countdown starts clean
+entrants only at expiry; finished counts intermission and resets current members.
+For a running tick:
+
+1. Step each connected, nonforfeited contender once using its owned intention
+   or neutral input. Respawning records count their timer and eliminated records
+   hold. Observers never enter this simulation. Initial lock ignores voluntary
+   movement/actions until supported landing.
 2. Decrement active protection, update facing/cooldown, choose semisolid drop
    before jump, apply acceleration,
    friction and gravity, then sweep surfaces and corners. Supported top contact
@@ -96,8 +109,11 @@ not resume retired identities.
 4. Group hits per target, add 10 percentage points per hit, calculate impulses at
    the final percentage, then store total/received velocities and resolved markers
    together. The added velocity moves the target on the next tick.
-5. Commit world, increment room tick and consume one-shot input while retaining
+5. Capture current contender scores, decrement the running clock and resolve
+   last-contender results before time-limit ranking. Capture a result only once.
+6. Commit world, increment room tick and consume one-shot input while retaining
    direction. Capture the snapshot for current members and publish after commit.
+   Match transitions do not add a scheduler or reset connection IDs.
 
 ## Browser mode boundary
 
@@ -132,4 +148,6 @@ color/stocks and the outer ID. That return tick performs no extra physics or
 action handling. `grant-spawn-protection` grants two full seconds; only later
 active ticks decrement protection before targeting. Eliminated records never
 respawn. Snapshot validation includes finite bounds, stored spawns, integer
-stocks, lifecycle and bounded timers. No match phase or result is introduced.
+stocks, lifecycle, phase/roster consistency, bounded timers and captured results.
+Admissions start waiting at zero stocks; match start and respawn grant protection.
+Match reset rebuilds all current connections without replacing their sessions.

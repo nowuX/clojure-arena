@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**65 of 70 checkpoints complete.** Checkpoints 01–65 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**66 of 70 checkpoints complete.** Checkpoints 01–66 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -879,7 +879,7 @@ Checkpoints **57–66**. Separate connections from contenders and compose match 
 
 ### 66 — Verify complete shared matches
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Integrate lifecycle/match/protocol/room/socket regressions and
   extend browser checks and the language/architecture guides. Describe match
   IDs/phases/results as public snapshot data without privileged client commands.

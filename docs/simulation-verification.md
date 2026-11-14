@@ -126,7 +126,9 @@ focus, Canvas pixels, or cross-device behavior; those remain manual checks.
   nor impulse. After it disappears, a fresh valid strike works. A protected
   player may attack after landing, and can still lose a stock by exiting.
 - Repeat until zero opportunities. The row stays «Eliminado» with no body or
-  timer and cannot hit or be hit. There is no victory/rematch flow yet.
+  timer and cannot hit or be hit. These offline sandbox checks have no match
+  result; use [Multiplayer verification](multiplayer-verification.md) for victory
+  and rematch checks on connected pages.
 
 The automated boundary tests check 119/120 respawn ticks, 79/80 protection
 ticks, complete/partial exits on every edge, simultaneous exits/attacks,
