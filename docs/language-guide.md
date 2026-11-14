@@ -278,3 +278,10 @@ sesión: cada conexión aceptada recibe un nuevo ID monotónico.
 recibe personaje y límites sin leer ni cambiar el mundo; compara el extremo
 completo del círculo con cada borde mediante desigualdades estrictas. El
 validador del snapshot exige cuatro números finitos y límites no invertidos.
+
+### Vidas y ciclo del jugador
+
+`make-player` devuelve `:stocks 3` y `:lifecycle :active`. Las keywords separan
+estados sin objetos mutables: activo, esperando reaparición o eliminado. El
+protocolo valida juntos estado y número entero de vidas; el porcentaje se
+conserva como otro campo, no representa salud.

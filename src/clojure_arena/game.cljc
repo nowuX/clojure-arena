@@ -12,13 +12,16 @@
   {:base-impulse 200 :percentage-scale 3})
 (def cooldown-epsilon 1e-9)
 
+(def initial-stocks 3)
+
 (defn make-player [color x y]
   {:x x :y y :vx 0 :vy 0 :knockback-vx 0 :knockback-vy 0 :radius 16
    :spawn-locked? true :air-jumps-left 1
    :drop-through-platform-id nil :color color :facing :right
    :melee-cooldown-left 0 :melee-strike-id 0 :melee-resolved-strike-id 0
    :melee-target-ids #{}
-   :accumulated-percentage 0})
+   :accumulated-percentage 0
+   :stocks initial-stocks :lifecycle :active})
 
 (def local-player-fixtures
   {:player-1 (make-player "#22d3ee" 400 160)

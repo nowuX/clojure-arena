@@ -141,3 +141,11 @@ is not an exit. The circle must be strictly beyond one limit. The visible
 800 × 480 canvas is not the loss boundary. Bounds are validated world data in
 snapshots, independent of platform geometry; this checkpoint detects exits
 without changing players or consuming opportunities.
+
+## Player opportunities
+
+`make-player` initializes `:stocks 3` and `:lifecycle :active`. Stocks are
+remaining opportunities, independent of percentage and motion. Snapshots
+allow active/respawning bodies with 1–3 integer stocks and eliminated records
+with 0. Waiting belongs to future match phases. This stage represents the
+state without consuming stocks or changing movement.

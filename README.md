@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–50 complete (50/70). The shared world publishes validated blast bounds and detects complete circle exits without consuming stocks yet.
+Checkpoints 01–51 complete (51/70). Fresh players have three stocks and explicit active/respawning/eliminated lifecycle validated in snapshots; stock consumption follows next.
 Future mechanics remain specified in the roadmap.
 
 ## Run

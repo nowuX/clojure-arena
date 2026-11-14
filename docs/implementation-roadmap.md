@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**50 of 70 checkpoints complete.** Checkpoints 01–50 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**51 of 70 checkpoints complete.** Checkpoints 01–51 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -692,7 +692,7 @@ Checkpoints **50–56**. Introduce each lifecycle responsibility separately; no 
 
 ### 51 — Represent stocks and lifecycle
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Add three stocks and active/respawning/eliminated lifecycle to
   fresh players and exact snapshot validation. Keep percentage and motion separate. Do not
   consume a stock yet.

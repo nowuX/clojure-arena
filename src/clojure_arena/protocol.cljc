@@ -9,7 +9,7 @@
 (def safe-integer-maximum 9007199254740991)
 
 (def platform-fields #{:id :type :x :y :width :height :color})
-(def player-fields #{:x :y :vx :vy :knockback-vx :knockback-vy
+(def player-fields #{:stocks :lifecycle :x :y :vx :vy :knockback-vx :knockback-vy
                      :facing :spawn-locked? :air-jumps-left
                      :drop-through-platform-id :melee-cooldown-left
                      :melee-strike-id :melee-resolved-strike-id
@@ -69,10 +69,20 @@
        (< (:left bounds) (:right bounds))
        (< (:top bounds) (:bottom bounds))))
 
+(defn- stock-state? [{:keys [stocks lifecycle]}]
+  (and (safe-nonnegative-integer? stocks)
+       (<= stocks 3)
+       (case lifecycle
+         :active (pos? stocks)
+         :respawning (pos? stocks)
+         :eliminated (zero? stocks)
+         false)))
+
 (defn- player? [player semisolid-platform-ids]
   (let [drop-through-id (:drop-through-platform-id player)]
     (and (map? player)
          (= player-fields (set (keys player)))
+         (stock-state? player)
          (every? finite-number?
                  (map player [:x :y :vx :vy :knockback-vx :knockback-vy
                               :melee-cooldown-left :accumulated-percentage
