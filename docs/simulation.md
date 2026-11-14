@@ -132,3 +132,12 @@ After every player finishes movement, `step` selects targets for new accepted
 strikes from that shared result and calls `apply-melee-hits` once. Percentage
 and summed impulses use the final target percentage. See [Local combat](combat.md)
 for cooldowns, exactly-once resolution, and retained motion.
+
+## Blast bounds
+
+The world stores `:blast-bounds {:left -80 :right 880 :top -160 :bottom 560}`.
+`outside-arena?` is a pure whole-circle query: exact touch or partial crossing
+is not an exit. The circle must be strictly beyond one limit. The visible
+800 × 480 canvas is not the loss boundary. Bounds are validated world data in
+snapshots, independent of platform geometry; this checkpoint detects exits
+without changing players or consuming opportunities.

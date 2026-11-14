@@ -71,7 +71,7 @@
           (await-room! room-agent)
           (let [messages (snapshots-at! accepted 2)]
             (is (apply = messages))
-            (is (= #{:platforms :players} (set (keys (:world (first messages))))))
+            (is (= #{:blast-bounds :platforms :players} (set (keys (:world (first messages))))))
             (is (= #{:player-1 :player-2 :player-3 :player-4}
                    (set (keys (get-in (first messages) [:world :players])))))
             (is (= (get-in @room-agent [:room :world]) (:world (first messages)))))

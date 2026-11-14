@@ -271,3 +271,10 @@ exacto y funciona aparte de los mensajes EDN de diagnóstico.
 actual. Desactivar handlers y vaciar los átomos al reemplazarlo impide que un
 evento tardío restaure datos antiguos. Cookies y colores no identifican una
 sesión: cada conexión aceptada recibe un nuevo ID monotónico.
+
+### Límites como datos
+
+`:blast-bounds` guarda límites independientes del canvas. `outside-arena?`
+recibe personaje y límites sin leer ni cambiar el mundo; compara el extremo
+completo del círculo con cada borde mediante desigualdades estrictas. El
+validador del snapshot exige cuatro números finitos y límites no invertidos.

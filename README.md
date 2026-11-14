@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–49 complete (49/70). One authoritative arena supports four connection-owned players, validated snapshots, bounded publication, heartbeat cleanup and fresh sessions; JVM/Node lifecycle coverage and a four-browser checklist are included.
+Checkpoints 01–50 complete (50/70). The shared world publishes validated blast bounds and detects complete circle exits without consuming stocks yet.
 Future mechanics remain specified in the roadmap.
 
 ## Run

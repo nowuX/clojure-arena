@@ -62,6 +62,13 @@
        (pos? (:height platform))
        (color? (:color platform))))
 
+(defn- blast-bounds? [bounds]
+  (and (map? bounds)
+       (= #{:left :right :top :bottom} (set (keys bounds)))
+       (every? finite-number? (vals bounds))
+       (< (:left bounds) (:right bounds))
+       (< (:top bounds) (:bottom bounds))))
+
 (defn- player? [player semisolid-platform-ids]
   (let [drop-through-id (:drop-through-platform-id player)]
     (and (map? player)
@@ -99,7 +106,8 @@
                                                 (filter #(= :semisolid (:type %))
                                                         platforms))))]
          (and (map? world)
-              (= #{:platforms :players} (set (keys world)))
+              (= #{:blast-bounds :platforms :players} (set (keys world)))
+              (blast-bounds? (:blast-bounds world))
               (vector? platforms)
               (every? platform? platforms)
               (= (count platform-ids) (count platforms))

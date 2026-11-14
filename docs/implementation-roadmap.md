@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**49 of 70 checkpoints complete.** Checkpoints 01–49 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**50 of 70 checkpoints complete.** Checkpoints 01–50 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -681,7 +681,7 @@ Checkpoints **50–56**. Introduce each lifecycle responsibility separately; no 
 
 ### 50 — Detect complete exits from blast bounds
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Add the specified bounds as world data and a pure whole-circle
   exit query, without consuming stocks. Extend snapshot validation for exact finite
   noninverted bounds.

@@ -105,7 +105,7 @@
             "each pure join transition should commit its member and player together")))
     (is (= expected-members (:members final-room)))
     (is (= expected-players (get-in final-room [:world :players])))
-    (is (= #{:platforms :players} (set (keys (:world final-room)))))
+    (is (= #{:blast-bounds :platforms :players} (set (keys (:world final-room)))))
     (is (= [340 380 420 460]
            (mapv :x (map expected-player spawn-cases))))
     (is (apply distinct? (map :x (map expected-player spawn-cases)))

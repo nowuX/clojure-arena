@@ -110,7 +110,7 @@ The admitted display renders committed snapshots.
 
 Every tick with members captures one effect with `:connection-tokens` and an
 exact `{:type :snapshot :tick n :world ...}` message from the same next room.
-Only world data crosses the wire: exactly `:platforms` and `:players`, validated
+Only world data crosses the wire: exactly `:blast-bounds`, `:platforms` and `:players`, validated
 with exact record keys, finite numeric fields, unique platform IDs, and valid
 player/drop/target identities. Private tokens stay in delivery metadata.
 

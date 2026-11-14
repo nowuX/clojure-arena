@@ -27,11 +27,22 @@
    :player-4 (make-player "#4ade80" 350 160)})
 
 (def initial-world
-  {:platforms [{:id :main :type :solid :x 170 :y 280 :width 460 :height 16 :color "#9c9c9c"}
+  {:blast-bounds {:left -80 :right 880 :top -160 :bottom 560}
+   :platforms [{:id :main :type :solid :x 170 :y 280 :width 460 :height 16 :color "#9c9c9c"}
                {:id :left :type :semisolid :x 200 :y 210 :width 120 :height 8 :color "#9c9c9c"}
                {:id :right :type :semisolid :x 480 :y 210 :width 120 :height 8 :color "#9c9c9c"}
                {:id :upper :type :semisolid :x 340 :y 130 :width 120 :height 8 :color "#9c9c9c"}]
    :players local-player-fixtures})
+
+(defn outside-arena?
+  "True only when the whole circle is strictly beyond a configured bound."
+  [{:keys [x y radius]} bounds]
+  (boolean
+    (when-let [{:keys [left right top bottom]} bounds]
+      (or (< (+ x radius) left)
+          (> (- x radius) right)
+          (< (+ y radius) top)
+          (> (- y radius) bottom)))))
 
 (defn move-player [player dt]
   (-> player
