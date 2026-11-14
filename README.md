@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–17 complete (17/70). Initial controls unlock only after flat-top landing; held direction acts next tick while old jump pulses are discarded.
+Checkpoints 01–18 complete (18/70). A fresh W press launches an unlocked supported character at −420 units/s before gravity; airborne requests are discarded.
 Future mechanics remain specified in the roadmap.
 
 ## Run

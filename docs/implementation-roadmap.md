@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**17 of 70 checkpoints complete.** Checkpoints 01–17 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**18 of 70 checkpoints complete.** Checkpoints 01–18 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -272,7 +272,7 @@ Checkpoints **01–21**. Introduce rendering, immutable data, input, fixed time,
 
 ### 18 — Apply a ground jump
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Accept a consumed jump only with unlocked controls and support
   at the tick start. Set Y velocity to -420, then apply gravity and movement. Reject
   airborne requests without buffering for a later landing.

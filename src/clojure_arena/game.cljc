@@ -4,6 +4,7 @@
 (def horizontal-acceleration 880)
 (def horizontal-friction 1100)
 (def gravity 980)
+(def jump-velocity -420)
 
 (def initial-world
   {:platform {:x 170 :y 280 :width 460 :height 16 :color "#9c9c9c"}
@@ -30,6 +31,11 @@
 
 (defn supporting-platform [player platform]
   (when (grounded? player platform) platform))
+
+(defn apply-jump [player platform jump?]
+  (if (and jump? (not (:spawn-locked? player)) (grounded? player platform))
+    (assoc player :vy jump-velocity)
+    player))
 
 (defn sqrt [value]
   #?(:clj (Math/sqrt value)
@@ -167,11 +173,12 @@
         (> vx target) (max target (- vx change))
         :else vx))))
 
-(defn step [world {:keys [horizontal] :or {horizontal 0}} dt]
+(defn step [world {:keys [horizontal jump?] :or {horizontal 0 jump? false}} dt]
   (update world :player
           (fn [player]
             (let [horizontal (if (:spawn-locked? player) 0 horizontal)]
               (-> player
+                (apply-jump (:platform world) jump?)
                 (update :vx accelerate-horizontal horizontal dt)
                 (update :vy + (* gravity dt))
                 (collide-platform (:platform world) dt))))))
