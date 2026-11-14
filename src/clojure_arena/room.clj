@@ -51,6 +51,16 @@
            :effects [{:connection-token connection-token
                       :message {:type :room-full}}]})))))
 
+(defn- leave-room [room connection-token]
+  (if (contains? (:members room) connection-token)
+    (let [player-id (get-in room [:members connection-token :player-id])]
+      {:room (-> room
+                 (update :members dissoc connection-token)
+                 (update-in [:world :players] dissoc player-id)
+                 (update :inputs-by-player dissoc player-id))
+       :effects []})
+    {:room room :effects []}))
+
 (defn- clear-pending-actions [inputs-by-player]
   (into {}
         (map (fn [[player-id input]]
@@ -85,6 +95,11 @@
            (= #{:type :connection-token} fields)
            (some? connection-token))
       (join-room room connection-token)
+
+      (and (= :leave type)
+           (= #{:type :connection-token} fields)
+           (some? connection-token))
+      (leave-room room connection-token)
 
       (and (= :input type)
            (= #{:type :connection-token :input} fields)

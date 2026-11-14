@@ -181,17 +181,9 @@
         (is (= 5 (get-in @room-agent [:room :next-player-number])))
         (let [{:keys [websocket events]} (first accepted)]
           (#'ws/close-websocket! websocket events))
-        ;; Checkpoint 39 owns leave handling; arrange a consistent free-slot fixture.
-        (let [before (:room @room-agent)
-              token (first (keep (fn [[token member]]
-                                   (when (= :player-1 (:player-id member)) token))
-                                 (:members before)))
-              available (-> before
-                            (update :members dissoc token)
-                            (update :inputs-by-player dissoc :player-1)
-                            (update-in [:world :players] dissoc :player-1))]
-          (send room-agent (fn [_] {:room available :effects []}))
-          (await-room! room-agent)
+        (await-room! room-agent)
+        (let [available (:room @room-agent)]
+          (is (not (contains? (get-in available [:world :players]) :player-1)))
           (let [retried (connect! connections port)
                 after (:room @room-agent)]
             (is (= {:type :identity :player-id :player-5 :color :cyan}

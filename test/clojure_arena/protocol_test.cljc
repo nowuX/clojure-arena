@@ -11,6 +11,16 @@
     (catch #?(:clj Exception :cljs :default) _
       true)))
 
+(deftest connection-timeout-contract-test
+  (let [message {:type :error :code :connection-timeout}]
+    (is (protocol/server-message? message))
+    (is (= message (protocol/decode (pr-str message))))
+    (doseq [invalid [(assoc message :player-id :player-1)
+                     (dissoc message :type) (dissoc message :code)]]
+      (is (not (protocol/server-message? invalid))))
+    (is (= {:reply {:type :error :code :unsupported-type}}
+           (protocol/read-client-message (pr-str message))))))
+
 (deftest player-input-validation-test
   (testing "neutral input has the exact documented shape"
     (is (= {:horizontal 0

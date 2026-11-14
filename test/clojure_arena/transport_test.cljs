@@ -411,6 +411,7 @@
       (receive! socket "{:type :pong}")
       (receive! socket "{:type :identity :player-id :player-42 :color :amber}")
       (receive! socket (snapshot-frame 5 game/initial-world))
+      (receive! socket "{:type :error :code :connection-timeout}")
       ((.-onerror socket) #js {})
       (is (= rejected-state @transport/connection-state)
           "later messages and errors cannot replace the rejection")
@@ -422,6 +423,7 @@
       (is (= rejected-state @transport/connection-state)
           "close preserves the full-room status and its message")
       (receive! socket "{:type :pong}")
+      (receive! socket "{:type :error :code :connection-timeout}")
       ((.-onerror socket) #js {})
       (is (= rejected-state @transport/connection-state)
           "queued callbacks after close are ignored")
@@ -437,6 +439,71 @@
       (receive! socket "{:type :room-full}")
       (is (= 1 (aget socket "closeCount"))
           "a rejected session requests close exactly once"))))
+
+(deftest connection-timeout-is-terminal-clears-session-and-closes-once
+  (transport/start! "http://arena.example/")
+  (let [socket @transport/connection
+        send-message (.-send socket)
+        world (assoc-in game/initial-world [:players :player-1 :x] 321)]
+    (open! socket)
+    (receive! socket "{:type :identity :player-id :player-1 :color :cyan}")
+    (receive! socket (snapshot-frame 7 world))
+    (set! (.-send socket)
+          (fn [_]
+            (throw (js/Error. "Simulated send failure"))))
+    (transport/send-input! {:horizontal 1 :jump? true :drop? false :attack? false})
+    (is (= :error (:status @transport/connection-state)))
+    (is (= world (get-in @transport/connection-state [:snapshot :world])))
+
+    (set! (.-send socket) send-message)
+    (receive! socket "{:type :error :code :connection-timeout}")
+    (let [expired-state @transport/connection-state]
+      (is (= :expired (:admission expired-state)))
+      (is (= :expired (:status expired-state)))
+      (is (nil? (:identity expired-state)))
+      (is (nil? (:snapshot expired-state)))
+      (is (= {:type :error :code :connection-timeout} (:message expired-state)))
+      (is (false? (transport/connected?)))
+      (is (= "Conexión expirada; el juego continúa en modo local."
+             (.-textContent @status-element)))
+      (is (= 2 (.-readyState socket)))
+      (is (= 1 (aget socket "closeCount")))
+      (is (= 1000 (aget socket "closeCode")))
+      (is (= "Connection timeout" (aget socket "closeReason")))
+      (is (empty? (sent-inputs socket))
+          "the buffered input that failed to send is discarded on timeout")
+
+      ;; A delayed close must not let another input enter the expired session buffer.
+      (set! (.-readyState socket) 1)
+      (transport/send-input! {:horizontal -1 :jump? false :drop? true :attack? false})
+      (receive! socket "{:type :ready}")
+      (receive! socket "{:type :identity :player-id :player-42 :color :amber}")
+      (receive! socket (snapshot-frame 8 game/initial-world))
+      (receive! socket "{:type :room-full}")
+      ((.-onerror socket) #js {})
+      (is (= expired-state @transport/connection-state)
+          "late messages and errors cannot replace the expired state")
+      (is (= 1 (aget socket "closeCount"))
+          "late messages cannot issue another close")
+
+      ((.-onclose socket) #js {})
+      (is (nil? @transport/connection))
+      (is (= expired-state @transport/connection-state)
+          "the close callback preserves expiration")
+      ((.-onerror socket) #js {})
+      (receive! socket "{:type :error :code :connection-timeout}")
+      (is (= expired-state @transport/connection-state)
+          "queued callbacks after close remain harmless")
+
+      (transport/stop!)
+      (is (= {:status :closed} @transport/connection-state)
+          "an explicit stop clears the expired session state")
+      (transport/start! "http://arena.example/")
+      (let [replacement @transport/connection]
+        (is (nil? (:admission @transport/connection-state)))
+        (admit! replacement)
+        (is (empty? (sent-inputs replacement))
+            "expired-session input is not replayed after a clean retry")))))
 
 (deftest replaced-or-closed-sessions-clear-their-identity
   (transport/start! "http://arena.example/")

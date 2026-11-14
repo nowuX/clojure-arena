@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–46 complete (46/70). Four accepted players share the arena; a fifth receives a persistent full-room notice and keeps local fallback.
+Checkpoints 01–47 complete (47/70). Closed and expired connections atomically release their player, input and color; control Ping/Pong detects stale sessions.
 Future mechanics remain specified in the roadmap.
 
 ## Run

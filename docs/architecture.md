@@ -164,3 +164,11 @@ flowchart LR
 `advance-world!` steps `offline-world` only when disconnected, then copies it to
 `world`. While connected it drops elapsed time and actions. Transport's watch
 replaces `world` with accepted snapshots without touching `offline-world`.
+
+## Session retirement
+
+Close and heartbeat expiration share one per-socket retirement gate. The server
+removes delivery ownership before enqueuing `:leave`; that pure transition
+removes member, input and body together. Retired tokens cannot influence a new
+player using the same color. Control Ping/Pong uses monotonic wall time, while
+physics and action consumption use the room tick.

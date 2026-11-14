@@ -265,7 +265,7 @@
                   (connect! host port)]
               (try
                 (await-ready! reconnect-events)
-                (is (= {:type :identity :player-id :player-2 :color :crimson}
+                (is (= {:type :identity :player-id :player-2 :color :cyan}
                        (await-identity! reconnect-events)))
                 (expect-reply! reconnected reconnect-events
                                "{:type :ping}" {:type :pong})
@@ -385,9 +385,9 @@
       (let [{websocket :websocket events :events} (connect! host port)]
         (try
           (await-ready! events)
-          (is (= {:type :identity :player-id :player-2 :color :crimson}
+          (is (= {:type :identity :player-id :player-2 :color :cyan}
                  (await-identity! events))
-              "closing a socket must not release its point-33 reservation")
+              "closing a socket releases its color while IDs remain monotonic")
           (close-websocket! websocket events)
           (finally
             (abort-websocket! websocket))))

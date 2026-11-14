@@ -61,8 +61,7 @@ The server maps fresh private Object tokens to channels; neither token nor
 client claims determine a wire-selected ID. Each server creates its own room.
 
 Wire identity is exactly `{:type :identity :player-id :player-N :color :cyan}`
-with one of `:cyan/:crimson/:amber/:green`. The browser shows ID/color. Membership remains reserved after socket closure until
-explicit leave handling is introduced. Accepted identities now spawn bodies as described below.
+with one of `:cyan/:crimson/:amber/:green`. The browser shows ID/color. Socket closure or heartbeat expiry queues atomic leave cleanup. Accepted identities now spawn bodies as described below.
 
 ## Admission and world data
 
@@ -134,3 +133,23 @@ shows «La sala está llena; el juego continúa en modo local.», clears identit
 snapshot and buffered input, and closes the unaccepted socket. Late callbacks
 cannot replace this terminal notice. Only an explicit new `start!`/page reload
 starts a fresh attempt; there is no retry loop.
+
+## Leave and liveness
+
+Each socket owns an idempotent retirement gate. Close and expiry remove its
+channel mapping, unregister heartbeat and enqueue trusted `:leave` once.
+`apply-room-message` removes the member, body and pending input atomically;
+unknown/retired tokens change nothing. A freed color is reusable, but the next
+player ID is always larger. Input arriving after retirement is ignored.
+
+Heartbeat uses WebSocket control Ping/Pong, independent of EDN diagnostics and
+25 ms simulation time. A daemon pulses every 5 seconds. A monotonic 15-second
+deadline accepts only the current matching challenge before expiry; input and
+EDN `:ping` cannot renew it. Expiry removes gameplay ownership even if delivery
+of `{:type :error :code :connection-timeout}` fails. A responsive browser
+preserves the Spanish expiry notice, clears session data, requests closure and
+restores local fallback. Browser control Pong replies are automatic.
+
+Server shutdown stops ticker, heartbeat and publication, closes its HTTP
+channels, then waits for queued room cleanup. Tests use owned ephemeral servers;
+unplugging a physical device remains a separate manual check.

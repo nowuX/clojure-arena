@@ -27,6 +27,9 @@
                   (= :full (:admission state))
                   "La sala está llena; el juego continúa en modo local."
 
+                  (= :expired (:admission state))
+                  "Conexión expirada; el juego continúa en modo local."
+
                   (= :accepted (:admission state))
                   (if (:snapshot state)
                     "Arena compartida conectada."
@@ -44,10 +47,13 @@
             (str label (when player-id
                          (str " ID: " (name player-id) " · " (name color) ".")))))))
 
-(defn- close-rejected-socket! [socket]
+(defn- terminal-admission? [state]
+  (contains? #{:full :expired} (:admission state)))
+
+(defn- close-terminal-socket! [socket reason]
   (when (< (.-readyState socket) 2)
     (try
-      (.close socket 1000 "Room full")
+      (.close socket 1000 reason)
       (catch :default _ nil))))
 
 (defn- flush-input! []
@@ -65,7 +71,7 @@
   (when-let [socket @connection]
     (when (and (protocol/player-input? input)
                (< (.-readyState socket) 2)
-               (not= :full (:admission @connection-state)))
+               (not (terminal-admission? @connection-state)))
       (swap! pending-input #(protocol/merge-pending-input
                              (or % protocol/neutral-input) input))
       (flush-input!))))
@@ -92,13 +98,13 @@
       (set! (.-onopen socket)
             (fn [_]
               (when (and (identical? socket @connection)
-                         (not= :full (:admission @connection-state)))
+                         (not (terminal-admission? @connection-state)))
                 (set-state! {:status :open :url url})
                 (.send socket (pr-str {:type :ping})))))
       (set! (.-onmessage socket)
             (fn [event]
               (when (and (identical? socket @connection)
-                         (not= :full (:admission @connection-state)))
+                         (not (terminal-admission? @connection-state)))
                 (try
                   (let [message (protocol/decode (.-data event))]
                     (if-not (protocol/server-message? message)
@@ -124,6 +130,11 @@
                                :room-full (-> state
                                               (assoc :admission :full :status :full)
                                               (dissoc :identity :snapshot))
+                               :error (if (= :connection-timeout (:code message))
+                                        (-> state
+                                            (assoc :admission :expired :status :expired)
+                                            (dissoc :identity :snapshot))
+                                        (assoc state :status :error))
                                :pong (assoc state :status :ready)
                                :ready (assoc state :status :open)
                                (assoc state :status :error)))
@@ -131,22 +142,27 @@
                               :identity (flush-input!)
                               :room-full (do
                                            (reset! pending-input nil)
-                                           (close-rejected-socket! socket))
+                                           (close-terminal-socket! socket "Room full"))
+                              :error (when (= :connection-timeout (:code message))
+                                       (reset! pending-input nil)
+                                       (close-terminal-socket! socket "Connection timeout"))
                               nil))))))
                   (catch :default _
                     (set-state! (assoc @connection-state :status :error :url url)))))))
       (set! (.-onerror socket)
             (fn [_]
               (when (and (identical? socket @connection)
-                         (not= :full (:admission @connection-state)))
+                         (not (terminal-admission? @connection-state)))
                 (set-state! (assoc @connection-state :status :error :url url)))))
       (set! (.-onclose socket)
             (fn [_]
               (when (identical? socket @connection)
                 (reset! connection nil)
                 (reset! pending-input nil)
-                (if (= :full (:admission @connection-state))
-                  (set-state! (assoc @connection-state :status :full :url url))
+                (if (terminal-admission? @connection-state)
+                  (set-state! (assoc @connection-state
+                                     :status (:admission @connection-state)
+                                     :url url))
                   (set-state! {:status :closed :url url}))))))
     (catch :default _
       (set-state! {:status :error}))))

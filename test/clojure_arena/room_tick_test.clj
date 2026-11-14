@@ -271,7 +271,7 @@
       (finally
         (await-for 2000 room-agent)))))
 
-(deftest invalid-tick-shapes-and-unsupported-leave-messages-are-ignored-test
+(deftest invalid-tick-shapes-and-unsupported-internal-messages-are-ignored-test
   (let [joined (:room (join-room room/initial-room :connection-a))
         messages [nil
                   {}
@@ -279,7 +279,7 @@
                   {:type :tick :connection-token :connection-a}
                   {:type :tick :input {}}
                   {:type :leave}
-                  {:type :leave :connection-token :connection-a}
+                  {:type :leave :connection-token :connection-a :extra true}
                   {:type :disconnect :connection-token :connection-a}
                   {:type :snapshot}]]
     (doseq [message messages]

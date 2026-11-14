@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**46 of 70 checkpoints complete.** Checkpoints 01–46 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**47 of 70 checkpoints complete.** Checkpoints 01–47 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -636,7 +636,7 @@ Checkpoints **39–49**. Add HTTP/WebSocket, exact EDN messages, connection-owne
 
 ### 47 — Clean up closed and expired sessions
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Retire a token once and queue leave to remove
   member/player/input and free color. Add separate control Ping/Pong heartbeat with
   5-second pulses, 15-second monotonic deadline, and matching challenges. Timeout

@@ -600,6 +600,62 @@
           (is (= [offline-world pending-fallback-world] @stepped-worlds)
               "a pending connection continues only its saved local world"))))))
 
+(deftest connection-timeout-immediately-restores-offline-physics-and-ignores-late-data
+  (let [offline-world (assoc-in (grounded-world) [:players :player-1 :x] 123)
+        network-world (assoc-in game/initial-world [:players :player-1 :x] 700)
+        {:keys [socket]} (start-networked-session! offline-world)
+        stepped-worlds (atom [])]
+    (admit-as! socket :player-1 :cyan)
+    (receive-snapshot! socket 10 network-world)
+    (dispatch-key! "keydown" "KeyD")
+    (dispatch-key! "keyup" "KeyD")
+    (is (= [{:horizontal 1 :jump? false :drop? false :attack? false}
+            protocol/neutral-input]
+           (sent-inputs socket)))
+
+    (with-redefs [game/step (fn [world inputs-by-player _dt]
+                             (swap! stepped-worlds conj
+                                    {:world world
+                                     :input (get inputs-by-player client/local-player-id)})
+                             (update world :local-steps (fnil inc 0)))
+                  client/draw-world (fn [_canvas _world])
+                  client/render-players! (fn [_players])]
+      (deliver-frame! 0)
+      (deliver-frame! 100)
+      (is (empty? @stepped-worlds)
+          "an admitted network world does not run local physics")
+
+      ((.-onmessage socket)
+       #js {:data "{:type :error :code :connection-timeout}"})
+      (is (= :expired (:admission @transport/connection-state)))
+      (is (false? (transport/connected?)))
+      (is (= offline-world @client/world)
+          "timeout restores the saved local world synchronously")
+      (is (= "Conexión expirada; el juego continúa en modo local."
+             (.-textContent @connection-status)))
+
+      (receive-snapshot! socket 11 network-world)
+      (is (= offline-world @client/world)
+          "a late server snapshot cannot replace the restored offline world")
+
+      ;; A delayed close must not capture local input for this expired socket.
+      (set! (.-readyState socket) 1)
+      (dispatch-key! "keydown" "KeyD")
+      (dispatch-key! "keyup" "KeyD")
+      (is (= [{:horizontal 1 :jump? false :drop? false :attack? false}
+              protocol/neutral-input]
+             (sent-inputs socket))
+          "offline input after timeout is not sent back to the expired session")
+
+      (deliver-frame! 10000)
+      (is (empty? @stepped-worlds)
+          "elapsed time from the shared session is discarded on timeout")
+      (deliver-frame! 10025)
+      (is (= [{:world offline-world :input protocol/neutral-input}]
+             @stepped-worlds)
+          "the first resumed local step uses only the offline world and fresh input")
+      (is (= 1 (:local-steps @client/world))))))
+
 (deftest a-connected-session-with-no-frames-cannot-replay-its-time-on-close
   (let [{:keys [socket]} (start-networked-session! {:steps 0 :players {}})]
     (with-redefs [game/step (fn [world _inputs _dt] (update world :steps inc))]

@@ -255,3 +255,11 @@ mundo visible. Un átomo separado conserva el mundo offline para desconexiones.
 La admisión `:full` tiene prioridad al presentar el estado y al filtrar los
 callbacks. Cerrar un socket rechazado no convierte el rechazo en un cierre
 genérico. `start!` llama a `stop!` para descartar datos de la sesión anterior.
+
+### Limpieza atómica y reloj monotónico
+
+`update` con `dissoc` construye nuevas tablas sin el miembro, su entrada y su
+cuerpo dentro de una transición de sala. La compuerta de retiro evita repetir
+efectos entre cierre y timeout. `System/nanoTime` mide la vida de la conexión;
+ese tiempo no entra en `game/step`. Ping/Pong de WebSocket comprueba el desafío
+exacto y funciona aparte de los mensajes EDN de diagnóstico.

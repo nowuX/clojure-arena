@@ -3,7 +3,7 @@
                :cljs [cljs.tools.reader.edn :as edn])
             #?(:cljs [cljs.tools.reader.reader-types :as readers])))
 
-(def error-codes #{:invalid-edn :invalid-message :unsupported-type})
+(def error-codes #{:invalid-edn :invalid-message :unsupported-type :connection-timeout})
 (def player-colors [:cyan :crimson :amber :green])
 (def neutral-input {:horizontal 0 :jump? false :drop? false :attack? false})
 (def safe-integer-maximum 9007199254740991)
