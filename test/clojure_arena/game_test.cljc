@@ -23,3 +23,14 @@
     (is (= 400 (get-in world [:player :x])))
     (is (= {:horizontal 1} inputs))
     (is (= (:platform world) (:platform right)))))
+
+(deftest gravity-precedes-position-and-does-not-mutate-world
+  (let [world game/initial-world
+        first-tick (game/step world {:horizontal 1} dt)
+        second-tick (game/step first-tick {} dt)]
+    (is (near? 24.5 (get-in first-tick [:player :vy])))
+    (is (near? 160.6125 (get-in first-tick [:player :y])))
+    (is (near? 49 (get-in second-tick [:player :vy])))
+    (is (near? 161.8375 (get-in second-tick [:player :y])))
+    (is (= 160 (get-in world [:player :y])))
+    (is (> (get-in (steps world {} 40) [:player :y]) 296))))

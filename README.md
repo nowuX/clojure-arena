@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–09 complete (9/70). A/D moves the character at a constant 220 units/s; just test verifies input, time, and pure movement.
+Checkpoints 01–10 complete (10/70). Gravity advances vertical speed before position; the character falls through the still non-colliding platform.
 Future mechanics remain specified in the roadmap.
 
 ## Run

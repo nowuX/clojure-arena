@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**9 of 70 checkpoints complete.** Checkpoints 01–09 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**10 of 70 checkpoints complete.** Checkpoints 01–10 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -179,7 +179,7 @@ Checkpoints **01–21**. Introduce rendering, immutable data, input, fixed time,
 
 ### 10 — Apply gravity
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Add vertical velocity and 980 units/s² gravity, then integrate Y
   using semi-implicit Euler. Move the falling spawn to (400, 160). Passing through the
   platform is expected until the next checkpoint.
