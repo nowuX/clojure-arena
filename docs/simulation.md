@@ -158,3 +158,11 @@ visible until a fresh life replaces it. Inactive records neither move nor hit
 nor receive hits. Drawing omits their bodies; connection identity and input
 ownership remain. Room ticks consume inactive action pulses normally, retaining
 only the latest direction. At this stage inactive bodies do not return yet.
+
+## Opportunity panel
+
+Canvas draws only active bodies. The panel retains every connected identity
+with color swatch, percentage, remaining opportunities and Spanish lifecycle
+label. Inactive players still receive snapshots under their assigned ID;
+stock loss does not disconnect them. Rendering is read-only and removes a row
+only when its player leaves the world.

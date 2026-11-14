@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**52 of 70 checkpoints complete.** Checkpoints 01–52 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**53 of 70 checkpoints complete.** Checkpoints 01–53 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -717,7 +717,7 @@ Checkpoints **50–56**. Introduce each lifecycle responsibility separately; no 
 
 ### 53 — Display stocks and lifecycle
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Extend retained identity/percentage rows with remaining
   opportunities and Spanish respawning/eliminated labels. Keep connected inactive rows
   visible and draw only active bodies; do not add HP indicators.

@@ -292,3 +292,10 @@ conserva como otro campo, no representa salud.
 `resolve-ring-out` devuelve un estado inactivo con una vida menos; los ticks
 posteriores no vuelven a cobrar la misma caída. El mapa conserva su clave e
 identidad. `filter` omite el cuerpo al dibujar sin eliminarlo de la conexión.
+
+### Estado visible sin mutar el juego
+
+`player-state-label` convierte una keyword en texto español. El panel recorre
+todos los registros, incluyendo los inactivos, mientras Canvas filtra solo los
+activos. `textContent` muestra porcentaje y oportunidades; ningún renderizador
+cambia las vidas ni el ciclo del jugador.

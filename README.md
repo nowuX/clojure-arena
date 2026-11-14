@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–52 complete (52/70). Complete ring-outs consume one opportunity before combat and freeze inactive bodies while keeping connection ownership.
+Checkpoints 01–53 complete (53/70). The player panel displays opportunities and lifecycle while inactive connected players retain their rows and snapshots.
 Future mechanics remain specified in the roadmap.
 
 ## Run

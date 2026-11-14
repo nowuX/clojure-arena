@@ -679,3 +679,33 @@
     (doseq [timestamp (range 125 501 25)] (fire-frame! timestamp))
     (is (= 1 (get-in @client/world [:players :player-1 :melee-strike-id])))
     (is (false? (:attack? (client/read-inputs))))))
+
+
+(deftest inactive-bodies-stay-in-the-panel-with-independent-stocks
+  (let [panel (panel-node)
+        doc #js {:getElementById (fn [id] (when (= id "players") panel))
+                 :createElement (fn [_] (panel-node))}
+        states [[:active 3] [:active 2] [:respawning 1] [:eliminated 0]]
+        players (into {} (map (fn [[id [state stocks]]]
+                               [id (assoc (game/make-player "#22d3ee" 400 160)
+                                          :stocks stocks :lifecycle state :accumulated-percentage 140)])
+                             (map vector [:player-1 :player-2 :player-3 :player-4] states)))
+        snapshot (assoc game/initial-world :players players)
+        drawn (atom [])]
+    (with-redefs [js/document doc
+                  client/draw-background (fn [& _])
+                  client/draw-platform (fn [& _])
+                  client/draw-player (fn [_ player] (swap! drawn conj player))]
+      (draw-scene nil snapshot)
+      (render-panel snapshot)
+      (is (= 2 (count @drawn)))
+      (let [fields (mapv #(deref (.-children %)) @(.-children panel))]
+        (is (= ["3 oportunidades" "2 oportunidades" "1 oportunidad" "0 oportunidades"]
+               (mapv #(.-textContent (nth % 3)) fields)))
+        (is (= ["Activo" "Activo" "Reapareciendo" "Eliminado"]
+               (mapv #(.-textContent (nth % 4)) fields)))
+        (is (= ["140 %" "140 %" "140 %" "140 %"]
+               (mapv #(.-textContent (nth % 2)) fields))))
+      (render-panel (update snapshot :players dissoc :player-4))
+      (is (= 3 (count @(.-children panel)))))
+    (is (= players (:players snapshot)))))

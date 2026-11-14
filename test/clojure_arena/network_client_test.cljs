@@ -800,3 +800,20 @@
       (is (empty? (sent-inputs socket))
           "rejected input is never replayed to the closing socket"))))
 
+
+
+(deftest own-eliminated-player-keeps-receiving-authoritative-worlds
+  (let [{:keys [socket]} (start-networked-session! (playable-world))
+        network-world (assoc-in game/initial-world [:players :player-2]
+                                (assoc (game/make-player "#e11d48" 380 160)
+                                       :stocks 0 :lifecycle :eliminated))
+        panels (atom [])]
+    (admit-as! socket :player-2 :crimson)
+    (receive-snapshot! socket 1 network-world)
+    (is (transport/connected?))
+    (is (= network-world @client/world))
+    (with-redefs [game/step (fn [& _] (throw (js/Error. "Connected client must not simulate")))
+                  client/render-players! (fn [world] (swap! panels conj world))]
+      (deliver-frame! 0)
+      (is (= [network-world] @panels)))
+    (is (= 0 (get-in @client/world [:players :player-2 :stocks])))))

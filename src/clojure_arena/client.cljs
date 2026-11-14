@@ -132,6 +132,13 @@
   (doseq [player (filter game/active-player? (vals players))]
     (draw-player canvas player)))
 
+(defn player-state-label [player]
+  (case (:lifecycle player :active)
+    :active "Activo"
+    :respawning "Reapareciendo"
+    :eliminated "Eliminado"
+    "Sin estado"))
+
 (defn render-players! [{:keys [players]}]
   (when-let [panel (.getElementById js/document "players")]
     (.replaceChildren panel)
@@ -139,16 +146,23 @@
       (let [row (.createElement js/document "li")
             swatch (.createElement js/document "span")
             label (.createElement js/document "span")
-            percentage (.createElement js/document "span")]
+            percentage (.createElement js/document "span")
+            stocks (.createElement js/document "span")
+            state (.createElement js/document "span")]
         (set! (.-className row) "player-row")
         (set! (.-className swatch) "player-swatch")
         (set! (.-backgroundColor (.-style swatch)) (:color player))
         (.setAttribute swatch "aria-hidden" "true")
         (set! (.-textContent label) (name player-id))
         (set! (.-textContent percentage) (str (:accumulated-percentage player 0) " %"))
+        (set! (.-textContent stocks) (str (:stocks player)
+                                         (if (= 1 (:stocks player)) " oportunidad" " oportunidades")))
+        (set! (.-textContent state) (player-state-label player))
         (.appendChild row swatch)
         (.appendChild row label)
         (.appendChild row percentage)
+        (.appendChild row stocks)
+        (.appendChild row state)
         (.appendChild panel row)))))
 
 (defn advance-world! [elapsed-ms]
