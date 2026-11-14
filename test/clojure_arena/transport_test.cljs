@@ -100,7 +100,7 @@
     (receive! socket "{:type :pong}")
     (is (= :ready (:status @transport/connection-state)))
     (is (= {:type :pong} (:message @transport/connection-state)))
-    (is (= "Comunicación con el servidor verificada."
+    (is (= "Modo local. Comunicación con el servidor verificada. Servidor: ws://arena.example:8082/ws."
            (.-textContent @status-element)))))
 
 (deftest invalid-server-frames-and-errors-remain-transport-state
@@ -138,7 +138,7 @@
       (is (= :accepted (:admission @transport/connection-state)))
       (is (true? (transport/connected?)))
       (is (= :ready (:status @transport/connection-state)))
-      (is (= "Esperando estado de la arena… ID: player-41 · green."
+      (is (= "Modo compartido. Esperando estado de la arena… Servidor: ws://arena.example/ws. ID: player-41 · green."
              (.-textContent @status-element)))
       (receive! socket message)
       (is (= identity (:identity @transport/connection-state)))
@@ -159,7 +159,7 @@
     (receive! socket (snapshot-frame 4 (match-helpers/running-world game/initial-world)))
     (is (= {:tick 4 :world (match-helpers/running-world game/initial-world)}
            (:snapshot @transport/connection-state)))
-    (is (= "Arena compartida conectada. ID: player-1 · cyan."
+    (is (= "Modo compartido. Arena compartida conectada. Servidor: ws://arena.example/ws. ID: player-1 · cyan."
            (.-textContent @status-element))))
 
   (transport/start! "http://arena.example/")
@@ -438,7 +438,7 @@
       (is (nil? (:identity rejected-state)))
       (is (nil? (:snapshot rejected-state)))
       (is (false? (transport/connected?)))
-      (is (= "La sala está llena; el juego continúa en modo local."
+      (is (= "Modo local. La sala está llena; el juego continúa en modo local. Servidor: ws://arena.example/ws."
              (.-textContent @status-element)))
       (is (= 2 (.-readyState socket)))
       (is (= 1 (aget socket "closeCount")))
@@ -465,7 +465,7 @@
       ((.-onerror socket) #js {})
       (is (= rejected-state @transport/connection-state)
           "queued callbacks after close are ignored")
-      (is (= "La sala está llena; el juego continúa en modo local."
+      (is (= "Modo local. La sala está llena; el juego continúa en modo local. Servidor: ws://arena.example/ws."
              (.-textContent @status-element)))))
 
   (testing "a connecting socket is also closed after a rejection"
@@ -502,7 +502,7 @@
       (is (nil? (:snapshot expired-state)))
       (is (= {:type :error :code :connection-timeout} (:message expired-state)))
       (is (false? (transport/connected?)))
-      (is (= "Conexión expirada; el juego continúa en modo local."
+      (is (= "Modo local. Conexión expirada (connection-timeout); el juego continúa en modo local. Servidor: ws://arena.example/ws."
              (.-textContent @status-element)))
       (is (= 2 (.-readyState socket)))
       (is (= 1 (aget socket "closeCount")))
@@ -607,7 +607,7 @@
   (let [socket @transport/connection]
     ((.-onerror socket) #js {})
     (is (= :error (:status @transport/connection-state)))
-    (is (= "Servidor no disponible; el juego continúa en modo local."
+    (is (= "Modo local. Se produjo un error en la conexión WebSocket. Comprueba la dirección y que el servidor esté en ejecución. Servidor: ws://arena.example/ws."
            (.-textContent @status-element)))
     (set! (.-readyState socket) 3)
     ((.-onclose socket) #js {})
@@ -621,10 +621,14 @@
     (set! (.-WebSocket js/globalThis)
           (fn [_] (throw (js/Error. "Connection unavailable"))))
     (transport/start! "http://arena.example/")
-    (is (= {:status :error} @transport/connection-state))
+    (is (= {:status :error
+            :url "ws://arena.example/ws"
+            :error {:kind :websocket-unavailable}}
+           @transport/connection-state))
     (is (nil? @transport/connection)))
   (testing "an invalid override fails before allocating a socket"
     (set! (.-WebSocket js/globalThis) fake-websocket)
     (transport/start! "http://arena.example/?server=invalid")
-    (is (= {:status :error} @transport/connection-state))
+    (is (= {:status :error :error {:kind :invalid-configuration}}
+           @transport/connection-state))
     (is (empty? @sockets))))

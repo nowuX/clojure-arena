@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**66 of 70 checkpoints complete.** Checkpoints 01–66 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**67 of 70 checkpoints complete.** Checkpoints 01–67 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -896,7 +896,7 @@ Checkpoints **67–70**. Improve the implemented game without adding mechanics o
 
 ### 67 — Clarify connection diagnostics and game mode
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Make the existing status show local/shared mode, attempted
   gameplay endpoint, known address/socket/send/EDN/validation/server error categories, and
   available close code/reason. Preserve terminal rejection/timeout and last diagnostics on

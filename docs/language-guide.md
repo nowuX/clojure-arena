@@ -351,3 +351,11 @@ no resta tiempo. El ganador y la clasificación salen de `:result`, por lo que
 se pueden mostrar aunque su conexión ya no exista. `panel-state-label`
 distingue observadores de contendientes eliminados sin adivinar un ganador.
 `textContent` escribe texto y los colores se limitan a las muestras de identidad.
+
+### Diagnósticos del transporte
+
+`case` traduce categorías conocidas a mensajes; `cond->` conserva metadatos
+opcionales de cierre. Los datos de diagnóstico viven en un mapa independiente
+de la condición de autoridad: un socket abierto y admitido sigue usando el
+reloj del servidor aunque un mensaje recibido sea inválido. Los callbacks
+comparan la identidad del socket para ignorar sesiones anteriores.

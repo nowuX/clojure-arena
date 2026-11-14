@@ -191,3 +191,18 @@ removed player record; a committed winner may therefore be disconnected.
 Reset preserves current IDs/colors and monotonically increasing room ticks,
 clears the old roster/result and admits current observers into the next start.
 No client message can select phase, winners, clocks or reset a match.
+
+## Browser diagnostics
+
+The connection status names local/shared mode and the attempted gameplay
+WebSocket URL. Shared mode requires an OPEN socket and accepted admission;
+an error label never transfers clock ownership. Address parsing, WebSocket
+construction, network events, send failures, unreadable EDN, invalid server
+shapes and typed server errors have distinct Spanish messages. Browser network
+errors do not identify a specific failure cause.
+
+Only accepted replies and newer applicable snapshots clear transient errors.
+Ignored snapshots do not hide them. Closing retains the endpoint, last error
+and available close code/reason, while removing ordinary session ownership.
+Full-room rejection and expiry remain terminal until an explicit new session.
+Replacing a socket discards its diagnostics and ignores its late callbacks.

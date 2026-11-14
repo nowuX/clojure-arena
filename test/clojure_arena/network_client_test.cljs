@@ -647,7 +647,7 @@
         (is (= (match-helpers/running-world fresh-world) @client/world))
         (is (= {:player-id :player-42 :color :green}
                (:identity @transport/connection-state)))
-        (is (= "Arena compartida conectada. ID: player-42 · green."
+        (is (= "Modo compartido. Arena compartida conectada. Servidor: ws://arena.example:8082/ws. ID: player-42 · green."
                (.-textContent @connection-status)))
         (is (true? (get-in @client/world [:players :player-42 :spawn-locked?])))
         (is (zero? (get-in @client/world [:players :player-42 :accumulated-percentage])))
@@ -687,7 +687,7 @@
       (is (false? (transport/connected?)))
       (is (= offline-world @client/world)
           "timeout restores the saved local world synchronously")
-      (is (= "Conexión expirada; el juego continúa en modo local."
+      (is (= "Modo local. Conexión expirada (connection-timeout); el juego continúa en modo local. Servidor: ws://arena.example:8082/ws."
              (.-textContent @connection-status)))
 
       (receive-snapshot! socket 11 network-world)
@@ -790,7 +790,7 @@
 
       ((.-onclose socket) #js {})
       (is (nil? @transport/connection))
-      (is (= "La sala está llena; el juego continúa en modo local."
+      (is (= "Modo local. La sala está llena; el juego continúa en modo local. Servidor: ws://arena.example:8082/ws."
              (.-textContent @connection-status)))
       (deliver-frame! 25)
       (is (= [{:horizontal 1 :jump? false :drop? false :attack? false}]

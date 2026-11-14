@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–66 complete (66/70). Shared matches include countdowns, fixed contenders and observers, forfeits, three-minute results, neutral standings and automatic five-second rematches.
+Checkpoints 01–67 complete (67/70). Connection status exposes mode, attempted endpoint, known error categories and close metadata while preserving authoritative ownership.
 Future mechanics remain specified in the roadmap.
 
 ## Run
