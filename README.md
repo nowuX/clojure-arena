@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–13 complete (13/70). Horizontal intention accelerates toward 220 units/s at 880 units/s², with solid contacts and gravity.
+Checkpoints 01–14 complete (14/70). Movement accelerates under A/D and brakes with neutral friction, preserving continuous solid contacts.
 Future mechanics remain specified in the roadmap.
 
 ## Run

@@ -2,6 +2,7 @@
 
 (def horizontal-speed 220)
 (def horizontal-acceleration 880)
+(def horizontal-friction 1100)
 (def gravity 980)
 
 (def initial-world
@@ -142,9 +143,16 @@
                      fall-dt contacts-left true))
             proposed))))))
 
+(defn apply-horizontal-friction [vx dt]
+  (let [change (* horizontal-friction dt)]
+    (cond
+      (pos? vx) (max 0 (- vx change))
+      (neg? vx) (min 0 (+ vx change))
+      :else 0)))
+
 (defn accelerate-horizontal [vx horizontal dt]
   (if (zero? horizontal)
-    0
+    (apply-horizontal-friction vx dt)
     (let [target (* horizontal horizontal-speed)
           change (* horizontal-acceleration dt)]
       (cond

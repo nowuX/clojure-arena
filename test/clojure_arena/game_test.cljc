@@ -42,4 +42,18 @@
     (is (= 198 (game/accelerate-horizontal 220 -1 dt)))
     (is (= -220 (nth (iterate #(game/accelerate-horizontal % -1 dt) 220) 20)))
     (is (= -220 (game/accelerate-horizontal -215 -1 dt)))
-    (is (= 0 (game/accelerate-horizontal 220 0 dt)))))
+    (is (= 192.5 (game/accelerate-horizontal 220 0 dt)))))
+
+(deftest neutral-friction-stops-in-eight-ticks-without-sign-reversal
+  (doseq [sign [1 -1]]
+    (let [world (assoc-in game/initial-world [:player :vx] (* sign 220))
+          states (take 9 (iterate #(game/step % {:horizontal 0} dt) world))
+          stopped (last states)]
+      (is (near? (* sign 192.5) (get-in (second states) [:player :vx])))
+      (is (near? (+ 400 (* sign 19.25)) (get-in stopped [:player :x])))
+      (is (zero? (get-in stopped [:player :vx])))
+      (is (every? #(<= 0 (* sign (get-in % [:player :vx]))) states))
+      (is (= 0 (game/apply-horizontal-friction (* sign 10) dt)))))
+  (doseq [y [160 264]]
+    (let [world (update game/initial-world :player assoc :y y :vx 220)]
+      (is (= 192.5 (get-in (game/step world {} dt) [:player :vx]))))))

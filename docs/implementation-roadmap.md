@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**13 of 70 checkpoints complete.** Checkpoints 01–13 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**14 of 70 checkpoints complete.** Checkpoints 01–14 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -224,7 +224,7 @@ Checkpoints **01–21**. Introduce rendering, immutable data, input, fixed time,
 
 ### 14 — Add horizontal friction
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** With neutral intention, move X velocity toward zero at 1100
   units/s² without sign reversal. Use the same rule on ground and in air.
 - **Verify:** At 25 ms, friction removes 27.5 units/s. From 220 it stops in eight ticks
