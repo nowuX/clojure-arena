@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**22 of 70 checkpoints complete.** Checkpoints 01–22 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**23 of 70 checkpoints complete.** Checkpoints 01–23 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -333,7 +333,7 @@ Checkpoints **22–27**. Extend the scene while preserving existing movement, su
 
 ### 23 — Resolve contacts across multiple solids
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Find the earliest eligible contact across all platforms, break
   equal times by stable ID, and continue remaining movement with the shared contact
   budget. Any flat top may support a jump.

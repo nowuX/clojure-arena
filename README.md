@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–22 complete (22/70). The scene stores platforms in a stable ID/type vector; rendering and simulation use the collection while keeping the main solid unchanged.
+Checkpoints 01–23 complete (23/70). Solid collections resolve the earliest swept contact with stable ID ties, support on any solid, and a shared four-contact budget.
 Future mechanics remain specified in the roadmap.
 
 ## Run

@@ -34,7 +34,7 @@
 (deftest non-top-contacts-do-not-unlock-and-edge-departure-does-not-relock
   (doseq [[x y vx vy] [[150 288 1000 0] [400 330 0 -1000] [150 260 1000 400]]]
     (let [player (assoc (:player game/initial-world) :x x :y y :vx vx :vy vy)
-          result (game/collide-platform player platform dt)]
+          result (game/collide-platforms player [platform] dt)]
       (is (:spawn-locked? result))))
   (let [world (update game/initial-world :player assoc
                       :spawn-locked? false :x 630 :y 264 :vx 220 :vy 0)

@@ -29,7 +29,7 @@
 
 (deftest landing-uses-x-at-crossing-time
   (let [player (player-at 150 250 2000 1000)
-        result (game/collide-platform player platform 0.025)]
+        result (game/collide-platforms player [platform] 0.025)]
     (is (near? 264 (:y result)))
     (is (near? 200 (:x result)))))
 
@@ -38,7 +38,7 @@
                                 [(player-at 800 288 -20000 0) :x 646]
                                 [(player-at 400 450 0 -20000) :y 312]
                                 [(player-at 400 0 0 20000) :y 264]]]
-    (let [result (game/collide-platform player platform 0.025)]
+    (let [result (game/collide-platforms player [platform] 0.025)]
       (is (near? expected (key result)))
       (is (zero? (if (= key :x) (:vx result) (:vy result)))))))
 
@@ -47,7 +47,7 @@
                          [170 296 -1 1] [630 296 1 1]]]
     (let [player (player-at (+ cx (* sx 40)) (+ cy (* sy 40))
                             (* sx -2000) (* sy -2000))
-          result (game/collide-platform player platform 0.025)
+          result (game/collide-platforms player [platform] 0.025)
           distance (game/sqrt (+ (* (- (:x result) cx) (- (:x result) cx))
                                  (* (- (:y result) cy) (- (:y result) cy))))]
       (is (near? 16 distance))))
@@ -64,12 +64,12 @@
   (let [miss (player-at 154.1 264.1 -10 -10)]
     (is (nil? (game/platform-contact miss (game/move-player miss 0.025) platform))))
   (let [player (player-at 160 288 -100 0)
-        result (game/collide-platform player platform 0.025)]
+        result (game/collide-platforms player [platform] 0.025)]
     (is (near? 151.5 (:x result)))
     (is (== -100 (:vx result)))
     (is (= 160 (:x player))))
   (let [player (player-at 400 285 0 0)
-        result (game/collide-platform player platform 0.025)]
+        result (game/collide-platforms player [platform] 0.025)]
     (is (near? 264 (:y result)))))
 
 (deftest repeated-zero-time-contacts-have-a-finite-budget
@@ -79,7 +79,7 @@
                   (fn [p _ _]
                     (swap! calls inc)
                     {:time 0 :x (:x p) :y (:y p) :nx 0 :ny -1})]
-      (let [result (game/collide-platform player platform 0.025)]
+      (let [result (game/collide-platforms player [platform] 0.025)]
         (is (= 4 @calls))
         (is (= 400 (:x result)))
         (is (zero? (:vy result)))))))

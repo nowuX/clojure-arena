@@ -30,8 +30,9 @@
        (<= (abs (- (+ y radius) (:y platform))) contact-epsilon)))
 
 (defn supporting-platform [player platforms]
-  (when-let [platform (first platforms)]
-    (when (grounded? player platform) platform)))
+  (first (sort-by (comp str :id)
+                  (filter #(and (= :solid (:type %)) (grounded? player %))
+                          platforms))))
 
 (defn apply-jump [player platforms jump?]
   (cond
@@ -131,40 +132,52 @@
            :vx (- (:vx player) (* inward-speed nx))
            :vy (- (:vy player) (* inward-speed ny)))))
 
-(defn collide-platform [player platform dt]
+(defn earliest-contact [player proposed platforms departing-ids]
+  (first
+    (sort-by (juxt :time #(str (get-in % [:platform :id])))
+             (keep (fn [platform]
+                     (when (= :solid (:type platform))
+                       (when-let [contact
+                                  (if (contains? departing-ids (:id platform))
+                                    (when-let [overlap (overlap-contact proposed platform)]
+                                      (assoc overlap :time 1))
+                                    (platform-contact player proposed platform))]
+                         (assoc contact :platform platform))))
+                   platforms))))
+
+(defn collide-platforms [player platforms dt]
   (loop [player player
          remaining-dt dt
          contacts-left max-contacts-per-tick
-         departing? false]
+         departing-ids #{}]
     (if (or (zero? contacts-left) (not (pos? remaining-dt)))
       player
-      (let [travel-dt (if (grounded? player platform)
-                        (supported-travel-time player platform remaining-dt)
+      (let [support (supporting-platform player platforms)
+            travel-dt (if support
+                        (supported-travel-time player support remaining-dt)
                         remaining-dt)
-            proposed (move-player player travel-dt)
-            contact (if departing?
-                      (when-let [overlap (overlap-contact proposed platform)]
-                        (assoc overlap :time 1))
-                      (platform-contact player proposed platform))]
-        (if contact
+            proposed (move-player player travel-dt)]
+        (if-let [contact (earliest-contact player proposed platforms departing-ids)]
           (let [resolved (resolve-contact player contact)
-                landed (if (grounded? resolved platform)
-                         (assoc resolved :spawn-locked? false :air-jumps-left 1)
+                landed (if (grounded? resolved (:platform contact))
+                         (assoc resolved :air-jumps-left 1 :spawn-locked? false)
                          resolved)]
             (recur landed
                    (- remaining-dt (* travel-dt (:time contact)))
                    (dec contacts-left)
-                   false))
+                   #{}))
           (if (< travel-dt remaining-dt)
-            (let [fall-dt (- remaining-dt travel-dt)]
+            (let [fall-dt (- remaining-dt travel-dt)
+                  departing-ids (set (map :id
+                                         (filter #(and (grounded? proposed %)
+                                                       (zero? (supported-travel-time
+                                                                proposed % fall-dt)))
+                                                 platforms)))]
               (recur (assoc proposed :vy (* gravity fall-dt))
-                     fall-dt contacts-left true))
+                     fall-dt
+                     contacts-left
+                     departing-ids))
             proposed))))))
-
-(defn collide-platforms [player platforms dt]
-  (if-let [platform (first platforms)]
-    (collide-platform player platform dt)
-    (move-player player dt)))
 
 (defn apply-horizontal-friction [vx dt]
   (let [change (* horizontal-friction dt)]

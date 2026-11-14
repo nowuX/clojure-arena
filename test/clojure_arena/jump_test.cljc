@@ -53,7 +53,7 @@
     (is (= 1 (get-in departed [:player :air-jumps-left]))))
   (doseq [[x y vx vy] [[150 288 1000 0] [400 330 0 -1000] [150 260 1000 400]]]
     (let [player (assoc (:player ground-world) :x x :y y :vx vx :vy vy :air-jumps-left 0)
-          result (game/collide-platform player platform dt)]
+          result (game/collide-platforms player [platform] dt)]
       (is (zero? (:air-jumps-left result))))))
 
 (deftest air-launch-replaces-ascent-apex-and-descent-velocity

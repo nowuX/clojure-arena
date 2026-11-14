@@ -30,6 +30,6 @@ The initial player falls with controls locked. A resolved supported top landing 
 
 ## Contact and integration
 
-`move-player` advances the circle center using velocity and seconds. `supported-travel-time` bounds motion along a supported top and lets gravity begin after leaving an edge. `platform-contact` checks overlap and swept contact against the single rectangle's faces and rounded corners; `resolve-contact` removes only inward normal velocity. `collide-platforms` allows up to four contacts per tick and uses a `1e-9` tolerance.
+`move-player` advances the circle center using velocity and seconds. `supported-travel-time` bounds motion along a supported top and lets gravity begin after leaving an edge. `earliest-contact` chooses the earliest contact across solid entries, using stable ID order for exact time ties. `platform-contact` checks overlap and swept contact against each rectangle's faces and rounded corners; `resolve-contact` removes only inward normal velocity. `collide-platforms` allows up to four contacts per tick and uses a `1e-9` tolerance.
 
-The world has one platform and no arena-edge rule. See [Architecture](architecture.md) for ownership and [Simulation verification](simulation-verification.md) for checks.
+The initial world still has one platform; constructed solid collections share the same four-contact budget. Any solid flat top supports jumping. See [Architecture](architecture.md) for ownership and [Simulation verification](simulation-verification.md) for checks.
