@@ -191,7 +191,7 @@
                            (<= 2 (count players) 4)
                            (every? #(= :waiting (:lifecycle %)) (vals players)))
            :running (and (pos? id) (zero? countdown-seconds-left)
-                         (not (neg? time-seconds-left)) (nil? result)
+                         (pos? time-seconds-left) (nil? result)
                          (<= 2 (count contenders) 4)
                          (roster-matches-players? contenders players))
            :finished (and (pos? id) (zero? countdown-seconds-left)

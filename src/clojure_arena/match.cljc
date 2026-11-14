@@ -45,19 +45,31 @@
 (defn ranked-standings [contenders]
   (->> contenders
        (map (fn [[player-id contender]] (assoc contender :player-id player-id)))
-       (sort-by (comp str :player-id))
+       (sort-by (juxt :forfeited? (comp - :stocks) :accumulated-percentage
+                      (comp str :player-id)))
        vec))
 
-(defn result-for [contenders _time-seconds-left]
+(defn result-for [contenders time-seconds-left]
   (let [standings (ranked-standings contenders)
         eligible (filterv #(and (not (:forfeited? %)) (pos? (:stocks %))) standings)
         remaining (count eligible)
-        reason (cond (zero? remaining) :no-contenders
-                     (= 1 remaining) :last-contender)
-        winner (when (= 1 remaining) (first eligible))]
+        reason (cond
+                 (zero? remaining) :no-contenders
+                 (= 1 remaining) :last-contender
+                 (zero? time-seconds-left) :time-limit)
+        [best runner-up] eligible
+        tied? (and runner-up
+                   (== (:stocks best) (:stocks runner-up))
+                   (== (:accumulated-percentage best)
+                       (:accumulated-percentage runner-up)))
+        winner (when (or (= :last-contender reason)
+                         (and (= :time-limit reason) (not tied?)))
+                 best)]
     (when reason
-      {:reason reason :winner-id (:player-id winner)
-       :winner-color (:color winner) :standings standings})))
+      {:reason reason
+       :winner-id (:player-id winner)
+       :winner-color (:color winner)
+       :standings standings})))
 
 (defn- finish-if-decided [world]
   (if (= :running (get-in world [:match :phase]))

@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**62 of 70 checkpoints complete.** Checkpoints 01–62 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**63 of 70 checkpoints complete.** Checkpoints 01–63 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -840,7 +840,7 @@ Checkpoints **57–66**. Separate connections from contenders and compose match 
 
 ### 63 — Resolve time limits and exact ties
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** At zero, after movement/losses/hits/score capture, rank
   nonforfeited contenders by stocks descending then percentage ascending. Exact best-score
   ties draw; last-contender resolution takes priority. Capture all standings with forfeits

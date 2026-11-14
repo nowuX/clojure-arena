@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–62 complete (62/70). Matches commit a winner or draw when at most one eligible contender remains, then freeze gameplay while snapshots continue.
+Checkpoints 01–63 complete (63/70). Matches resolve time limits by stocks then lower accumulated percentage; exact score ties draw and final-tick actions finish before ranking.
 Future mechanics remain specified in the roadmap.
 
 ## Run

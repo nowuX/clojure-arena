@@ -55,3 +55,12 @@ resolution. `result-for` calculates facts and `finish-if-decided` captures the
 result once. Finished ticks freeze physics, attacks, lifecycle/protection and
 the running clock while transport ticks and snapshots continue. Later departures
 may update eligibility metadata but never rewrite the captured result.
+
+## Time-limit ranking
+
+Expiry is resolved after that tick's physics, losses and hits. Last-contender
+resolution takes priority. Otherwise rank by remaining stocks descending, then
+percentage ascending. An exact best-score tie draws. Forfeits sort last;
+player ID is only a stable display order and cannot break a score tie.
+The result captures ordered standings, winner ID/color and reason. Validation
+rechecks those captured facts, preserving them even if the winner later leaves.
