@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–10 complete (10/70). Gravity advances vertical speed before position; the character falls through the still non-colliding platform.
+Checkpoints 01–11 complete (11/70). The character lands on the swept flat top, stays supported, and falls after either edge.
 Future mechanics remain specified in the roadmap.
 
 ## Run

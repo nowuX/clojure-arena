@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**10 of 70 checkpoints complete.** Checkpoints 01–10 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**11 of 70 checkpoints complete.** Checkpoints 01–11 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -190,7 +190,7 @@ Checkpoints **01–21**. Introduce rendering, immutable data, input, fixed time,
 
 ### 11 — Land on the platform
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Detect a descending circle crossing the flat top with supported
   horizontal geometry. Correct feet to the top and downward velocity to zero; maintain
   support while standing and release it at edges.

@@ -33,4 +33,4 @@
     (is (near? 49 (get-in second-tick [:player :vy])))
     (is (near? 161.8375 (get-in second-tick [:player :y])))
     (is (= 160 (get-in world [:player :y])))
-    (is (> (get-in (steps world {} 40) [:player :y]) 296))))
+    (is (near? 264 (get-in (steps world {} 40) [:player :y])))))
