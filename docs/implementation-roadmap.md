@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**47 of 70 checkpoints complete.** Checkpoints 01–47 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**48 of 70 checkpoints complete.** Checkpoints 01–48 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -650,7 +650,7 @@ Checkpoints **39–49**. Add HTTP/WebSocket, exact EDN messages, connection-owne
 
 ### 48 — Treat reloads and tabs as fresh sessions
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Discard old client identity/pending input/snapshot tick on
   replacement and bind callbacks to their socket. Cookies, tabs, reloads, and reused
   colors cannot restore a retired player. Use ordinary admission after cleanup; there is

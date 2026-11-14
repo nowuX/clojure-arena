@@ -600,6 +600,60 @@
           (is (= [offline-world pending-fallback-world] @stepped-worlds)
               "a pending connection continues only its saved local world"))))))
 
+(deftest reinitializing-a-connected-client-starts-a-fresh-character-session
+  (let [offline-world (assoc-in (grounded-world) [:players :player-1 :x] 123)
+        old-player (assoc (game/make-player "#4ade80" 600 240)
+                          :spawn-locked? false :accumulated-percentage 80
+                          :vx 200 :knockback-vx 100 :melee-cooldown-left 0.3)
+        old-world (assoc game/initial-world :players {:player-41 old-player})
+        fresh-player (game/make-player "#4ade80" 460 160)
+        fresh-world (assoc game/initial-world :players {:player-42 fresh-player})
+        {:keys [sockets socket]} (start-networked-session! offline-world)]
+    (admit-as! socket :player-41 :green)
+    (receive-snapshot! socket 90 old-world)
+    (dispatch-key! "keydown" "KeyD")
+    (dispatch-key! "keydown" "KeyW")
+    (set! (.-send socket) (fn [_] (throw (js/Error. "Interrupted old session"))))
+    (dispatch-pointer-down! @arena-canvas 0)
+    (is (= :error (:status @transport/connection-state)))
+    (is (= old-world @client/world))
+
+    (let [old-handlers (mapv #(aget socket %)
+                             ["onopen" "onmessage" "onerror" "onclose"])]
+      (client/init)
+      (let [current (last @sockets)
+            connecting-state @transport/connection-state]
+        (is (= 2 (count @sockets)))
+        (is (not (identical? socket current)))
+        (is (= 1 (aget socket "closeCount")))
+        (is (= :connecting (:status connecting-state)))
+        (is (every? nil? (map connecting-state [:identity :admission :snapshot])))
+        (is (= protocol/neutral-input (client/read-inputs)))
+        (is (= offline-world @client/world)
+            "reinitialization keeps the offline fixture separate from the old network world")
+
+        (doseq [handler old-handlers]
+          (handler #js {:data (pr-str {:type :snapshot :tick 99 :world old-world})}))
+        (is (= connecting-state @transport/connection-state))
+        (is (identical? current @transport/connection))
+
+        (admit-as! current :player-42 :green)
+        (is (empty? (sent-inputs current))
+            "old held keys, buffered attack and jump do not enter the new session")
+        (receive-snapshot! current 91 fresh-world)
+        (deliver-frame! 1000)
+        (is (= fresh-world @client/world))
+        (is (= {:player-id :player-42 :color :green}
+               (:identity @transport/connection-state)))
+        (is (= "Arena compartida conectada. ID: player-42 · green."
+               (.-textContent @connection-status)))
+        (is (true? (get-in @client/world [:players :player-42 :spawn-locked?])))
+        (is (zero? (get-in @client/world [:players :player-42 :accumulated-percentage])))
+        (dispatch-key! "keydown" "KeyD")
+        (is (= [(assoc protocol/neutral-input :horizontal 1)]
+               (sent-inputs current))
+            "fresh controls are captured after reinitialization")))))
+
 (deftest connection-timeout-immediately-restores-offline-physics-and-ignores-late-data
   (let [offline-world (assoc-in (grounded-world) [:players :player-1 :x] 123)
         network-world (assoc-in game/initial-world [:players :player-1 :x] 700)

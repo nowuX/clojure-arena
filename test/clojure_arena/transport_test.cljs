@@ -364,6 +364,43 @@
              (sent-inputs current))
           "only the replacement session's pending input is flushed"))))
 
+(deftest reconnect-after-loss-keeps-only-the-new-session-buffer-and-watermark
+  (transport/start! "http://arena.example/")
+  (let [old @transport/connection]
+    (admit! old)
+    (let [old-world (assoc game/initial-world :players
+                           {:player-41 (game/make-player "#4ade80" 600 240)})
+          fresh-world (assoc game/initial-world :players
+                             {:player-42 (game/make-player "#4ade80" 460 160)})
+          old-handlers (mapv #(aget old %)
+                             ["onopen" "onmessage" "onerror" "onclose"])]
+      (receive! old (snapshot-frame 80 old-world))
+      (set! (.-send old) (fn [_] (throw (js/Error. "Transport lost"))))
+      (transport/send-input! {:horizontal 1 :jump? true :drop? true :attack? true})
+      (set! (.-readyState old) 3)
+      ((.-onclose old) #js {})
+      (transport/start! "http://arena.example/")
+      (let [current @transport/connection
+            new-input (assoc protocol/neutral-input :horizontal -1 :jump? true)]
+        (transport/send-input! new-input)
+        (doseq [handler old-handlers]
+          (handler #js {:data "{:type :identity :player-id :player-41 :color :green}"}))
+        (is (nil? (:identity @transport/connection-state)))
+        (is (nil? (:snapshot @transport/connection-state)))
+        (open! current)
+        (receive! current "{:type :identity :player-id :player-42 :color :green}")
+        (is (= [new-input] (sent-inputs current))
+            "only input captured after reconnection is sent to the new owner")
+        (receive! current (snapshot-frame 1 fresh-world))
+        ((second old-handlers) #js {:data (snapshot-frame 100 old-world)})
+        (is (= {:player-id :player-42 :color :green}
+               (:identity @transport/connection-state)))
+        (is (= {:tick 1 :world fresh-world}
+               (:snapshot @transport/connection-state)))
+        ((last old-handlers) #js {})
+        (is (transport/connected?))
+        (is (identical? current @transport/connection))))))
+
 (deftest invalid-identity-cannot-replace-the-assigned-identity
   (transport/start! "http://arena.example/")
   (let [socket @transport/connection

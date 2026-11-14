@@ -88,7 +88,9 @@
       (.close socket)))
   (set-state! {:status :closed}))
 
-(defn start! [page-url]
+(defn start!
+  "Start a new connection session after discarding the previous socket's state."
+  [page-url]
   (stop!)
   (try
     (let [url (websocket-url page-url)

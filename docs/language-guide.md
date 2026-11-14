@@ -263,3 +263,10 @@ cuerpo dentro de una transición de sala. La compuerta de retiro evita repetir
 efectos entre cierre y timeout. `System/nanoTime` mide la vida de la conexión;
 ese tiempo no entra en `game/step`. Ping/Pong de WebSocket comprueba el desafío
 exacto y funciona aparte de los mensajes EDN de diagnóstico.
+
+### Identidad de una sesión
+
+`identical?` comprueba que el callback pertenece al mismo objeto WebSocket
+actual. Desactivar handlers y vaciar los átomos al reemplazarlo impide que un
+evento tardío restaure datos antiguos. Cookies y colores no identifican una
+sesión: cada conexión aceptada recibe un nuevo ID monotónico.

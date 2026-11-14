@@ -153,3 +153,16 @@ restores local fallback. Browser control Pong replies are automatic.
 Server shutdown stops ticker, heartbeat and publication, closes its HTTP
 channels, then waits for queued room cleanup. Tests use owned ephemeral servers;
 unplugging a physical device remains a separate manual check.
+
+## Fresh connection sessions
+
+Every `start!` discards the previous socket, callbacks, identity, pending input
+and snapshot tick. Callbacks also check their captured socket against the
+current one, so even a retained late callback cannot alter its replacement.
+`stop!` does not reconnect automatically.
+
+Cookies and tabs are not identity credentials. A reload is an ordinary join:
+it can be rejected while old cleanup is pending, and it receives a larger ID
+and fresh factory state after a slot is released. Color reuse does not restore
+old percentage, motion, strike, input or snapshot state. The room tick continues
+across joins/leaves rather than restarting for an individual session.

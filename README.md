@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–47 complete (47/70). Closed and expired connections atomically release their player, input and color; control Ping/Pong detects stale sessions.
+Checkpoints 01–48 complete (48/70). Reloads, tabs and replacement sockets create isolated fresh sessions, independent of cookies or reused colors.
 Future mechanics remain specified in the roadmap.
 
 ## Run
