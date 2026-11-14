@@ -6,13 +6,14 @@
 (def gravity 980)
 (def jump-velocity -420)
 (def melee-cooldown 0.25)
+(def melee-reach 60)
 (def cooldown-epsilon 1e-9)
 
 (defn make-player [color x y]
   {:x x :y y :vx 0 :vy 0 :radius 16
    :spawn-locked? true :air-jumps-left 1
    :drop-through-platform-id nil :color color :facing :right
-   :melee-cooldown-left 0 :melee-strike-id 0})
+   :melee-cooldown-left 0 :melee-strike-id 0 :melee-target-ids #{}})
 
 (def local-player-fixtures
   {:player-1 (make-player "#22d3ee" 400 160)
@@ -262,10 +263,27 @@
         (> vx target) (max target (- vx change))
         :else vx))))
 
+(defn melee-target-ids [players attacker-id]
+  (if-let [attacker (get players attacker-id)]
+    (reduce-kv
+      (fn [targets target-id target]
+        (let [dx (- (:x target) (:x attacker))
+              dy (- (:y target) (:y attacker))]
+          (if (and (not= target-id attacker-id)
+                   (case (:facing attacker)
+                     :right (pos? dx)
+                     :left (neg? dx)
+                     false)
+                   (<= (+ (* dx dx) (* dy dy)) (* melee-reach melee-reach)))
+            (conj targets target-id)
+            targets)))
+      #{} players)
+    #{}))
+
 (defn step-melee [player attack? dt]
   (let [remaining (max 0 (- (:melee-cooldown-left player 0) dt))
         remaining (if (<= remaining cooldown-epsilon) 0 remaining)
-        player (assoc player :melee-cooldown-left remaining)]
+        player (assoc player :melee-cooldown-left remaining :melee-target-ids #{})]
     (if (and attack? (not (:spawn-locked? player)) (zero? remaining))
       (-> player
           (assoc :melee-cooldown-left melee-cooldown)
@@ -295,11 +313,20 @@
         (clear-drop-through platforms))))
 
 (defn step [world inputs-by-player dt]
-  (let [platforms (:platforms world)]
-    (update world :players
-            (fn [players]
-              (reduce-kv (fn [result player-id player]
-                           (assoc result player-id
-                                  (step-player player platforms
-                                               (get inputs-by-player player-id) dt)))
-                         {} players)))))
+  (let [players (:players world)
+        stepped-players
+        (reduce-kv (fn [result player-id player]
+                     (assoc result player-id
+                            (step-player player (:platforms world)
+                                         (get inputs-by-player player-id) dt)))
+                   {} players)
+        targeted-players
+        (reduce-kv
+          (fn [result player-id player]
+            (if (> (:melee-strike-id player 0)
+                   (:melee-strike-id (get players player-id) 0))
+              (assoc-in result [player-id :melee-target-ids]
+                        (melee-target-ids stepped-players player-id))
+              result))
+          stepped-players stepped-players)]
+    (assoc world :players targeted-players)))

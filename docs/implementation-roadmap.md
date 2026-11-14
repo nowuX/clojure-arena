@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**32 of 70 checkpoints complete.** Checkpoints 01–32 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**33 of 70 checkpoints complete.** Checkpoints 01–33 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -455,7 +455,7 @@ Checkpoints **31–38**. Accept input, select targets, resolve percentage once, 
 
 ### 33 — Select targets in the forward strike region
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Query the 60 px forward half-disk once on each acceptance tick
   after all movement/contacts, using one final player snapshot. Exclude attacker ID and
   the vertical center line, include the curved boundary, and do not occlude with

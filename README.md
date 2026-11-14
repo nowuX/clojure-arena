@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–32 complete (32/70). Primary clicks request strikes with independent 0.25-second cooldowns and per-player sequences. Spawn-locked and early requests are discarded; movement, jumping, dropping, and facing remain available independently. Target and hit effects are still pending.
+Checkpoints 01–33 complete (33/70). Accepted melee strikes query a 60-pixel forward half-disk once after every player finishes movement and contacts. Target sets share one final snapshot, support multiple targets, and ignore platform occlusion; hit effects are pending.
 Future mechanics remain specified in the roadmap.
 
 ## Run

@@ -147,3 +147,10 @@ listener durante `stop!`, incluso si el DOM reemplazó el canvas.
 tolerancia pequeña para llegar a cero. Si `:attack?` es verdadero, no está
 bloqueado y el cooldown terminó, `update` incrementa `:melee-strike-id` y
 `assoc` guarda 0,25 segundos. Aceptar un intento aún no significa acertar.
+
+### Consultar objetivos sin efectos
+
+`melee-target-ids` usa `reduce-kv` para construir un conjunto (`#{}`) de IDs.
+`case` elige el signo de X según la mirada y la distancia al cuadrado evita
+una raíz. `step` termina primero el movimiento de todos; luego consulta el
+mismo mapa para cada secuencia nueva. Leer ese mapa no modifica posiciones.
