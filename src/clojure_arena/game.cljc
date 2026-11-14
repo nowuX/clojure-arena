@@ -7,7 +7,7 @@
 (def jump-velocity -420)
 
 (def initial-world
-  {:platform {:x 170 :y 280 :width 460 :height 16 :color "#9c9c9c"}
+  {:platforms [{:id :main :type :solid :x 170 :y 280 :width 460 :height 16 :color "#9c9c9c"}]
    :player {:x 400 :y 160 :vx 0 :vy 0 :radius 16 :spawn-locked? true :air-jumps-left 1 :color "#22d3ee"}})
 
 (defn move-player [player dt]
@@ -29,13 +29,14 @@
        (<= (:x platform) x (+ (:x platform) (:width platform)))
        (<= (abs (- (+ y radius) (:y platform))) contact-epsilon)))
 
-(defn supporting-platform [player platform]
-  (when (grounded? player platform) platform))
+(defn supporting-platform [player platforms]
+  (when-let [platform (first platforms)]
+    (when (grounded? player platform) platform)))
 
-(defn apply-jump [player platform jump?]
+(defn apply-jump [player platforms jump?]
   (cond
     (or (not jump?) (:spawn-locked? player)) player
-    (grounded? player platform) (assoc player :vy jump-velocity)
+    (supporting-platform player platforms) (assoc player :vy jump-velocity)
     (pos? (:air-jumps-left player)) (-> player
                                        (assoc :vy jump-velocity)
                                        (update :air-jumps-left dec))
@@ -160,6 +161,11 @@
                      fall-dt contacts-left true))
             proposed))))))
 
+(defn collide-platforms [player platforms dt]
+  (if-let [platform (first platforms)]
+    (collide-platform player platform dt)
+    (move-player player dt)))
+
 (defn apply-horizontal-friction [vx dt]
   (let [change (* horizontal-friction dt)]
     (cond
@@ -182,7 +188,7 @@
           (fn [player]
             (let [horizontal (if (:spawn-locked? player) 0 horizontal)]
               (-> player
-                  (apply-jump (:platform world) jump?)
+                  (apply-jump (:platforms world) jump?)
                   (update :vx accelerate-horizontal horizontal dt)
                   (update :vy + (* gravity dt))
-                  (collide-platform (:platform world) dt))))))
+                  (collide-platforms (:platforms world) dt))))))

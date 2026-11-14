@@ -4,7 +4,7 @@
                :cljs [cljs.test :refer-macros [deftest is]])))
 
 (def dt 0.025)
-(def platform (:platform game/initial-world))
+(def platform (first (:platforms game/initial-world)))
 (defn near? [a b] (< (abs (- a b)) 1e-8))
 
 (deftest locked-fall-unlocks-on-top-and-moves-on-the-following-tick
@@ -28,8 +28,8 @@
       (is (game/grounded? (assoc player :x x) platform)))
     (doseq [changes [{:x 169.999} {:x 630.001} {:vy 1} {:y 264.001} {:y 312}]]
       (is (not (game/grounded? (merge player changes) platform))))
-    (is (= platform (game/supporting-platform player platform)))
-    (is (nil? (game/supporting-platform (assoc player :vy -1) platform)))))
+    (is (= platform (game/supporting-platform player [platform])))
+    (is (nil? (game/supporting-platform (assoc player :vy -1) [platform])))))
 
 (deftest non-top-contacts-do-not-unlock-and-edge-departure-does-not-relock
   (doseq [[x y vx vy] [[150 288 1000 0] [400 330 0 -1000] [150 260 1000 400]]]

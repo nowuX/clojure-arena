@@ -3,7 +3,7 @@
             #?(:clj [clojure.test :refer [deftest is testing]]
                :cljs [cljs.test :refer-macros [deftest is testing]])))
 
-(def platform (:platform game/initial-world))
+(def platform (first (:platforms game/initial-world)))
 (defn near? [a b] (< (abs (- a b)) 1e-8))
 (defn player-at [x y vx vy]
   (assoc (:player game/initial-world) :x x :y y :vx vx :vy vy :spawn-locked? false))

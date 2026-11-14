@@ -33,7 +33,7 @@ por operaciones sucesivas; por ejemplo, `move-player` devuelve un mapa nuevo:
 ```
 
 `loop` y `recur` repiten cálculos con valores nuevos, sin cambiar el mundo
-recibido. `collide-platform` los usa para continuar el tiempo restante tras
+recibido. `collide-platforms` los usa para continuar el tiempo restante tras
 cada contacto, con un máximo de cuatro contactos por tick. `keep` descarta
 candidatos nulos y `sort-by` ordena contactos por tiempo.
 
@@ -64,3 +64,10 @@ con A y D juntas también se obtiene `0`.
 
 
 Al presionar W, `handle-key-down!` marca `pending-jump` solo para una pulsación nueva; autorepeat y mantener W no crean pulsos adicionales. En un tick, `consume-inputs!` pasa `:jump? true` a `game/step` y limpia el pulso. `apply-jump` revisa el bloqueo de aparición, el apoyo y la recarga aérea. El mundo siguiente guarda `vy`, el contador y los cambios por contacto; el cliente lo dibuja. Si W se presiona antes del aterrizaje, el pulso se consume mientras el jugador sigue bloqueado y no se reproduce después: hay que volver a pulsar W ya en tierra.
+
+### Colección de plataformas
+
+`:platforms` es un vector de mapas con `:id` estable y `:type`. `step` pasa
+el vector a `supporting-platform`, `apply-jump` y `collide-platforms`. El
+renderizador usa `doseq` para dibujar cada entrada. La escena contiene
+por ahora únicamente la plataforma principal, con la misma geometría.

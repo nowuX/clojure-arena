@@ -6,6 +6,8 @@
 (def playable-world
   (assoc-in game/initial-world [:player :spawn-locked?] false))
 
+(def draw-scene client/draw-world)
+
 (def callbacks (atom {}))
 (def next-id (atom 0))
 (def listeners (atom {}))
@@ -208,7 +210,7 @@
     (is (false? (:jump? (client/read-inputs))))
     (fire-frame! (* 25 (inc landed-at)))
     (is (> (get-in @client/world [:player :x]) 400))
-    (is (game/grounded? (:player @client/world) (:platform @client/world)))))
+    (is (game/grounded? (:player @client/world) (first (:platforms @client/world))))))
 
 (deftest real-key-jump-sequence-agrees-across-frame-cadences
   (let [consume client/consume-inputs!
@@ -286,7 +288,17 @@
   (key-event! "keyup" "KeyW")
   (.dispatchEvent @target (js/Event. "blur"))
   (fire-frame! 25)
-  (is (game/grounded? (:player @client/world) (:platform @client/world)))
+  (is (game/grounded? (:player @client/world) (first (:platforms @client/world))))
   (key-event! "keydown" "KeyW")
   (fire-frame! 50)
   (is (= -395.5 (get-in @client/world [:player :vy]))))
+
+(deftest renderer-uses-each-platform-entry-once
+  (let [drawn (atom [])
+        snapshot game/initial-world]
+    (with-redefs [client/draw-background (fn [_])
+                  client/draw-player (fn [_ _])
+                  client/draw-platform (fn [_ platform] (swap! drawn conj platform))]
+      (draw-scene nil snapshot)
+      (is (= (:platforms snapshot) @drawn))
+      (is (= game/initial-world snapshot)))))

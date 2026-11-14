@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–21 complete (21/70). Milestone 1 is complete: one colored character, one solid platform, fixed-step movement, spawn locking, ground jump, and one air jump, with integrated regression coverage and guides.
+Checkpoints 01–22 complete (22/70). The scene stores platforms in a stable ID/type vector; rendering and simulation use the collection while keeping the main solid unchanged.
 Future mechanics remain specified in the roadmap.
 
 ## Run

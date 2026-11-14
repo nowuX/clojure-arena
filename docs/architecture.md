@@ -25,7 +25,7 @@ flowchart LR
         Jump[apply-jump]
         Eligibility[spawn lock / grounded? / air-jumps-left]
         Motion[accelerate-horizontal / gravity]
-        Collision[collide-platform]
+        Collision[collide-platforms]
         Landing[supported top: unlock / restore allowance]
     end
 
@@ -55,7 +55,7 @@ flowchart LR
 
 | Concern | Owner | Current functions or values |
 | --- | --- | --- |
-| World, support, jump eligibility, physics | Shared simulation | `initial-world`, `grounded?`, `supporting-platform`, `apply-jump`, `step`, `collide-platform` |
+| World, support, jump eligibility, physics | Shared simulation | `initial-world`, `grounded?`, `supporting-platform`, `apply-jump`, `step`, `collide-platforms` |
 | Held directions and one-shot W request | Browser client | `pressed-keys`, `pending-jump`, `handle-key-down!`, `handle-key-up!`, `handle-blur!` |
 | Input snapshot and action lifetime | Browser client | `horizontal-input`, `read-inputs`, `consume-inputs!` |
 | Frame clock and fixed ticks | Browser client | `frame`, `advance-world!`, `tick-ms`, `max-frame-ms` |

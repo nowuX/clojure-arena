@@ -23,7 +23,7 @@
     (if (zero? ticks-left)
       [state nil]
       (let [next-state (game/step state inputs dt)]
-        (if (game/grounded? (player-of next-state) (:platform next-state))
+        (if (game/grounded? (player-of next-state) (first (:platforms next-state)))
           [state next-state]
           (recur next-state (dec ticks-left)))))))
 
@@ -31,24 +31,24 @@
   (loop [state world
          ticks-left 120]
     (cond
-      (game/grounded? (player-of state) (:platform state)) state
+      (game/grounded? (player-of state) (first (:platforms state))) state
       (zero? ticks-left) nil
       :else (recur (game/step state {} dt) (dec ticks-left)))))
 
 (deftest flat-support-is-center-based-and-includes-both-endpoints
-  (let [platform (:platform game/initial-world)
+  (let [platform (first (:platforms game/initial-world))
         supported (fn [x]
                     (assoc (:player game/initial-world) :x x :y 264 :vy 0))]
     (doseq [x [(:x platform) (+ (:x platform) (:width platform))]]
       (let [player (supported x)]
         (is (game/grounded? player platform))
-        (is (boolean (game/supporting-platform player platform)))))
+        (is (boolean (game/supporting-platform player [platform])))))
     (doseq [player [(supported 154)
                     (assoc (supported 400) :y 264.000001)
                     (assoc (supported 400) :vy 1e-12)
                     (assoc (supported 400) :y 288)]]
       (is (not (game/grounded? player platform)))
-      (is (not (game/supporting-platform player platform))))))
+      (is (not (game/supporting-platform player [platform]))))))
 
 (deftest spawn-lock-blocks-held-controls-through-landing-tick
   (let [initial game/initial-world
@@ -63,7 +63,7 @@
     (is (near? 400 (get-in before-landing [:player :x])))
     (is (some? landing) "the held direction reaches a supported landing")
     (is (game/grounded? (player-of attempted-landing-jump)
-                        (:platform attempted-landing-jump)))
+                        (first (:platforms attempted-landing-jump))))
     (is (false? (get-in attempted-landing-jump [:player :spawn-locked?])))
     (is (near? 400 (get-in attempted-landing-jump [:player :x])))
     (is (zero? (get-in attempted-landing-jump [:player :vy]))
@@ -92,7 +92,7 @@
     (is (= 0 (get-in rejected-third [:player :air-jumps-left])))
     (is (some? landed))
     (when landed
-      (is (game/grounded? (player-of landed) (:platform landed)))
+      (is (game/grounded? (player-of landed) (first (:platforms landed))))
       (is (= 1 (get-in landed [:player :air-jumps-left]))
           "only supported top landing restores the allowance")
       (is (near? -395.5 (get-in fresh-ground-jump [:player :vy])))
@@ -102,11 +102,11 @@
   (let [world (grounded-world {:y 260 :vy 150 :air-jumps-left 0})
         landing-tick (game/step world {:jump? true} dt)
         following-tick (game/step landing-tick {} dt)]
-    (is (game/grounded? (player-of landing-tick) (:platform landing-tick)))
+    (is (game/grounded? (player-of landing-tick) (first (:platforms landing-tick))))
     (is (near? 264 (get-in landing-tick [:player :y])))
     (is (zero? (get-in landing-tick [:player :vy])))
     (is (= 1 (get-in landing-tick [:player :air-jumps-left])))
-    (is (game/grounded? (player-of following-tick) (:platform following-tick)))
+    (is (game/grounded? (player-of following-tick) (first (:platforms following-tick))))
     (is (zero? (get-in following-tick [:player :vy]))
         "landing refills eligibility but does not replay the rejected request")))
 
@@ -122,14 +122,14 @@
       (let [world (game/step initial inputs dt)]
         (testing (name label)
           (is (= 0 (get-in world [:player :air-jumps-left])))
-          (is (not (game/grounded? (player-of world) (:platform world)))))))))
+          (is (not (game/grounded? (player-of world) (first (:platforms world))))))))))
 
 (deftest edge-departure-keeps-controls-unlocked-and-air-jump-available
   (let [world (grounded-world {:x 629.75 :vx 220})
         departed (game/step world {:horizontal 1} dt)
         edge-jump (game/step departed {:jump? true} dt)]
     (is (> (get-in departed [:player :x]) 630))
-    (is (not (game/grounded? (player-of departed) (:platform departed))))
+    (is (not (game/grounded? (player-of departed) (first (:platforms departed)))))
     (is (false? (get-in departed [:player :spawn-locked?])))
     (is (= 1 (get-in departed [:player :air-jumps-left])))
     (is (near? -395.5 (get-in edge-jump [:player :vy])))

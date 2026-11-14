@@ -4,7 +4,7 @@
                :cljs [cljs.test :refer-macros [deftest is]])))
 
 (def dt 0.025)
-(def platform (:platform game/initial-world))
+(def platform (first (:platforms game/initial-world)))
 (def ground-world
   (update game/initial-world :player assoc :y 264 :vy 0 :spawn-locked? false))
 (defn near? [a b] (< (abs (- a b)) 1e-8))

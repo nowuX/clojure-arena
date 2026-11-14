@@ -25,7 +25,7 @@
     (is (near? 595.25 (get-in (steps world inputs 40) [:player :x])))
     (is (= 400 (get-in world [:player :x])))
     (is (= {:horizontal 1} inputs))
-    (is (= (:platform world) (:platform right)))))
+    (is (= (:platforms world) (:platforms right)))))
 
 (deftest gravity-precedes-position-and-does-not-mutate-world
   (let [world playable-world
