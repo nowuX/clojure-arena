@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**16 of 70 checkpoints complete.** Checkpoints 01–16 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**17 of 70 checkpoints complete.** Checkpoints 01–17 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -259,7 +259,7 @@ Checkpoints **01–21**. Introduce rendering, immutable data, input, fixed time,
 
 ### 17 — Identify support and lock initial spawn controls
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Expose grounded/support queries from flat-top geometry. Add a
   spawn-locked flag: neutral voluntary movement and reject actions until a supported
   landing; side/underside/corner contact cannot unlock it. Keep gravity/contact processing

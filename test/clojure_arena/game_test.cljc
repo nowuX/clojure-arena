@@ -3,13 +3,16 @@
             #?(:clj [clojure.test :refer [deftest is testing]]
                :cljs [cljs.test :refer-macros [deftest is testing]])))
 
+(def playable-world
+  (assoc-in game/initial-world [:player :spawn-locked?] false))
+
 (def dt 0.025)
 (defn near? [a b] (< (abs (- a b)) 1e-8))
 (defn steps [world inputs n]
   (nth (iterate #(game/step % inputs dt) world) n))
 
 (deftest accelerated-movement-and-immutable-inputs
-  (let [world game/initial-world
+  (let [world playable-world
         inputs {:horizontal 1}
         right (game/step world inputs dt)
         left (game/step world {:horizontal -1} dt)
@@ -25,7 +28,7 @@
     (is (= (:platform world) (:platform right)))))
 
 (deftest gravity-precedes-position-and-does-not-mutate-world
-  (let [world game/initial-world
+  (let [world playable-world
         first-tick (game/step world {:horizontal 1} dt)
         second-tick (game/step first-tick {} dt)]
     (is (near? 24.5 (get-in first-tick [:player :vy])))
@@ -46,7 +49,7 @@
 
 (deftest neutral-friction-stops-in-eight-ticks-without-sign-reversal
   (doseq [sign [1 -1]]
-    (let [world (assoc-in game/initial-world [:player :vx] (* sign 220))
+    (let [world (assoc-in playable-world [:player :vx] (* sign 220))
           states (take 9 (iterate #(game/step % {:horizontal 0} dt) world))
           stopped (last states)]
       (is (near? (* sign 192.5) (get-in (second states) [:player :vx])))
@@ -55,5 +58,5 @@
       (is (every? #(<= 0 (* sign (get-in % [:player :vx]))) states))
       (is (= 0 (game/apply-horizontal-friction (* sign 10) dt)))))
   (doseq [y [160 264]]
-    (let [world (update game/initial-world :player assoc :y y :vx 220)]
+    (let [world (update playable-world :player assoc :y y :vx 220)]
       (is (= 192.5 (get-in (game/step world {} dt) [:player :vx]))))))

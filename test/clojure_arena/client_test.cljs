@@ -3,6 +3,9 @@
             [clojure-arena.client :as client]
             [clojure-arena.game :as game]))
 
+(def playable-world
+  (assoc-in game/initial-world [:player :spawn-locked?] false))
+
 (def callbacks (atom {}))
 (def next-id (atom 0))
 (def listeners (atom {}))
@@ -46,7 +49,7 @@
                 (swap! callbacks assoc id callback)
                 id)))
       (aset js/globalThis "cancelAnimationFrame" #(swap! callbacks dissoc %))
-      (reset! client/world game/initial-world)
+      (reset! client/world playable-world)
       (try
         (with-redefs [client/draw-world (fn [& _])]
           (client/stop!)
@@ -106,7 +109,7 @@
 
 (deftest equivalent-ticks-across-render-cadences
   (let [simulate (fn [timestamps]
-                   (reset! client/world game/initial-world)
+                   (reset! client/world playable-world)
                    (client/init)
                    (key-event! "keydown" "KeyD")
                    (doseq [timestamp timestamps] (fire-frame! timestamp))
@@ -141,7 +144,7 @@
         simulate (fn [timestamps]
                    (let [tick (atom -1)]
                      (client/stop!)
-                     (reset! client/world game/initial-world)
+                     (reset! client/world playable-world)
                      (with-redefs [client/read-inputs
                                    (fn [] {:horizontal (get script (swap! tick inc) 0)})]
                        (client/init)
@@ -187,3 +190,22 @@
     (key-event! "keydown" "KeyD")
     (reset-input!)
     (is (= {:horizontal 0 :jump? false} (client/read-inputs)))))
+
+(deftest held-spawn-input-waits-for-landing-and-discards-old-w
+  (reset! client/world game/initial-world)
+  (client/init)
+  (fire-frame! 0)
+  (key-event! "keydown" "KeyD")
+  (key-event! "keydown" "KeyW")
+  (let [landed-at (loop [tick 1]
+                    (assert (< tick 50))
+                    (fire-frame! (* 25 tick))
+                    (if (get-in @client/world [:player :spawn-locked?])
+                      (do (is (= 400 (get-in @client/world [:player :x])))
+                          (recur (inc tick)))
+                      tick))]
+    (is (= 400 (get-in @client/world [:player :x])))
+    (is (false? (:jump? (client/read-inputs))))
+    (fire-frame! (* 25 (inc landed-at)))
+    (is (> (get-in @client/world [:player :x]) 400))
+    (is (game/grounded? (:player @client/world) (:platform @client/world)))))

@@ -6,7 +6,7 @@
 (def platform (:platform game/initial-world))
 (defn near? [a b] (< (abs (- a b)) 1e-8))
 (defn player-at [x y vx vy]
-  (assoc (:player game/initial-world) :x x :y y :vx vx :vy vy))
+  (assoc (:player game/initial-world) :x x :y y :vx vx :vy vy :spawn-locked? false))
 
 (deftest descending-crossing-and-stable-standing
   (let [world (assoc game/initial-world :player (player-at 400 50 0 20000))

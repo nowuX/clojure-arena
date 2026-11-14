@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–16 complete (16/70). W records one fresh pending request per press; fixed ticks consume it once, without physical jumping yet.
+Checkpoints 01–17 complete (17/70). Initial controls unlock only after flat-top landing; held direction acts next tick while old jump pulses are discarded.
 Future mechanics remain specified in the roadmap.
 
 ## Run

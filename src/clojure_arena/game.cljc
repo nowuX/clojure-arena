@@ -7,7 +7,7 @@
 
 (def initial-world
   {:platform {:x 170 :y 280 :width 460 :height 16 :color "#9c9c9c"}
-   :player {:x 400 :y 160 :vx 0 :vy 0 :radius 16 :color "#22d3ee"}})
+   :player {:x 400 :y 160 :vx 0 :vy 0 :radius 16 :spawn-locked? true :color "#22d3ee"}})
 
 (defn move-player [player dt]
   (-> player
@@ -23,10 +23,13 @@
 (def contact-epsilon 1e-9)
 (def max-contacts-per-tick 4)
 
-(defn- top-supported? [{:keys [x y radius vy]} platform]
+(defn grounded? [{:keys [x y radius vy]} platform]
   (and (zero? vy)
        (<= (:x platform) x (+ (:x platform) (:width platform)))
        (<= (abs (- (+ y radius) (:y platform))) contact-epsilon)))
+
+(defn supporting-platform [player platform]
+  (when (grounded? player platform) platform))
 
 (defn sqrt [value]
   #?(:clj (Math/sqrt value)
@@ -124,7 +127,7 @@
          departing? false]
     (if (or (zero? contacts-left) (not (pos? remaining-dt)))
       player
-      (let [travel-dt (if (top-supported? player platform)
+      (let [travel-dt (if (grounded? player platform)
                         (supported-travel-time player platform remaining-dt)
                         remaining-dt)
             proposed (move-player player travel-dt)
@@ -133,10 +136,14 @@
                         (assoc overlap :time 1))
                       (platform-contact player proposed platform))]
         (if contact
-          (recur (resolve-contact player contact)
-                 (- remaining-dt (* travel-dt (:time contact)))
-                 (dec contacts-left)
-                 false)
+          (let [resolved (resolve-contact player contact)
+                landed (if (grounded? resolved platform)
+                         (assoc resolved :spawn-locked? false)
+                         resolved)]
+            (recur landed
+                   (- remaining-dt (* travel-dt (:time contact)))
+                   (dec contacts-left)
+                   false))
           (if (< travel-dt remaining-dt)
             (let [fall-dt (- remaining-dt travel-dt)]
               (recur (assoc proposed :vy (* gravity fall-dt))
@@ -163,7 +170,8 @@
 (defn step [world {:keys [horizontal] :or {horizontal 0}} dt]
   (update world :player
           (fn [player]
-            (-> player
+            (let [horizontal (if (:spawn-locked? player) 0 horizontal)]
+              (-> player
                 (update :vx accelerate-horizontal horizontal dt)
                 (update :vy + (* gravity dt))
-                (collide-platform (:platform world) dt)))))
+                (collide-platform (:platform world) dt))))))
