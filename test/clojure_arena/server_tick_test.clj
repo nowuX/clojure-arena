@@ -16,7 +16,7 @@
     (try
       (when (>= (get-in @room-agent [:room :tick]) target)
         (.countDown reached))
-      (is (.await reached 3000 TimeUnit/MILLISECONDS)
+      (is (.await reached 8000 TimeUnit/MILLISECONDS)
           "the server clock should advance independently of client traffic")
       (is (nil? (agent-error room-agent)))
       (finally
@@ -46,11 +46,11 @@
           (#'websocket-test/await-ready! events)
           (#'websocket-test/await-identity! events)))
       (is (= 1 (count @handles)) "four joins must not create four more clocks")
-      (await-tick! first-room (+ 25 (get-in @first-room [:room :tick])))
+      (await-tick! first-room (+ 160 (get-in @first-room [:room :tick])))
       (is (= 4 (count (get-in @first-room [:room :world :players]))))
-      (is (every? #(and (== 160 (:y %)) (:spawn-locked? %))
+      (is (every? #(and (== 264 (:y %)) (false? (:spawn-locked? %)))
                   (vals (get-in @first-room [:room :world :players])))
-          "waiting physics stays frozen while the server clock advances")
+          "all four players fall and unlock without browser rendering or more input")
       (server/stop! instance)
       (is (.isTerminated ^ScheduledExecutorService (:executor first-handle)))
       (let [stopped-state @first-room

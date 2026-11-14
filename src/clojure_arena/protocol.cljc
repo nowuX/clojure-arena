@@ -152,8 +152,13 @@
          (every? player-id? (keys contenders))
          (every? contender-state? (vals contenders))
          (case phase
-           (:waiting :countdown)
+           :waiting
            (and (empty? contenders) (zero? time-seconds-left)
+                (zero? countdown-seconds-left) (< (count players) 2)
+                (every? #(= :waiting (:lifecycle %)) (vals players)))
+           :countdown
+           (and (empty? contenders) (zero? time-seconds-left)
+                (pos? countdown-seconds-left) (<= 2 (count players) 4)
                 (every? #(= :waiting (:lifecycle %)) (vals players)))
            (:running :finished)
            (and (pos? id) (zero? countdown-seconds-left)

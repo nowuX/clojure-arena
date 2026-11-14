@@ -31,9 +31,17 @@
     (#'ws/await-ready! events)
     (assoc connection :identity (#'ws/await-identity! events))))
 
+(defn- waiting-spawn-player [color]
+  (assoc (room/make-spawn-player color) :lifecycle :waiting :stocks 0))
+
 (defn- await-room! [room-agent]
   (is (await-for 2000 room-agent))
   (is (nil? (agent-error room-agent))))
+
+(defn- enqueue-ticks! [room-agent tick-count]
+  (dotimes [_ tick-count]
+    (room/enqueue-room-message! room-agent {:type :tick}))
+  (await-room! room-agent))
 
 (defn- snapshots-at! [connections tick]
   (mapv #(next-snapshot! (:events %) (fn [message] (= tick (:tick message))))
@@ -71,15 +79,26 @@
           (await-room! room-agent)
           (let [messages (snapshots-at! accepted 2)]
             (is (apply = messages))
-            (is (= #{:blast-bounds :platforms :players :match} (set (keys (:world (first messages))))))
+            (is (= #{:blast-bounds :platforms :players :match}
+                   (set (keys (:world (first messages))))))
             (is (= #{:player-1 :player-2 :player-3 :player-4}
                    (set (keys (get-in (first messages) [:world :players])))))
             (is (= (get-in @room-agent [:room :world]) (:world (first messages)))))
           (is (nil? (.poll ^LinkedBlockingQueue events 100 TimeUnit/MILLISECONDS))
               "the rejected connection must receive no shared snapshots")
-          (dotimes [_ 20] (room/enqueue-room-message! room-agent {:type :tick}))
-          (await-room! room-agent)
-          (snapshots-at! accepted 22)
+          ;; Tick 2 has already advanced the countdown twice. 118 more ticks
+          ;; start the frozen roster; 40 ticks land players and 80 expire their
+          ;; spawn protection before the combat assertion.
+          (enqueue-ticks! room-agent 238)
+          (let [ready (snapshots-at! accepted 240)
+                world (:world (first ready))]
+            (is (apply = ready))
+            (is (= :running (get-in world [:match :phase])))
+            (is (every? #(and (= 3 (:stocks %))
+                              (= :active (:lifecycle %))
+                              (zero? (:protection-seconds-left %))
+                              (false? (:spawn-locked? %)))
+                        (vals (:players world)))))
           (let [{:keys [websocket events]} (first accepted)
                 input (assoc protocol/neutral-input :type :input :attack? true)]
             (#'ws/send-text! websocket (pr-str input) true)
@@ -87,11 +106,11 @@
             (await-room! room-agent)
             (room/enqueue-room-message! room-agent {:type :tick})
             (await-room! room-agent)
-            (let [messages (snapshots-at! accepted 23)]
+            (let [messages (snapshots-at! accepted 241)]
               (is (apply = messages))
-              (is (= 0 (get-in (first messages)
+              (is (= 10 (get-in (first messages)
                                  [:world :players :player-2 :accumulated-percentage])))
-              (is (= 0 (get-in (first messages)
+              (is (= 1 (get-in (first messages)
                                 [:world :players :player-1 :melee-strike-id])))
               (is (every? protocol/snapshot-message? messages))))))
       (finally
@@ -192,7 +211,7 @@
                    (count (get-in after [:world :players]))
                    (count (:inputs-by-player after))))
             (is (= 6 (:next-player-number after)))
-            (is (= (assoc (room/make-spawn-player :cyan) :stocks 0 :lifecycle :waiting)
+            (is (= (waiting-spawn-player :cyan)
                    (get-in after [:world :players :player-5])))
             (is (= protocol/neutral-input
                    (get-in after [:inputs-by-player :player-5])))
@@ -201,6 +220,105 @@
                 "the new connection must not reset any existing character")
             (is (= (:inputs-by-player available)
                    (dissoc (:inputs-by-player after) :player-5))))))
+      (finally
+        (doseq [{:keys [websocket]} @connections] (#'ws/abort-websocket! websocket))
+        (server/stop! instance)))))
+
+(deftest ring-out-remains-a-connected-player-in-all-four-snapshots
+  (let [captured (atom nil)
+        instance (with-redefs [ticker/start! (fn [room-agent]
+                                               (reset! captured room-agent)
+                                               nil)]
+                   (server/start! {:host (host) :port 0}))
+        room-agent @captured
+        port (http/server-port instance)
+        connections (atom [])]
+    (try
+      (let [accepted (mapv (fn [_] (connect! connections port)) (range 4))
+            {:keys [websocket events]} (first accepted)]
+        (enqueue-ticks! room-agent 119)
+        (let [snapshots (snapshots-at! accepted 119)]
+          (is (apply = snapshots))
+          (is (every? #(and (= 0 (:stocks %))
+                            (= :waiting (:lifecycle %)))
+                      (vals (get-in (first snapshots) [:world :players])))))
+        (enqueue-ticks! room-agent 1)
+        (let [started (snapshots-at! accepted 120)
+              world (:world (first started))]
+          (is (apply = started))
+          (is (= :running (get-in world [:match :phase])))
+          (is (every? #(and (= 3 (:stocks %)) (:spawn-locked? %))
+                      (vals (:players world)))))
+        (enqueue-ticks! room-agent 120)
+        (let [ready (snapshots-at! accepted 240)
+              world (:world (first ready))]
+          (is (apply = ready))
+          (is (every? #(and (= :active (:lifecycle %))
+                            (false? (:spawn-locked? %))
+                            (zero? (:protection-seconds-left %)))
+                      (vals (:players world)))))
+        (#'ws/send-text! websocket
+                        (pr-str (assoc protocol/neutral-input :type :input :horizontal 1))
+                        true)
+        (#'ws/expect-reply! websocket events "{:type :ping}" {:type :pong})
+        (await-room! room-agent)
+        (enqueue-ticks! room-agent 180)
+        (let [snapshots (snapshots-at! accepted 420)
+              world (:world (first snapshots))
+              absent (get-in world [:players :player-1])]
+          (is (apply = snapshots))
+          (is (= {:stocks 2 :lifecycle :respawning}
+                 (select-keys absent [:stocks :lifecycle])))
+          (is (= 2 (get-in world [:match :contenders :player-1 :stocks])))
+          (is (every? #(= {:stocks 3 :lifecycle :active}
+                         (select-keys % [:stocks :lifecycle]))
+                      (vals (dissoc (:players world) :player-1))))
+          (is (= 4 (count (get-in @room-agent [:room :members]))
+                 (count (:players world))
+                 (count (get-in @room-agent [:room :inputs-by-player]))))
+          (#'ws/send-text! websocket
+                          (pr-str {:type :input :horizontal -1
+                                   :jump? true :drop? true :attack? true}) true)
+          (#'ws/expect-reply! websocket events "{:type :ping}" {:type :pong})
+          (await-room! room-agent)
+          (is (= {:horizontal -1 :jump? false :drop? false :attack? false}
+                 (get-in @room-agent [:room :inputs-by-player :player-1])))
+          (enqueue-ticks! room-agent 10)
+          (let [later (snapshots-at! accepted 430)]
+            (is (apply = later))
+            (let [waiting (get-in (first later) [:world :players :player-1])
+                  ticks-left (long (Math/round
+                                    (double (/ (:respawn-seconds-left waiting)
+                                               room/tick-seconds))))
+                  respawn-tick (+ 430 ticks-left)]
+              (is (= (dissoc absent :respawn-seconds-left)
+                     (dissoc waiting :respawn-seconds-left)))
+              (is (< (:respawn-seconds-left waiting) (:respawn-seconds-left absent)))
+              (#'ws/send-text! websocket (pr-str (assoc protocol/neutral-input :type :input)) true)
+              (#'ws/expect-reply! websocket events "{:type :ping}" {:type :pong})
+              (await-room! room-agent)
+              (enqueue-ticks! room-agent ticks-left)
+              (let [returned (snapshots-at! accepted respawn-tick)
+                    player (get-in (first returned) [:world :players :player-1])]
+                (is (apply = returned))
+                (is (= (-> (room/make-spawn-player :cyan)
+                           (assoc :stocks 2 :protection-seconds-left 2))
+                       player))
+                (is (every? protocol/snapshot-message? returned)))
+              (enqueue-ticks! room-agent 80)
+              (let [unprotected (snapshots-at! accepted (+ respawn-tick 80))
+                    player (get-in (first unprotected) [:world :players :player-1])]
+                (is (apply = unprotected))
+                (is (= :active (:lifecycle player)))
+                (is (= 2 (:stocks player)))
+                (is (false? (:spawn-locked? player)))
+                (is (zero? (:protection-seconds-left player)))))))
+        (let [{:keys [websocket events] :as fifth} (#'ws/connect! (host) port)]
+          (swap! connections conj fifth)
+          (#'ws/await-ready! events)
+          (is (= {:type :room-full} (#'ws/await-admission! events))
+              "a ring-out does not release connection capacity")
+          (#'ws/close-websocket! websocket events)))
       (finally
         (doseq [{:keys [websocket]} @connections] (#'ws/abort-websocket! websocket))
         (server/stop! instance)))))

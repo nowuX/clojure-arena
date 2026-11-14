@@ -102,7 +102,7 @@
     (is (= expected-players (get-in final-room [:world :players])))
     (is (= #{:blast-bounds :platforms :players :match}
            (set (keys (:world final-room)))))
-    (is (= {:id 0 :phase :waiting :countdown-seconds-left 0
+    (is (= {:id 0 :phase :countdown :countdown-seconds-left 3
             :time-seconds-left 0 :intermission-seconds-left 0 :result nil :contenders {}}
            (get-in final-room [:world :match])))
     (is (= [340 380 420 460]

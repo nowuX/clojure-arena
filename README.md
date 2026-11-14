@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–57 complete (57/70). Connected players wait with public match ownership and no gameplay until a match starts; the offline sandbox remains playable.
+Checkpoints 01–58 complete (58/70). Two to four connected players start together after a cancellable three-second countdown, with fresh stocks and spawn protection.
 Future mechanics remain specified in the roadmap.
 
 ## Run

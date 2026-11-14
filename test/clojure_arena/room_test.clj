@@ -117,8 +117,8 @@
                (assoc-in [:world :players :player-41]
                          (waiting-player "#e11d48" 380))
                (assoc-in [:world :match]
-                         {:id 0 :phase :waiting
-                          :countdown-seconds-left 0
+                         {:id 0 :phase :countdown
+                          :countdown-seconds-left 3
                           :time-seconds-left 0 :intermission-seconds-left 0
                           :result nil :contenders {}}))
            (:room result)))
@@ -195,8 +195,8 @@
                                    :player-2 (waiting-player "#e11d48" 380)
                                    :player-3 (waiting-player "#f59e0b" 420)})
                         (assoc-in [:world :match]
-                                  {:id 0 :phase :waiting
-                                   :countdown-seconds-left 0
+                                  {:id 0 :phase :countdown
+                                   :countdown-seconds-left 3
                                    :time-seconds-left 0 :intermission-seconds-left 0 :result nil
                                    :contenders {}}))
               :effects [{:connection-token :third

@@ -59,6 +59,7 @@
                         (publication/publish! handle effect))))]
     (try
       (room/enqueue-room-message! room-agent {:type :join :connection-token :one})
+      (room/enqueue-room-message! room-agent {:type :join :connection-token :two})
       (room/enqueue-room-message! room-agent {:type :tick})
       (await-latch! entered)
       (dotimes [_ 40] (room/enqueue-room-message! room-agent {:type :tick}))
@@ -72,7 +73,10 @@
         (is (= 1 (:tick first-message)))
         (is (= 41 (:tick last-message)))
         (is (= (get-in @room-agent [:room :world]) (:world last-message)))
-        (is (= (:world first-message) (:world last-message))))
+        (is (not= (:world first-message) (:world last-message))
+            "countdown time continues to advance while publication is blocked")
+        (is (= (:players (:world first-message)) (:players (:world last-message)))
+            "the countdown updates the match clock while freezing player physics"))
       (finally
         (.countDown release)
         (publication/stop! handle)))))

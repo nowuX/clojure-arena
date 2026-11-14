@@ -27,15 +27,33 @@
       (is (= message decoded))
       (is (protocol/snapshot-message? decoded))
       (is (protocol/server-message? decoded))))
-  (testing "a waiting tick publishes state without moving its body"
-    (let [joined (join-room room/initial-room :connection-a)
-          result (tick-room joined)
-          message (:message (snapshot-effect result))]
-      (is (= 1 (get-in result [:room :tick])))
-      (is (= (:world joined) (:world message)))
-      (is (= :waiting (get-in message [:world :match :phase])))
-      (is (protocol/snapshot-message? message))
-      (is (= message (protocol/decode (pr-str message)))))))
+  (testing "the snapshot emitted after a real room physics tick is wire-safe"
+    (let [joined (-> room/initial-room
+                     (join-room :connection-a)
+                     (join-room :connection-b))
+          waiting-world (:world joined)
+          prestart (advance-room joined 119)
+          started (advance-room joined 120)
+          before-y (get-in started [:world :players :player-1 :y])
+          result (tick-room started)
+          next-room (:room result)
+          message (:message (snapshot-effect result))
+          decoded (protocol/decode (pr-str message))]
+      (is (= 121 (:tick next-room)))
+      (is (= (:players waiting-world) (get-in prestart [:world :players]))
+          "countdown ticks freeze player physics")
+      (is (= :countdown (get-in prestart [:world :match :phase])))
+      (is (<= 0.0249
+              (get-in prestart [:world :match :countdown-seconds-left])
+              0.0251))
+      (is (= :running (get-in started [:world :match :phase])))
+      (is (= 3 (get-in started [:world :players :player-1 :stocks])))
+      (is (:spawn-locked? (get-in started [:world :players :player-1])))
+      (is (> (get-in next-room [:world :players :player-1 :y]) before-y)
+          "physics begins on the tick after match start")
+      (is (= message decoded))
+      (is (protocol/snapshot-message? decoded))
+      (is (protocol/server-message? decoded)))))
 
 (deftest ticks-broadcast-one-snapshot-only-for-admitted-members-test
   (let [empty-result (tick-room room/initial-room)]

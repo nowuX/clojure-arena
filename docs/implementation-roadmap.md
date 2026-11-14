@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**57 of 70 checkpoints complete.** Checkpoints 01–57 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**58 of 70 checkpoints complete.** Checkpoints 01–58 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -780,7 +780,7 @@ Checkpoints **57–66**. Separate connections from contenders and compose match 
 
 ### 58 — Start a match after a shared countdown
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** At two or more connections start a full three-second simulation
   countdown; cancel below two. At expiry capture current entrants, increment match ID, and
   rebuild them with three stocks, 0%, locked spawns, and two-second protection. Discard

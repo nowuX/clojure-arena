@@ -1,6 +1,8 @@
 (ns clojure-arena.match
   (:require [clojure-arena.game :as game]))
 
+(def countdown-duration 3)
+
 (def initial-match
   {:id 0 :phase :waiting :countdown-seconds-left 0
    :time-seconds-left 0 :intermission-seconds-left 0 :result nil :contenders {}})
@@ -13,13 +15,30 @@
   (and (= :running (get-in world [:match :phase]))
        (game/active-player? (get-in world [:players player-id]))))
 
+(defn- reconcile-entrants [world]
+  (let [phase (get-in world [:match :phase])
+        enough? (<= 2 (count (:players world)))]
+    (cond
+      (and (= :waiting phase) enough?)
+      (update world :match assoc
+              :phase :countdown :countdown-seconds-left countdown-duration)
+
+      (and (= :countdown phase) (not enough?))
+      (update world :match assoc :phase :waiting :countdown-seconds-left 0)
+
+      :else world)))
+
+
 (defn add-player [world player-id player]
-  (assoc-in world [:players player-id]
-            (assoc player :lifecycle :waiting :stocks 0
-                   :respawn-seconds-left 0 :protection-seconds-left 0)))
+  (-> world
+      (assoc-in [:players player-id]
+                (assoc player :lifecycle :waiting :stocks 0
+                       :respawn-seconds-left 0 :protection-seconds-left 0))
+      reconcile-entrants))
+
 
 (defn remove-player [world player-id]
-  (update world :players dissoc player-id))
+  (reconcile-entrants (update world :players dissoc player-id)))
 
 (defn- capture-contender [contender player]
   (merge contender (select-keys player [:color :stocks :accumulated-percentage])))
@@ -34,7 +53,38 @@
                                 result))
                             contenders contenders)))))
 
+(defn- start-match [world]
+  (let [players (into {}
+                      (map (fn [[player-id player]]
+                             [player-id (-> (game/make-player (:color player)
+                                                             (:spawn-x player)
+                                                             (:spawn-y player))
+                                            game/grant-spawn-protection)]))
+                      (:players world))
+        contenders (into {}
+                         (map (fn [[player-id player]]
+                                [player-id (capture-contender {:forfeited? false} player)]))
+                         players)]
+    (assoc world
+           :players players
+           :match {:id (inc (get-in world [:match :id]))
+                   :phase :running
+                   :countdown-seconds-left 0
+                   :time-seconds-left 0
+                   :intermission-seconds-left 0
+                   :result nil
+                   :contenders contenders})))
+
+
 (defn step [world inputs-by-player dt]
-  (if (= :running (get-in world [:match :phase]))
-    (step-running world inputs-by-player dt)
+  (case (get-in world [:match :phase])
+    :countdown
+    (let [world (reconcile-entrants world)]
+      (if (= :countdown (get-in world [:match :phase]))
+        (let [remaining (- (get-in world [:match :countdown-seconds-left]) dt)]
+          (if (<= remaining game/cooldown-epsilon)
+            (start-match world)
+            (assoc-in world [:match :countdown-seconds-left] remaining)))
+        world))
+    :running (step-running world inputs-by-player dt)
     world))
