@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–31 complete (31/70). Four local players move independently and remember facing. The page controls cyan player-1 with A/D, W, S, and one pending primary-pointer melee request per tick; attacks have no hit effect yet.
+Checkpoints 01–32 complete (32/70). Primary clicks request strikes with independent 0.25-second cooldowns and per-player sequences. Spawn-locked and early requests are discarded; movement, jumping, dropping, and facing remain available independently. Target and hit effects are still pending.
 Future mechanics remain specified in the roadmap.
 
 ## Run
@@ -29,6 +29,7 @@ another interface. `just build` compiles an optimized browser bundle.
 - [Design system](docs/design-system.md)
 - [Development](docs/development.md)
 - [Simulation](docs/simulation.md)
+- [Local combat](docs/combat.md)
 - [Architecture](docs/architecture.md)
 - [Language guide (Spanish)](docs/language-guide.md)
 - [Local verification](docs/simulation-verification.md)

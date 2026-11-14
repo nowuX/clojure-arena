@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**31 of 70 checkpoints complete.** Checkpoints 01–31 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**32 of 70 checkpoints complete.** Checkpoints 01–32 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -444,7 +444,7 @@ Checkpoints **31–38**. Accept input, select targets, resolve percentage once, 
 
 ### 32 — Accept strikes with a cooldown
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Add per-player 0.25-second simulation cooldown and accepted
   strike sequence. Reject clicks while locked/cooling down without delayed replay; use
   tolerance at expiry. Preserve unrelated controls.

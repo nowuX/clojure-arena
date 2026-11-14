@@ -140,3 +140,10 @@ acepta solo `button = 0`; el evento indica intención, no un impacto. Varios
 clics antes del tick conservan un único `true`. `consume-inputs!` lo entrega
 como `:attack?` y lo limpia con W/S. `input-canvas` recuerda dónde quitar el
 listener durante `stop!`, incluso si el DOM reemplazó el canvas.
+
+### Aceptar un golpe
+
+`step-melee` transforma un personaje: resta `dt` al cooldown y usa `max` y una
+tolerancia pequeña para llegar a cero. Si `:attack?` es verdadero, no está
+bloqueado y el cooldown terminó, `update` incrementa `:melee-strike-id` y
+`assoc` guarda 0,25 segundos. Aceptar un intento aún no significa acertar.

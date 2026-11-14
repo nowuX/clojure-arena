@@ -5,11 +5,14 @@
 (def horizontal-friction 1100)
 (def gravity 980)
 (def jump-velocity -420)
+(def melee-cooldown 0.25)
+(def cooldown-epsilon 1e-9)
 
 (defn make-player [color x y]
   {:x x :y y :vx 0 :vy 0 :radius 16
    :spawn-locked? true :air-jumps-left 1
-   :drop-through-platform-id nil :color color :facing :right})
+   :drop-through-platform-id nil :color color :facing :right
+   :melee-cooldown-left 0 :melee-strike-id 0})
 
 (def local-player-fixtures
   {:player-1 (make-player "#22d3ee" 400 160)
@@ -259,9 +262,19 @@
         (> vx target) (max target (- vx change))
         :else vx))))
 
+(defn step-melee [player attack? dt]
+  (let [remaining (max 0 (- (:melee-cooldown-left player 0) dt))
+        remaining (if (<= remaining cooldown-epsilon) 0 remaining)
+        player (assoc player :melee-cooldown-left remaining)]
+    (if (and attack? (not (:spawn-locked? player)) (zero? remaining))
+      (-> player
+          (assoc :melee-cooldown-left melee-cooldown)
+          (update :melee-strike-id (fnil inc 0)))
+      player)))
+
 (defn step-player [player platforms
-                   {:keys [horizontal jump? drop?]
-                    :or {horizontal 0 jump? false drop? false}} dt]
+                   {:keys [horizontal jump? drop? attack?]
+                    :or {horizontal 0 jump? false drop? false attack? false}} dt]
   (let [player (clear-drop-through player platforms)
         locked? (:spawn-locked? player)
         horizontal (if locked? 0 horizontal)
@@ -269,6 +282,7 @@
                  (neg? horizontal) (assoc player :facing :left)
                  (pos? horizontal) (assoc player :facing :right)
                  :else player)
+        player (step-melee player attack? dt)
         support (supporting-platform player platforms)
         dropping? (and (not locked?) drop? (= :semisolid (:type support)))
         player (if dropping?
