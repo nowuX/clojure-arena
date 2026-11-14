@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**14 of 70 checkpoints complete.** Checkpoints 01–14 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**15 of 70 checkpoints complete.** Checkpoints 01–15 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -235,7 +235,7 @@ Checkpoints **01–21**. Introduce rendering, immutable data, input, fixed time,
 
 ### 15 — Verify horizontal movement and explain the language basics
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Consolidate movement/collision regressions, actual setup
   commands, and a short local checklist. Introduce simulation/architecture explanations
   and a concise Spanish language-guide.md split into Clojure/shared concepts and

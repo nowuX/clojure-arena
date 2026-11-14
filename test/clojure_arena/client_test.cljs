@@ -115,3 +115,39 @@
         slow (simulate (range 0 1001 100))]
     (is (= fast slow))
     (is (< (abs (- 595.25 (get-in fast [:player :x]))) 1e-8))))
+
+(deftest blur-and-both-directions-brake-the-existing-motion
+  (client/init)
+  (fire-frame! 0)
+  (key-event! "keydown" "KeyD")
+  (doseq [timestamp (range 25 251 25)] (fire-frame! timestamp))
+  (is (= 220 (get-in @client/world [:player :vx])))
+  (key-event! "keydown" "KeyA")
+  (fire-frame! 275)
+  (is (= 192.5 (get-in @client/world [:player :vx])))
+  (key-event! "keyup" "KeyA")
+  (.dispatchEvent @target (js/Event. "blur"))
+  (fire-frame! 300)
+  (is (= 165 (get-in @client/world [:player :vx])))
+  (doseq [timestamp (range 325 476 25)] (fire-frame! timestamp))
+  (is (zero? (get-in @client/world [:player :vx])))
+  (client/stop!)
+  (key-event! "keydown" "KeyD")
+  (is (zero? (client/horizontal-input)))
+  (is (empty? @callbacks)))
+
+(deftest per-tick-directions-agree-across-render-cadences
+  (let [script (vec (concat (repeat 12 1) (repeat 16 -1) (repeat 12 0)))
+        simulate (fn [timestamps]
+                   (let [tick (atom -1)]
+                     (client/stop!)
+                     (reset! client/world game/initial-world)
+                     (with-redefs [client/read-inputs
+                                   (fn [] {:horizontal (get script (swap! tick inc) 0)})]
+                       (client/init)
+                       (doseq [timestamp timestamps] (fire-frame! timestamp))
+                       (is (= 39 @tick))
+                       @client/world)))
+        fast (simulate (range 0 1001 10))
+        slow (simulate (range 0 1001 100))]
+    (is (= fast slow))))

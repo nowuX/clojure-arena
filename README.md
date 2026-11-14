@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–14 complete (14/70). Movement accelerates under A/D and brakes with neutral friction, preserving continuous solid contacts.
+Checkpoints 01–15 complete (15/70). The local movement loop has verified timing, input cleanup, acceleration, friction, gravity, and solid contacts; guides explain the implementation.
 Future mechanics remain specified in the roadmap.
 
 ## Run
@@ -28,6 +28,10 @@ another interface. `just build` compiles an optimized browser bundle.
 - [Game specification](docs/game-specification.md)
 - [Design system](docs/design-system.md)
 - [Development](docs/development.md)
+- [Simulation](docs/simulation.md)
+- [Architecture](docs/architecture.md)
+- [Language guide (Spanish)](docs/language-guide.md)
+- [Local verification](docs/simulation-verification.md)
 
 The game specification describes the full target; only the completed roadmap
 checkpoints describe delivered behavior. Each checkpoint has one Conventional Commit.

@@ -66,7 +66,7 @@
   (let [player (player-at 160 288 -100 0)
         result (game/collide-platform player platform 0.025)]
     (is (near? 151.5 (:x result)))
-    (is (= -100 (:vx result)))
+    (is (== -100 (:vx result)))
     (is (= 160 (:x player))))
   (let [player (player-at 400 285 0 0)
         result (game/collide-platform player platform 0.025)]

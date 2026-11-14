@@ -16,7 +16,7 @@
         neutral (game/step right {:horizontal 0} dt)]
     (is (near? 400.55 (get-in right [:player :x])))
     (is (near? 399.45 (get-in left [:player :x])))
-    (is (= 22 (get-in right [:player :vx])))
+    (is (== 22 (get-in right [:player :vx])))
     (is (= 0 (get-in neutral [:player :vx])))
     (is (= (get-in right [:player :x]) (get-in neutral [:player :x])))
     (is (near? 595.25 (get-in (steps world inputs 40) [:player :x])))
@@ -37,10 +37,10 @@
 
 (deftest acceleration-caps-and-reverses-without-overshoot
   (let [speeds (take 11 (iterate #(game/accelerate-horizontal % 1 dt) 0))]
-    (is (= (range 0 221 22) speeds))
+    (is (every? true? (map == (range 0 221 22) speeds)))
     (is (= 220 (game/accelerate-horizontal 215 1 dt)))
-    (is (= 198 (game/accelerate-horizontal 220 -1 dt)))
-    (is (= -220 (nth (iterate #(game/accelerate-horizontal % -1 dt) 220) 20)))
+    (is (== 198 (game/accelerate-horizontal 220 -1 dt)))
+    (is (== -220 (nth (iterate #(game/accelerate-horizontal % -1 dt) 220) 20)))
     (is (= -220 (game/accelerate-horizontal -215 -1 dt)))
     (is (= 192.5 (game/accelerate-horizontal 220 0 dt)))))
 
