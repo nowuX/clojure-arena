@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**34 of 70 checkpoints complete.** Checkpoints 01–34 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**35 of 70 checkpoints complete.** Checkpoints 01–35 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -478,7 +478,7 @@ Checkpoints **31–38**. Accept input, select targets, resolve percentage once, 
 
 ### 35 — Resolve each strike only once
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Track the last resolved strike per attacker and consume it
   atomically with its effects, including misses. Replaying a returned target set or
   entering reach later cannot create another hit.

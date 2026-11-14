@@ -31,9 +31,18 @@ attackers use one snapshot, independent of player-map iteration order.
 Each record starts with `:accumulated-percentage 0`; values exceed 100 without
 changing normal movement or representing HP. Hits on the same target add up.
 The next step clears target sets, so the ordinary loop has no lingering hitbox.
-Explicit replay protection is the next checkpoint.
+Explicit replay protection also guards the resolver itself.
 
 `frame` and `init` dereference the world once and pass that same value to Canvas
 and `render-players!`. The panel beneath the arena lists ID, color swatch, and
 percentage, ordered by ID. Only the small swatch has hue; surfaces and text are
 neutral. Rendering reads state without updating gameplay.
+
+## Exactly-once resolution
+
+Each attacker starts with `:melee-resolved-strike-id 0`. `apply-melee-hits`
+selects only sequences greater than that marker, groups their selected hits,
+and returns all effects with the updated markers in one immutable map. Even
+an empty target set or a disappeared target consumes the strike. Reapplying
+this result cannot add percentage again. Separate attackers may both resolve
+sequence 1; a later accepted sequence can hit the same target again.

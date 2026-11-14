@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–34 complete (34/70). Melee hits add 10 percentage points independently without a 100 cap. A monochrome panel beneath the arena displays each ID, identity swatch, and percentage from the same world used by Canvas; physical impulses are pending.
+Checkpoints 01–35 complete (35/70). Local melee adds percentage and displays every player beneath the arena. Each accepted strike, including misses, resolves exactly once using an independent per-attacker sequence marker; knockback integration is pending.
 Future mechanics remain specified in the roadmap.
 
 ## Run

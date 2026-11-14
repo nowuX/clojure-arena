@@ -162,3 +162,10 @@ impacto a `:accumulated-percentage`. El porcentaje no es vida ni velocidad.
 El cliente lee `@world` una vez por frame y entrega el mismo valor al canvas y
 al panel. `createElement`, `textContent` y `appendChild` crean las filas del DOM;
 los efectos siguen fuera de las funciones puras de simulación.
+
+### Resolver exactamente una vez
+
+El ID de secuencia aceptado se compara con `:melee-resolved-strike-id` del
+mismo atacante. `filter` conserva solo los pendientes y `reduce` guarda sus
+marcadores junto con los efectos en un mapa nuevo. Un fallo también se consume.
+Reutilizar el mapa devuelto no vuelve a sumar porcentaje: es idempotencia.

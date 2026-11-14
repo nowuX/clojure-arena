@@ -14,7 +14,8 @@
   {:x x :y y :vx 0 :vy 0 :radius 16
    :spawn-locked? true :air-jumps-left 1
    :drop-through-platform-id nil :color color :facing :right
-   :melee-cooldown-left 0 :melee-strike-id 0 :melee-target-ids #{}
+   :melee-cooldown-left 0 :melee-strike-id 0 :melee-resolved-strike-id 0
+   :melee-target-ids #{}
    :accumulated-percentage 0})
 
 (def local-player-fixtures
@@ -315,14 +316,22 @@
         (clear-drop-through platforms))))
 
 (defn apply-melee-hits [players]
-  (let [hits-by-target (frequencies (mapcat :melee-target-ids (vals players)))]
+  (let [pending (filter (fn [[_ attacker]]
+                          (> (:melee-strike-id attacker 0)
+                             (:melee-resolved-strike-id attacker 0)))
+                        players)
+        hits-by-target (frequencies (mapcat (comp :melee-target-ids val) pending))
+        resolved (reduce (fn [result [attacker-id attacker]]
+                           (assoc-in result [attacker-id :melee-resolved-strike-id]
+                                     (:melee-strike-id attacker)))
+                         players pending)]
     (reduce-kv
       (fn [result target-id hits]
         (if (contains? players target-id)
           (update-in result [target-id :accumulated-percentage]
                      (fnil + 0) (* melee-hit-percentage hits))
           result))
-      players hits-by-target)))
+      resolved hits-by-target)))
 
 (defn step [world inputs-by-player dt]
   (let [players (:players world)
