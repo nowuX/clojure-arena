@@ -1,48 +1,46 @@
 # Clojure Arena
 
-A browser platform fighter built incrementally with ClojureScript and pure
-shared Clojure data transformations. The target is two to four players with
-three stocks and knockback percentages, without HP.
+A browser platform fighter for two to four connected players, built with
+Clojure, ClojureScript and immutable shared simulation. The 70-checkpoint
+implementation route is complete (70/70). Each checkpoint has one Conventional Commit.
 
-## Current scope
+## Play
 
-Checkpoints 01–69 complete (69/70). A neutral controlled-player marker and accessible current row follow admitted snapshots; responsive grayscale layout preserves the 800x480 simulation.
-Future mechanics remain specified in the roadmap.
-
-## Run
-
-Requires Java 21+, Clojure CLI, Node 22+, pnpm 12.17.0, and just.
+Requires Java 21+, Clojure CLI, Node 22+, pnpm 12.17.0 and just.
 
 ```sh
 just setup
-just dev
+just build
+just server 127.0.0.1 8082
 ```
 
-Open http://127.0.0.1:8081/. Use `just dev <TAILSCALE_IP>` to serve on
-another interface. `just build` compiles an optimized browser bundle.
-`just test` runs the Node simulation and browser-boundary tests.
+Open http://127.0.0.1:8082/ in two browser pages on the service host. Each
+accepted connection owns a unique ID/color; a fifth is rejected. A single
+connection waits for a second player. For Tailscale, watched development and
+offline play, see [Development](docs/development.md).
 
-To serve built assets with Clojure, run `just build`, then
-`just server <HOST> 8082` and open `http://<HOST>:8082/`.
-`just test-server` runs shared simulation and JVM server tests.
-For watched shared play use `http://<HOST>:8081/?server=http://<HOST>:8082`
-with both `just dev <HOST>` and `just server <HOST> 8082` running.
-`just check` runs JVM, Node and an isolated release build.
+A/D moves, fresh W presses jump and air-jump, S drops through a semisolid,
+and a primary click inside the arena strikes. Wait for the first landing to
+move. The neutral **Tú** marker identifies your player.
 
-## Guides
+Matches use three stocks, accumulating knockback percentages, three-second
+respawns, two-second protection, a three-minute clock and automatic rematches.
+The server owns shared physics and results. Disconnected play uses a separate
+local sandbox; the connection status shows mode, endpoint and known errors.
+UI and platforms are monochrome; only player bodies and identity swatches use
+color. Additional abilities remain explicitly outside the delivered route.
 
-- [Implementation roadmap](docs/implementation-roadmap.md)
-- [Game specification](docs/game-specification.md)
-- [Design system](docs/design-system.md)
-- [Development](docs/development.md)
-- [Networking](docs/networking.md)
-- [Simulation](docs/simulation.md)
-- [Matches](docs/matches.md)
-- [Local combat](docs/combat.md)
-- [Architecture](docs/architecture.md)
-- [Language guide (Spanish)](docs/language-guide.md)
-- [Local verification](docs/simulation-verification.md)
-- [Multiplayer verification](docs/multiplayer-verification.md)
+## Verify and inspect
 
-The game specification describes the full target; only the completed roadmap
-checkpoints describe delivered behavior. Each checkpoint has one Conventional Commit.
+`just check` runs JVM tests, Node browser doubles and an isolated release build.
+Native appearance, focus and remote-device access require the manual checklists;
+an automated pass does not establish those results.
+
+- [Development and commands](docs/development.md)
+- [Game specification and deferred abilities](docs/game-specification.md)
+- [Simulation](docs/simulation.md), [combat](docs/combat.md) and [matches](docs/matches.md)
+- [Networking](docs/networking.md) and [architecture](docs/architecture.md)
+- [Language guide in Spanish](docs/language-guide.md)
+- [Local verification](docs/simulation-verification.md) and [multiplayer verification](docs/multiplayer-verification.md)
+- [Monochrome design system](docs/design-system.md)
+- [Completed implementation roadmap](docs/implementation-roadmap.md)

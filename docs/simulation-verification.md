@@ -2,30 +2,18 @@
 
 A Node pass or release compile checks only its own boundary. The browser checklist below is manual guidance, not a report that native-browser checks have run. See the [development guide](development.md) for prerequisites and command details.
 
-## Node and build checks
+## Automated checks
 
-The project documents Java 21+, Clojure CLI, Node 22+, pnpm 12.17.0, and `just`. Install dependencies when needed, then run the Node regressions:
-
-```sh
-just setup
-just test
-```
-
-`just test` compiles the Shadow test target and runs `.shadow-cljs/test.js`. Use deterministic fixtures for acceleration/friction, spawn lock, support, jump eligibility and allowance, jump/drop action consumption, frame-cadence equivalence, focus/cleanup, face/corner contacts, pointer lifecycle,
-strike cooldowns, post-movement targeting, exactly-once hit effects, and retained
-knockback integration. Client fixtures use `EventTarget` and controlled animation-frame callbacks; they do not verify native focus handling or Canvas pixels.
-
-To check the release compiler path with isolated output:
-
-```sh
-just build '{:output-dir "/tmp/clojure-arena-release/js"}'
-```
-
-A successful release compile does not establish browser startup or appearance.
+Use [Development](development.md#verify) for Node, JVM and release commands.
+Node fixtures check acceleration/friction, spawn lock, support, jump/drop
+consumption, frame cadence, cleanup, swept contacts, melee targeting and
+knockback. Client fixtures use EventTarget, controlled RAF and DOM/Canvas
+doubles; they do not establish native focus or Canvas pixels. A release compile
+establishes compiler compatibility, not browser startup or appearance.
 
 ## Native browser checklist
 
-Start locally with `just dev` and open `http://127.0.0.1:8081/` on the service host.
+Use [offline practice](development.md#offline-practice) on the service host.
 
 - Confirm `Arena lista.` appears with the dark background, filled main platform, three neutral outlined semisolids, and four distinct player bodies (cyan, crimson, amber, green), each with a white facing dot.
 - On first fall, hold D and press W. The player should stay at its spawn X and should not jump. After landing on the platform top, controls unlock; the earlier W request must not replay. A held D direction should begin moving on the following tick.
@@ -133,3 +121,20 @@ focus, Canvas pixels, or cross-device behavior; those remain manual checks.
 The automated boundary tests check 119/120 respawn ticks, 79/80 protection
 ticks, complete/partial exits on every edge, simultaneous exits/attacks,
 independent timers and exact snapshot schemas on JVM and ClojureScript.
+
+## Presentation checklist
+
+- In offline practice, verify the cyan body has a neutral `Tú` label and its
+  identity row has a neutral selection border. An inactive body has no floating
+  label, while its row remains identifiable.
+- At desktop and 320/375 px viewport widths, check proportional Canvas scaling,
+  readable controls, wrapped cards/addresses and no horizontal page overflow.
+  The backing surface remains 800 × 480; CSS size changes no game coordinates.
+- Verify IDs, swatches, percentages, opportunities and lifecycle labels remain
+  readable. All nonidentity colors, including protection, selection, results,
+  platforms and focus indicators, must stay grayscale.
+
+DOM-count regressions check retained rows, unchanged writes, CSS color
+normalization, membership/container replacement and rounded clocks. These
+measure presentation effects in Node; native layout and screen-reader behavior
+remain manual checks.

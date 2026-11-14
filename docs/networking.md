@@ -9,17 +9,10 @@ to UTF-8 `ok`, and returns 404 for missing files and unsupported routes.
 programmatic `start!` accepts port 0 for isolated ephemeral tests; `stop!` waits
 for shutdown so the same port can be rebound.
 
-```sh
-just build
-just server 127.0.0.1 8082
-just test-server
-```
-
-Open http://127.0.0.1:8082/. The server serves files already on disk; it never
-compiles ClojureScript. A healthy `/health` does not establish that `/js/main.js`
-exists, that a browser started, or that gameplay is connected. For remote use,
-obtain `tailscale ip -4`, bind `just server <TAILSCALE_IP> 8082`, and open
-`http://<TAILSCALE_IP>:8082/`. A same-host request does not prove remote access.
+Use [Development](development.md#run-the-shared-arena) for build, server,
+watcher and Tailscale commands. A healthy `/health` does not establish that
+`/js/main.js` exists, that a browser started, or that gameplay is connected.
+A same-host request does not prove remote access.
 
 The JVM runner discovers `.clj`/`.cljc` test namespaces, uses bounded HTTP waits
 and isolated temporary public roots, and shuts down agents on completion.
@@ -37,10 +30,9 @@ commands. A rejected message does not poison the next valid frame.
 
 `transport/websocket-url` derives `/ws` from the page origin, changing HTTP to
 WS and HTTPS to WSS. An HTTP(S) `server` query parameter selects another origin.
-For example, serve assets with `just dev <TAILSCALE_IP>` and open
-`http://<TAILSCALE_IP>:8081/?server=http://<TAILSCALE_IP>:8082` while
-`just server <TAILSCALE_IP> 8082` runs separately. Plain `:8081/` targets the
-watcher, which has no gameplay WebSocket; use the query or the server's :8082 page.
+The [watched-development instructions](development.md#watch-while-using-the-game-server)
+select the gameplay server while the watcher serves assets separately. The
+watcher has no gameplay WebSocket; without the server query, it falls back locally.
 
 `init` starts transport; `stop!` detaches callbacks and closes its owned socket.
 Callbacks check their socket identity. Failure keeps the local fighting sandbox
@@ -113,7 +105,8 @@ The admitted display renders committed snapshots.
 
 Every tick with members captures one effect with `:connection-tokens` and an
 exact `{:type :snapshot :tick n :world ...}` message from the same next room.
-Only world data crosses the wire: exactly `:blast-bounds`, `:platforms` and `:players`, validated
+Only world data crosses the wire: exactly `:blast-bounds`, `:platforms`, `:players`
+and `:match`, validated
 with exact record keys, finite numeric fields, unique platform IDs, and valid
 player/drop/target identities. Private tokens stay in delivery metadata.
 

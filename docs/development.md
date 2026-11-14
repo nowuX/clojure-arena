@@ -42,6 +42,15 @@ release does not replace `public/js`:
 just build '{:output-dir "/tmp/clojure-arena-sequential-release/js"}'
 ```
 
+## Offline practice
+
+Run `just dev` and open http://127.0.0.1:8081/ without a `server` query.
+The watcher has no gameplay WebSocket, so the status reports local mode and
+its attempted endpoint. This sandbox controls player-1 with neutral opponents;
+it has stocks/respawns but no shared match clock, winner or rematch.
+If any gameplay server is running separately, omit its origin from the query
+to keep this page in offline practice.
+
 ## Verify
 
 ```sh
@@ -60,3 +69,9 @@ server or proves native Canvas pixels, focus or access from another device.
 Use [Multiplayer verification](multiplayer-verification.md) for four browsers,
 fifth-client rejection, reconnection and remote checks, or
 [Simulation verification](simulation-verification.md) for the offline sandbox.
+
+For CI or a user-owned dev watcher, prefer an isolated release destination:
+`just check /tmp/clojure-arena-sequential-release/js`. This command does not
+replace watched `public/js` output or start a persistent service. Dependency
+installation uses the pinned pnpm graph; test/build compilation resolves the
+pinned JVM dependencies as needed.

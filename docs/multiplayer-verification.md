@@ -6,11 +6,9 @@ establishes native appearance, physical network loss or access from another devi
 
 ## Start one server
 
-Follow [Development](development.md). Build with `just build`, run
-`just server <HOST> 8082` and open `http://<HOST>:8082/` in every page. For watched
-assets, keep `just dev <HOST>` and `just server <HOST> 8082` in separate terminals
-and use `http://<HOST>:8081/?server=http://<HOST>:8082`. For another device obtain
-the service machine's address with `tailscale ip -4` and use it consistently.
+Follow [Development](development.md#run-the-shared-arena) for one shared
+server, watched assets and the service machine's Tailscale address. All pages
+must target that same gameplay endpoint.
 
 ## Shared match checklist
 
@@ -73,3 +71,25 @@ Node doubles cover event/RAF ownership, raw waiting/countdown/result snapshots,
 neutral result text, a departed winner, ordered standings, observer rows and
 safe offline fallback. They do not inspect native Canvas pixels, browser focus
 or a second device. The release check establishes compiler compatibility only.
+
+## Connection and ownership checklist
+
+- Check that the status names local/shared mode and the attempted WebSocket
+  endpoint. A watcher-only page stays local. An invalid server query reports
+  configuration failure; an unavailable server reports a WebSocket error
+  without claiming an unobservable DNS, firewall or TLS cause.
+- While accepted but waiting for the first snapshot, no row or body should
+  claim local ownership. After receipt, `Tú` and the accessible current row
+  must follow the assigned ID, including after color reuse or reload.
+- Full-room rejection and expiry remain visible through closure. Where the
+  browser provides close code/reason, retain those details. Recoverable malformed
+  frames show their error category without changing server authority; a newer
+  applicable snapshot clears that diagnostic. Protocol injection is covered by
+  automated doubles, not a required user-facing control.
+- After disconnect/reload, verify the separate offline identity and the new
+  assigned identity respectively. Observer/respawning/eliminated rows retain
+  ownership markers but have no floating `Tú` while their bodies are absent.
+
+The checklist is guidance, not evidence of a completed native-browser or
+remote-device run. JVM socket checks run on the service host; Node doubles and
+the release compiler cannot establish physical-device connectivity or layout.

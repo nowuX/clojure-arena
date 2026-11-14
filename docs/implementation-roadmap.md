@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**69 of 70 checkpoints complete.** Checkpoints 01–69 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**70 of 70 checkpoints complete.** Checkpoints 01–70 are complete. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -42,7 +42,7 @@ the behavior described by its checkpoint; later features are intentionally absen
 - Git records the implementation history. Do not add changelog documents,
   checkpoint delivery logs, synthetic authorship, or fabricated test evidence.
 
-## Planned tooling and documentation
+## Tooling and documentation
 
 | Item | Introduction | Responsibility |
 | --- | --- | --- |
@@ -61,7 +61,7 @@ the behavior described by its checkpoint; later features are intentionally absen
 | docs/multiplayer-verification.md and just check | 49 | Four-browser lifecycle, same-tick state, and integrated checks |
 | match.cljc | 57 | Pure participation, phases, results, and rematches |
 
-These files are planned destinations, not an instruction to create placeholders.
+The table records when each implemented responsibility entered the route.
 Use the namespace `clojure-arena` and paths under `src/clojure_arena` and
 `test/clojure_arena` when code is introduced. Other small files are appropriate
 only when they own an implemented responsibility.
@@ -937,7 +937,7 @@ Checkpoints **67–70**. Improve the implemented game without adding mechanics o
 
 ### 70 — Consolidate documentation and finish the route
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Keep README to real quick-start commands, controls, current
   scope, and a guide index. Centralize command details, rules, simulation, architecture,
   Spanish language manual, and local/shared verification in their respective guides.
