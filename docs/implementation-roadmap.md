@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**36 of 70 checkpoints complete.** Checkpoints 01–36 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**37 of 70 checkpoints complete.** Checkpoints 01–37 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -501,7 +501,7 @@ Checkpoints **31–38**. Accept input, select targets, resolve percentage once, 
 
 ### 37 — Integrate impulses with movement and contacts
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Apply grouped hit impulses after movement/target selection to
   total and retained velocity. Track received X/Y; damp received X independently of
   voluntary A/D, project both vectors at contacts, and let valid jumps replace Y while

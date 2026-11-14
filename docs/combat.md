@@ -9,8 +9,7 @@ clamp at zero within `cooldown-epsilon` (1e-9), and accept a fresh request only
 when unlocked and ready. Acceptance increments that player's sequence and sets
 0.25 seconds. At 25 ms per tick, the tenth later tick can accept another strike.
 Rejected clicks are consumed, never stored until readiness. Misses still spend
-the cooldown. Acceptance triggers the geometric query and percentage update below. Physical
-impulses are not integrated yet.
+the cooldown. Acceptance triggers the geometric query and percentage update below. Grouped impulses apply after targeting.
 
 ## Post-movement targeting
 
@@ -27,7 +26,8 @@ attackers use one snapshot, independent of player-map iteration order.
 
 ## Percentage and presentation
 
-`apply-melee-hits` groups selected IDs and adds 10 percentage points per hit.
+`apply-melee-hits` groups selected IDs with their attacking facings and adds
+10 percentage points per hit.
 Each record starts with `:accumulated-percentage 0`; values exceed 100 without
 changing normal movement or representing HP. Hits on the same target add up.
 The next step clears target sets, so the ordinary loop has no lingering hitbox.
@@ -59,5 +59,28 @@ or clamp to voluntary speed. Zero hits returns zero; percentages above 100
 continue scaling.
 
 One right hit at final P = 10 gives (184, -138); two opposing hits at final
-P = 20 give (0, -312). This function does not move a body or update velocity;
-physical integration follows separately.
+P = 20 give (0, -312). The calculator itself does not move a body; `apply-melee-hits` applies its
+returned velocity change after targeting.
+
+## Received motion and contacts
+
+For each target, first compute final P from all pending hits, then calculate
+all contributions at that same P. Add their summed impulse to both total
+`:vx`/`:vy` and retained `:knockback-vx`/`:knockback-vy`. Resolve sequence markers
+with those effects, so replay changes neither percentage nor motion. Hits do
+not advance position a second time; new motion starts on the following tick.
+
+Each movement tick subtracts old received X from total X to recover voluntary
+X. Apply A/D acceleration or neutral friction to the voluntary share and the
+same 1100 units/s² friction independently to received X, then recombine.
+Only voluntary motion targets 220; total speed can exceed it. Gravity updates
+total Y while retained Y records the received share. Valid ground/air jumps
+replace total Y with -420 and clear retained Y before gravity, preserving
+received X with its ordinary decay. A rejected jump clears no motion.
+
+`resolve-contact` projects total velocity against an inward contact normal and
+projects the retained vector with the same normal. This prevents canceled
+received motion from resurfacing on the next tick and preserves the sum of
+received and voluntary shares at rounded corners. Rising through semisolids
+still works; a supported top landing clears inward vertical received motion,
+unlocks spawn, and restores the air jump. None of this changes remembered facing.

@@ -29,7 +29,9 @@ to zero; missing action flags default to false. Its order is:
 
 1. Clear a finished or stale drop exception and neutralize horizontal intention while spawn locked. Negative/positive accepted intention remembers left/right facing; neutral preserves it.
 2. Find current support. An unlocked S request on a semisolid records its ID as `:drop-through-platform-id`; this wins over simultaneous W. Otherwise call `apply-jump` before gravity. Ground jumps preserve the air allowance; airborne jumps spend one. Locked or exhausted requests are discarded.
-3. Accelerate or brake horizontally and add `980 × dt` to vertical velocity.
+3. Separate total X into voluntary and received shares. Accelerate/brake the
+   voluntary share, damp received X independently, and recombine. Add `980 × dt`
+   to total vertical velocity. Valid jumps clear received Y.
 4. Call `collide-platforms` and clear the exception again using the resulting position.
 
 From a supported center Y of 264, the first launch tick ends at Y = 254.1125 with vy = −395.5. Holding W does not change jump height. Each fresh W press is one request. A grounded jump and the single allowed air jump both replace vertical velocity with -420 before gravity is added.
@@ -42,7 +44,8 @@ The initial player falls with controls locked. A resolved supported top landing 
 
 ## Contact and integration
 
-`move-player` advances the circle center using velocity and seconds. `supported-travel-time` bounds motion along a supported top and lets gravity begin after leaving an edge. `earliest-contact` chooses the earliest contact across eligible platform surfaces, using stable ID order for exact time ties. `platform-contact` checks overlap and swept contact against each rectangle's faces and rounded corners; `resolve-contact` removes only inward normal velocity. `collide-platforms` allows up to four contacts per tick and uses a `1e-9` tolerance.
+`move-player` advances the circle center using velocity and seconds. `supported-travel-time` bounds motion along a supported top and lets gravity begin after leaving an edge. `earliest-contact` chooses the earliest contact across eligible platform surfaces, using stable ID order for exact time ties. `platform-contact` checks overlap and swept contact against each rectangle's faces and rounded corners; `resolve-contact` removes inward total normal velocity and projects the retained
+received vector with the same contact normal. `collide-platforms` allows up to four contacts per tick and uses a `1e-9` tolerance.
 
 The world contains the main solid plus three neutral outlined semisolids; constructed solid collections share the same four-contact budget. Any solid or semisolid flat top supports jumping. See [Architecture](architecture.md) for ownership and [Simulation verification](simulation-verification.md) for checks.
 
@@ -116,3 +119,8 @@ The arena canvas alone listens for `pointerdown` with button 0. A press stores
 it alongside W/S. Multiple presses before a tick coalesce. A held pointer does
 not repeat. Blur, stop, and restart discard pending attacks; replacing the canvas
 removes its old listener. Capturing this intention has no hit effect yet.
+
+After every player finishes movement, `step` selects targets for new accepted
+strikes from that shared result and calls `apply-melee-hits` once. Percentage
+and summed impulses use the final target percentage. See [Local combat](combat.md)
+for cooldowns, exactly-once resolution, and retained motion.

@@ -13,7 +13,7 @@
 (def cooldown-epsilon 1e-9)
 
 (defn make-player [color x y]
-  {:x x :y y :vx 0 :vy 0 :radius 16
+  {:x x :y y :vx 0 :vy 0 :knockback-vx 0 :knockback-vy 0 :radius 16
    :spawn-locked? true :air-jumps-left 1
    :drop-through-platform-id nil :color color :facing :right
    :melee-cooldown-left 0 :melee-strike-id 0 :melee-resolved-strike-id 0
@@ -78,9 +78,9 @@
 (defn apply-jump [player platforms jump?]
   (cond
     (or (not jump?) (:spawn-locked? player)) player
-    (supporting-platform player platforms) (assoc player :vy jump-velocity)
+    (supporting-platform player platforms) (assoc player :vy jump-velocity :knockback-vy 0)
     (pos? (:air-jumps-left player)) (-> player
-                                       (assoc :vy jump-velocity)
+                                       (assoc :vy jump-velocity :knockback-vy 0)
                                        (update :air-jumps-left dec))
     :else player))
 
@@ -190,10 +190,19 @@
                           (corner-contact player dx dy right bottom 1 1)]))))))
 
 (defn resolve-contact [player {:keys [x y nx ny]}]
-  (let [inward-speed (min 0 (+ (* (:vx player) nx) (* (:vy player) ny)))]
-    (assoc player :x x :y y
+  (let [inward-speed (min 0 (+ (* (:vx player) nx) (* (:vy player) ny)))
+        knockback-vx (:knockback-vx player 0)
+        knockback-vy (:knockback-vy player 0)
+        ;; Project both shares with the same normal to preserve their sum.
+        knockback-normal (if (neg? inward-speed)
+                           (+ (* knockback-vx nx) (* knockback-vy ny))
+                           0)]
+    (assoc player
+           :x x :y y
            :vx (- (:vx player) (* inward-speed nx))
-           :vy (- (:vy player) (* inward-speed ny)))))
+           :vy (- (:vy player) (* inward-speed ny))
+           :knockback-vx (- knockback-vx (* knockback-normal nx))
+           :knockback-vy (- knockback-vy (* knockback-normal ny)))))
 
 (defn earliest-contact [player proposed platforms departing-ids]
   (first
@@ -322,9 +331,14 @@
         dropping? (and (not locked?) drop? (= :semisolid (:type support)))
         player (if dropping?
                  (assoc player :drop-through-platform-id (:id support))
-                 (apply-jump player platforms jump?))]
-    (-> player
-        (update :vx accelerate-horizontal horizontal dt)
+                 (apply-jump player platforms jump?))
+        previous-knockback-vx (:knockback-vx player 0)
+        knockback-vx (apply-horizontal-friction previous-knockback-vx dt)
+        voluntary-vx (accelerate-horizontal (- (:vx player) previous-knockback-vx)
+                                            horizontal dt)
+        moving-player (assoc player :vx (+ voluntary-vx knockback-vx)
+                             :knockback-vx knockback-vx)]
+    (-> moving-player
         (update :vy + (* gravity dt))
         (collide-platforms platforms dt)
         (clear-drop-through platforms))))
@@ -334,17 +348,31 @@
                           (> (:melee-strike-id attacker 0)
                              (:melee-resolved-strike-id attacker 0)))
                         players)
-        hits-by-target (frequencies (mapcat (comp :melee-target-ids val) pending))
+        hits-by-target
+        (reduce (fn [hits [_ attacker]]
+                  (reduce (fn [hits target-id]
+                            (if (contains? players target-id)
+                              (update hits target-id (fnil conj []) (:facing attacker))
+                              hits))
+                          hits (:melee-target-ids attacker)))
+                {} pending)
         resolved (reduce (fn [result [attacker-id attacker]]
                            (assoc-in result [attacker-id :melee-resolved-strike-id]
                                      (:melee-strike-id attacker)))
                          players pending)]
     (reduce-kv
-      (fn [result target-id hits]
-        (if (contains? players target-id)
-          (update-in result [target-id :accumulated-percentage]
-                     (fnil + 0) (* melee-hit-percentage hits))
-          result))
+      (fn [result target-id facings]
+        (let [percentage (+ (get-in players [target-id :accumulated-percentage] 0)
+                            (* melee-hit-percentage (count facings)))
+              {:keys [dvx dvy]} (melee-knockback-impulse facings percentage)]
+          (update result target-id
+                  (fn [target]
+                    (-> target
+                        (assoc :accumulated-percentage percentage)
+                        (update :vx (fnil + 0) dvx)
+                        (update :vy (fnil + 0) dvy)
+                        (update :knockback-vx (fnil + 0) dvx)
+                        (update :knockback-vy (fnil + 0) dvy))))))
       resolved hits-by-target)))
 
 (defn step [world inputs-by-player dt]

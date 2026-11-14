@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–36 complete (36/70). The local melee loop accumulates percentage exactly once per strike and displays player values. A pure configurable calculator defines K = 200 + 3P and summed directional impulses from final post-hit percentage; physical integration is pending.
+Checkpoints 01–37 complete (37/70). Local melee selects targets after movement, adds percentage exactly once, and applies grouped final-percentage impulses to total and retained velocity. Received X decays independently of A/D; jumps and platform contacts preserve coherent motion. The player panel uses the same frame world as Canvas.
 Future mechanics remain specified in the roadmap.
 
 ## Run

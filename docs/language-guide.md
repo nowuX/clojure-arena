@@ -157,8 +157,9 @@ mismo mapa para cada secuencia nueva. Leer ese mapa no modifica posiciones.
 
 ### Acumular impactos y dibujar valores
 
-`frequencies` cuenta los IDs seleccionados y `update-in` suma diez puntos por
-impacto a `:accumulated-percentage`. El porcentaje no es vida ni velocidad.
+`reduce` agrupa los IDs seleccionados con las miradas de sus atacantes; el
+tamaño del grupo determina los diez puntos por impacto que se suman a
+`:accumulated-percentage`. El porcentaje no es vida ni velocidad.
 El cliente lee `@world` una vez por frame y entrega el mismo valor al canvas y
 al panel. `createElement`, `textContent` y `appendChild` crean las filas del DOM;
 los efectos siguen fuera de las funciones puras de simulación.
@@ -176,3 +177,11 @@ Reutilizar el mapa devuelto no vuelve a sumar porcentaje: es idempotencia.
 normal, o tres para recibir un mapa de configuración explícito. `frequencies`
 cuenta miradas y devuelve la suma por eje. Recibe el porcentaje final de todos
 los impactos del tick; el resultado es un cambio de velocidad, no una posición.
+
+### Separar velocidad voluntaria y recibida
+
+El mapa guarda velocidad total y componentes recibidas. `step-player` resta
+la X recibida anterior para obtener la voluntaria, transforma ambas y vuelve
+a sumarlas. Un golpe actualiza las dos representaciones con `update`; no mueve
+la posición otra vez. `resolve-contact` proyecta los dos vectores sobre la
+misma normal. Un salto válido reemplaza Y y borra solo su componente recibida.
