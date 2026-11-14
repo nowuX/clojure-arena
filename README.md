@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–64 complete (64/70). The neutral match panel displays shared phases, mm:ss time, observers and committed winner/draw standings, including departed winner metadata.
+Checkpoints 01–65 complete (65/70). Finished matches wait five simulation seconds, reset current connections and start fresh rematches while keeping sessions and room ticks.
 Future mechanics remain specified in the roadmap.
 
 ## Run

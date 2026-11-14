@@ -3,10 +3,16 @@
 
 (def countdown-duration 3)
 (def duration 180)
+(def intermission-duration 5)
 
 (def initial-match
-  {:id 0 :phase :waiting :countdown-seconds-left 0
-   :time-seconds-left 0 :intermission-seconds-left 0 :result nil :contenders {}})
+  {:id 0
+   :phase :waiting
+   :countdown-seconds-left 0
+   :time-seconds-left 0
+   :intermission-seconds-left 0
+   :result nil
+   :contenders {}})
 
 (defn contender? [world player-id]
   (let [contender (get-in world [:match :contenders player-id])]
@@ -30,14 +36,12 @@
 
       :else world)))
 
-
 (defn add-player [world player-id player]
   (-> world
       (assoc-in [:players player-id]
                 (assoc player :lifecycle :waiting :stocks 0
                        :respawn-seconds-left 0 :protection-seconds-left 0))
       reconcile-entrants))
-
 
 (defn- capture-contender [contender player]
   (merge contender (select-keys player [:color :stocks :accumulated-percentage])))
@@ -76,10 +80,9 @@
     (if-let [result (result-for (get-in world [:match :contenders])
                                (get-in world [:match :time-seconds-left]))]
       (update world :match assoc :phase :finished :result result
-              :intermission-seconds-left 0)
+              :intermission-seconds-left intermission-duration)
       world)
     world))
-
 
 (defn remove-player [world player-id]
   (let [player (get-in world [:players player-id])
@@ -92,6 +95,27 @@
         reconcile-entrants
         finish-if-decided)))
 
+(defn- start-match [world]
+  (let [players (into {}
+                      (map (fn [[player-id player]]
+                             [player-id (-> (game/make-player (:color player)
+                                                             (:spawn-x player)
+                                                             (:spawn-y player))
+                                            game/grant-spawn-protection)]))
+                      (:players world))
+        contenders (into {}
+                         (map (fn [[player-id player]]
+                                [player-id (capture-contender {:forfeited? false} player)]))
+                         players)]
+    (assoc world
+           :players players
+           :match {:id (inc (get-in world [:match :id]))
+                   :phase :running
+                   :countdown-seconds-left 0
+                   :time-seconds-left duration
+                   :intermission-seconds-left 0
+                   :result nil
+                   :contenders contenders})))
 
 (defn- step-running [world inputs-by-player dt]
   (let [player-ids (filter #(contender? world %) (keys (:players world)))
@@ -117,29 +141,25 @@
                        (if (<= remaining game/cooldown-epsilon) 0 remaining))))
         finish-if-decided)))
 
-
-(defn- start-match [world]
-  (let [players (into {}
+(defn- reset-match [world]
+  (-> world
+      (update :players
+              (fn [players]
+                (into {}
                       (map (fn [[player-id player]]
-                             [player-id (-> (game/make-player (:color player)
-                                                             (:spawn-x player)
-                                                             (:spawn-y player))
-                                            game/grant-spawn-protection)]))
-                      (:players world))
-        contenders (into {}
-                         (map (fn [[player-id player]]
-                                [player-id (capture-contender {:forfeited? false} player)]))
-                         players)]
-    (assoc world
-           :players players
-           :match {:id (inc (get-in world [:match :id]))
-                   :phase :running
-                   :countdown-seconds-left 0
-                   :time-seconds-left duration
-                   :intermission-seconds-left 0
-                   :result nil
-                   :contenders contenders})))
+                             [player-id (assoc (game/make-player (:color player)
+                                                                (:spawn-x player)
+                                                                (:spawn-y player))
+                                               :lifecycle :waiting :stocks 0)]))
+                      players)))
+      (assoc :match (assoc initial-match :id (get-in world [:match :id])))
+      reconcile-entrants))
 
+(defn- step-finished [world dt]
+  (let [remaining (- (get-in world [:match :intermission-seconds-left]) dt)]
+    (if (<= remaining game/cooldown-epsilon)
+      (reset-match world)
+      (assoc-in world [:match :intermission-seconds-left] remaining))))
 
 (defn step [world inputs-by-player dt]
   (case (get-in world [:match :phase])
@@ -151,5 +171,7 @@
             (start-match world)
             (assoc-in world [:match :countdown-seconds-left] remaining)))
         world))
+
     :running (step-running world inputs-by-player dt)
+    :finished (step-finished world dt)
     world))

@@ -74,3 +74,15 @@ mm:ss clock and the committed winner/draw/reason and ordered standings.
 Winner metadata comes from the captured result, even after disconnection;
 rendering never computes a local result. Text and states remain neutral, with
 identity colors restricted to bodies and small swatches.
+
+## Repeated matches
+
+A result installs a full five-second intermission. Only later finished ticks
+consume it. On the 200th later 25 ms tick, rebuild all current connections as
+fresh waiting records and clear the old result/roster. With at least two
+connections enter a full three-second countdown without consuming it on that
+reset tick; otherwise wait. Observers and eliminated players enter the next
+start with three stocks. Each start increments the match ID, while IDs, colors,
+sockets, the room tick and the single room clock survive match resets.
+One-shot actions never replay; retained horizontal input remains subject to
+the fresh body's landing lock. The panel shows the shared intermission timer.

@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**64 of 70 checkpoints complete.** Checkpoints 01–64 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**65 of 70 checkpoints complete.** Checkpoints 01–65 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -865,7 +865,7 @@ Checkpoints **57–66**. Separate connections from contenders and compose match 
 
 ### 65 — Return to waiting and start another match
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Add a full five-second finished intermission, consuming only
   later ticks. At expiry rebuild current connections, including observers/eliminated, as
   fresh waiting records and clear old result/actions/state. With at least two, enter a

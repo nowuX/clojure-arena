@@ -201,7 +201,8 @@
     :waiting "Esperando jugadores (mínimo 2)."
     :countdown (str "La partida comienza en " (js/Math.ceil (:countdown-seconds-left match)) " s")
     :running (str "Partida " (:id match) " en curso · " (format-clock (:time-seconds-left match)))
-    :finished (str "Partida finalizada · " (format-clock (:time-seconds-left match)))
+    :finished (str "Partida finalizada · " (format-clock (:time-seconds-left match))
+                   " · Reinicio en " (js/Math.ceil (:intermission-seconds-left match)) " s")
     "Práctica local"))
 
 (defn- result-reason-label [reason]
