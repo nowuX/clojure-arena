@@ -166,3 +166,12 @@ with color swatch, percentage, remaining opportunities and Spanish lifecycle
 label. Inactive players still receive snapshots under their assigned ID;
 stock loss does not disconnect them. Rendering is read-only and removes a row
 only when its player leaves the world.
+
+## Respawn delay
+
+A surviving ring-out installs a full `:respawn-seconds-left 3`; that loss tick
+does not reduce it. Only later inactive ticks subtract dt. The shared epsilon
+clamps tiny residuals to zero, reaching readiness on the 120th later 25 ms tick.
+Eliminated players have no timer. Snapshots validate finite values from 0 to 3;
+the panel rounds up simulation-owned seconds and never measures wall time.
+At this checkpoint, expiry remains inactive until fresh-body return is added.

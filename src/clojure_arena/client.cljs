@@ -135,7 +135,7 @@
 (defn player-state-label [player]
   (case (:lifecycle player :active)
     :active "Activo"
-    :respawning "Reapareciendo"
+    :respawning (str "Reapareciendo en " (js/Math.ceil (:respawn-seconds-left player 0)) " s")
     :eliminated "Eliminado"
     "Sin estado"))
 

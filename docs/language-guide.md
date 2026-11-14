@@ -299,3 +299,10 @@ identidad. `filter` omite el cuerpo al dibujar sin eliminarlo de la conexión.
 todos los registros, incluyendo los inactivos, mientras Canvas filtra solo los
 activos. `textContent` muestra porcentaje y oportunidades; ningún renderizador
 cambia las vidas ni el ciclo del jugador.
+
+### Tiempo de reaparición
+
+`:respawn-seconds-left` es otro dato inmutable. Solo los ticks posteriores a la
+pérdida restan `dt`; `remaining-seconds` elimina residuos numéricos pequeños
+para alcanzar cero exactamente. El navegador usa `js/Math.ceil` para mostrar
+segundos redondeados hacia arriba sin controlar la espera.

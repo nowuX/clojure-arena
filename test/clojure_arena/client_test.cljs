@@ -688,7 +688,8 @@
         states [[:active 3] [:active 2] [:respawning 1] [:eliminated 0]]
         players (into {} (map (fn [[id [state stocks]]]
                                [id (assoc (game/make-player "#22d3ee" 400 160)
-                                          :stocks stocks :lifecycle state :accumulated-percentage 140)])
+                                          :stocks stocks :lifecycle state :accumulated-percentage 140
+                                          :respawn-seconds-left (if (= state :respawning) 3 0))])
                              (map vector [:player-1 :player-2 :player-3 :player-4] states)))
         snapshot (assoc game/initial-world :players players)
         drawn (atom [])]
@@ -702,10 +703,18 @@
       (let [fields (mapv #(deref (.-children %)) @(.-children panel))]
         (is (= ["3 oportunidades" "2 oportunidades" "1 oportunidad" "0 oportunidades"]
                (mapv #(.-textContent (nth % 3)) fields)))
-        (is (= ["Activo" "Activo" "Reapareciendo" "Eliminado"]
+        (is (= ["Activo" "Activo" "Reapareciendo en 3 s" "Eliminado"]
                (mapv #(.-textContent (nth % 4)) fields)))
         (is (= ["140 %" "140 %" "140 %" "140 %"]
                (mapv #(.-textContent (nth % 2)) fields))))
       (render-panel (update snapshot :players dissoc :player-4))
       (is (= 3 (count @(.-children panel)))))
     (is (= players (:players snapshot)))))
+
+(deftest respawn-panel-rounds-up-authoritative-time
+  (doseq [[seconds expected] [[3 "Reapareciendo en 3 s"]
+                              [2.01 "Reapareciendo en 3 s"]
+                              [0.025 "Reapareciendo en 1 s"]
+                              [0 "Reapareciendo en 0 s"]]]
+    (is (= expected (client/player-state-label {:lifecycle :respawning
+                                               :respawn-seconds-left seconds})))))

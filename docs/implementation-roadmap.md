@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**53 of 70 checkpoints complete.** Checkpoints 01–53 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**54 of 70 checkpoints complete.** Checkpoints 01–54 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -728,7 +728,7 @@ Checkpoints **50–56**. Introduce each lifecycle responsibility separately; no 
 
 ### 54 — Count the respawn delay in simulation time
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** On a surviving loss start a full three-second timer; only later
   ticks consume it. Publish remaining time and show rounded-up seconds. At zero the state
   is ready for the next step, without returning a body yet.

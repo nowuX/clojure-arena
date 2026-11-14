@@ -9,7 +9,7 @@
 (def safe-integer-maximum 9007199254740991)
 
 (def platform-fields #{:id :type :x :y :width :height :color})
-(def player-fields #{:stocks :lifecycle :x :y :vx :vy :knockback-vx :knockback-vy
+(def player-fields #{:stocks :lifecycle :respawn-seconds-left :x :y :vx :vy :knockback-vx :knockback-vy
                      :facing :spawn-locked? :air-jumps-left
                      :drop-through-platform-id :melee-cooldown-left
                      :melee-strike-id :melee-resolved-strike-id
@@ -69,13 +69,15 @@
        (< (:left bounds) (:right bounds))
        (< (:top bounds) (:bottom bounds))))
 
-(defn- stock-state? [{:keys [stocks lifecycle]}]
+(defn- stock-state? [{:keys [stocks lifecycle respawn-seconds-left]}]
   (and (safe-nonnegative-integer? stocks)
        (<= stocks 3)
+       (finite-number? respawn-seconds-left)
+       (<= 0 respawn-seconds-left 3)
        (case lifecycle
-         :active (pos? stocks)
+         :active (and (pos? stocks) (zero? respawn-seconds-left))
          :respawning (pos? stocks)
-         :eliminated (zero? stocks)
+         :eliminated (and (zero? stocks) (zero? respawn-seconds-left))
          false)))
 
 (defn- player? [player semisolid-platform-ids]

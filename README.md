@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–53 complete (53/70). The player panel displays opportunities and lifecycle while inactive connected players retain their rows and snapshots.
+Checkpoints 01–54 complete (54/70). Surviving losses start a full three-second simulation-owned countdown, published and rounded up in the player panel.
 Future mechanics remain specified in the roadmap.
 
 ## Run

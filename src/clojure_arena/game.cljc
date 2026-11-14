@@ -13,6 +13,7 @@
 (def cooldown-epsilon 1e-9)
 
 (def initial-stocks 3)
+(def respawn-delay 3)
 
 (defn make-player [color x y]
   {:x x :y y :vx 0 :vy 0 :knockback-vx 0 :knockback-vy 0 :radius 16
@@ -21,7 +22,7 @@
    :melee-cooldown-left 0 :melee-strike-id 0 :melee-resolved-strike-id 0
    :melee-target-ids #{}
    :accumulated-percentage 0
-   :stocks initial-stocks :lifecycle :active})
+   :stocks initial-stocks :lifecycle :active :respawn-seconds-left 0})
 
 (def local-player-fixtures
   {:player-1 (make-player "#22d3ee" 400 160)
@@ -50,6 +51,15 @@
 (defn active-player? [player]
   (and (map? player) (= :active (:lifecycle player :active))))
 
+(defn- remaining-seconds [seconds dt]
+  (let [remaining (- seconds dt)]
+    (if (<= remaining cooldown-epsilon) 0 remaining)))
+
+(defn- step-respawn [player dt]
+  (if (and (= :respawning (:lifecycle player)) (pos? (:stocks player)))
+    (update player :respawn-seconds-left remaining-seconds dt)
+    player))
+
 (defn resolve-ring-out
   "Consume one active life and clear pending physical/hit effects."
   [player bounds]
@@ -57,6 +67,7 @@
     (let [stocks (max 0 (dec (:stocks player initial-stocks)))]
       (assoc player :stocks stocks
              :lifecycle (if (pos? stocks) :respawning :eliminated)
+             :respawn-seconds-left (if (pos? stocks) respawn-delay 0)
              :vx 0 :vy 0 :knockback-vx 0 :knockback-vy 0
              :spawn-locked? true :air-jumps-left 1
              :drop-through-platform-id nil :melee-cooldown-left 0
@@ -424,7 +435,7 @@
                                 (step-player player (:platforms world)
                                              (get inputs-by-player player-id) dt)
                                 (:blast-bounds world))
-                              player)))
+                              (step-respawn player dt))))
                    {} players)
         targeted-players
         (reduce-kv
