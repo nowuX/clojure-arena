@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–19 complete (19/70). One air-jump allowance is tracked and restored only by supported top landing; activation remains pending.
+Checkpoints 01–20 complete (20/70). The character can jump from support and once in the air; landing restores the allowance and initial spawn controls stay locked until landing.
 Future mechanics remain specified in the roadmap.
 
 ## Run

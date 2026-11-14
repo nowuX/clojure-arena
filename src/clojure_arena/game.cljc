@@ -33,9 +33,13 @@
   (when (grounded? player platform) platform))
 
 (defn apply-jump [player platform jump?]
-  (if (and jump? (not (:spawn-locked? player)) (grounded? player platform))
-    (assoc player :vy jump-velocity)
-    player))
+  (cond
+    (or (not jump?) (:spawn-locked? player)) player
+    (grounded? player platform) (assoc player :vy jump-velocity)
+    (pos? (:air-jumps-left player)) (-> player
+                                       (assoc :vy jump-velocity)
+                                       (update :air-jumps-left dec))
+    :else player))
 
 (defn sqrt [value]
   #?(:clj (Math/sqrt value)

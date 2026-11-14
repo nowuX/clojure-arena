@@ -28,7 +28,7 @@ At the client's 25 ms tick, acceleration changes horizontal speed by at most `22
 
 `platform-contact` checks an existing overlap and swept contact with each rectangular face and rounded corner. `overlap-contact`, `face-contact`, and `corner-contact` produce contact geometry. `resolve-contact` removes only velocity directed into the contact normal, preserving separating and tangential motion. `collide-platform` can process up to four contacts in one tick and uses a `1e-9` contact tolerance.
 
-The scene has one platform. W captures a fresh jump request, consumed by one tick; an unlocked supported player launches at −420 units/s before gravity. Airborne requests are discarded. Initial spawn controls stay locked until a flat-top landing; gravity and contact continue during the lock. `grounded?` checks the center within the top span, feet at the top, and zero vertical speed. `supporting-platform` returns that platform or nil. The code does not impose an arena-edge rule.
+The scene has one platform. W captures a fresh jump request, consumed by one tick; an unlocked supported player launches at −420 units/s before gravity. Airborne requests without an allowance are discarded. Initial spawn controls stay locked until a flat-top landing; gravity and contact continue during the lock. `grounded?` checks the center within the top span, feet at the top, and zero vertical speed. `supporting-platform` returns that platform or nil. The code does not impose an arena-edge rule.
 
 ## Inputs and rendering
 
@@ -38,4 +38,4 @@ See [Architecture](architecture.md) for ownership and [Simulation verification](
 
 The player tracks `:air-jumps-left`, initially one. Only supported top landing
 restores it. Ground launch and edge departure preserve it; side, underside,
-and rounded-corner contact do not refill it. Air activation is not applied yet.
+and rounded-corner contact do not refill it. A fresh airborne request with allowance remaining replaces vertical velocity with −420, then spends the allowance. A third request is rejected.
