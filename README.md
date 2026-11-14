@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–29 complete (29/70). Four ID-keyed local players advance independently with shared platforms. A/D, W, and S are routed only to cyan player-1; other fixtures receive neutral input, with separate spawn locks, jumps, and drop exceptions.
+Checkpoints 01–30 complete (30/70). Four ID-keyed local players advance independently; A/D, W, and S control only cyan player-1. Each body remembers accepted left/right intention and shows it with a neutral white dot, preserving facing through braking, jumps, drops, and contacts.
 Future mechanics remain specified in the roadmap.
 
 ## Run

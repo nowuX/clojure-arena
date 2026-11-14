@@ -12,7 +12,7 @@ The main platform entry and first player are:
 ```clojure
 {:platforms [{:id :main :type :solid :x 170 :y 280 :width 460 :height 16 :color "#9c9c9c"}]
  :players {:player-1 {:x 400 :y 160 :vx 0 :vy 0 :radius 16
-          :spawn-locked? true :air-jumps-left 1 :drop-through-platform-id nil :color "#22d3ee"}}}
+          :spawn-locked? true :air-jumps-left 1 :drop-through-platform-id nil :color "#22d3ee" :facing :right}}}
 ```
 
 The background is `#101010`; the platform is neutral gray and only the player body is colored. Gravity is `980` units/s² downward. Horizontal intention targets ±220 units/s at up to 880 units/s². Neutral input applies `horizontal-friction` at 1100 units/s² toward zero, without reversing velocity. At the client's 25 ms tick those changes are at most 22 and 27.5 units/s respectively. A locked spawn forces horizontal intention to zero while gravity and collision continue. From rest, ten held-direction ticks reach 220; from 220, neutral braking stops in eight ticks and travels another 19.25 units in free space.
@@ -27,7 +27,7 @@ create players.
 `{:horizontal ... :jump? ... :drop? ...}`, and dt. A missing direction defaults
 to zero; missing action flags default to false. Its order is:
 
-1. Clear a finished or stale drop exception and neutralize horizontal intention while spawn locked.
+1. Clear a finished or stale drop exception and neutralize horizontal intention while spawn locked. Negative/positive accepted intention remembers left/right facing; neutral preserves it.
 2. Find current support. An unlocked S request on a semisolid records its ID as `:drop-through-platform-id`; this wins over simultaneous W. Otherwise call `apply-jump` before gravity. Ground jumps preserve the air allowance; airborne jumps spend one. Locked or exhausted requests are discarded.
 3. Accelerate or brake horizontally and add `980 × dt` to vertical velocity.
 4. Call `collide-platforms` and clear the exception again using the resulting position.
@@ -85,7 +85,7 @@ above the top, clear the exception, and land on the same platform again.
 ## Player records
 
 `make-player(color, x, y)` creates a plain immutable record with zero velocity,
-radius 16, locked spawn controls, one air jump, and no drop exception.
+radius 16, locked spawn controls, one air jump, no drop exception, and right facing.
 `local-player-fixtures` supplies cyan at (400, 160), crimson at (260, 160),
 amber at (540, 160), and green at (350, 160). IDs are map keys, independent
 of color. `draw-world` draws each value from `:players` without changing it.
@@ -94,3 +94,17 @@ input in `{local-player-id inputs}`, where `local-player-id` is `:player-1`.
 The other three records receive neutral input and still fall, land, and brake.
 Physics reads no other player record, so map iteration order cannot change the
 result. Locks, air jumps, and drop exceptions remain local to each record.
+
+## Remembered facing
+
+Each record owns `:facing`, initially `:right`. In `step-player`, spawn locking
+neutralizes horizontal input before a negative or positive intention records
+`:left` or `:right`. This happens before acceleration: requesting left while
+vx is still positive immediately faces left. Neutral input, both held keys,
+blur, friction, gravity, jumps, drops, contact, and velocity-only changes retain
+the previous facing. A direction rejected during the first landing tick takes
+effect only if still held on the following tick.
+
+`draw-player` draws a neutral `#f2f2f2` dot of radius 3 at half the body radius
+left or right of its center. It reads facing rather than inferring it from vx.
+The only colored graphics remain the four player bodies.

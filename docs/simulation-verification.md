@@ -25,7 +25,7 @@ A successful release compile does not establish browser startup or appearance.
 
 Start locally with `just dev` and open `http://127.0.0.1:8081/` on the service host.
 
-- Confirm `Arena lista.` appears with the dark background, filled main platform, three neutral outlined semisolids, and four distinct player bodies (cyan, crimson, amber, green).
+- Confirm `Arena lista.` appears with the dark background, filled main platform, three neutral outlined semisolids, and four distinct player bodies (cyan, crimson, amber, green), each with a white facing dot.
 - On first fall, hold D and press W. The player should stay at its spawn X and should not jump. After landing on the platform top, controls unlock; the earlier W request must not replay. A held D direction should begin moving on the following tick.
 - Hold D, release it, then reverse with A. Check acceleration and gradual braking. Hold both keys together and check neutral braking.
 - Walk off either platform edge and confirm falling resumes. A fresh W press after leaving an edge can use the single air jump. Reload to restore the initial scene after falling out of view.
@@ -70,3 +70,16 @@ Automated recording tests draw one through four records without modifying the
 world. Pure tests exercise simultaneous independent inputs, missing and unknown
 IDs, nil inputs, and reversed map order. Client event tests verify that controls
 reach only `:player-1` and never create it if it is absent.
+
+## Facing checks
+
+- After unlocking, hold D and then reverse to A. The dot moves left as soon as
+  A is accepted, before rightward momentum fully brakes.
+- Release both keys, hold A/D together, or move focus away: the last facing
+  remains during braking and falling. Jumping, dropping, and landing retain it.
+- Reload and hold A during the initial fall. The dot stays right through the
+  first landing tick; a still-held A turns it left on the following tick.
+- The three fixtures retain their own initial right facing. Automated pure
+  tests additionally drive multiple players with opposite intentions and
+  change velocity independently. A recording Canvas checks dot placement and
+  neutral color; native pixels remain a manual check.

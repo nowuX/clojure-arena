@@ -442,3 +442,40 @@
     (is (zero? (:vx player)))
     (is (= 24.5 (:vy player))))
   (is (false? (:jump? (client/read-inputs)))))
+
+(deftest key-intention-changes-facing-before-momentum-and-neutral-input-keeps-it
+  (reset! client/world (-> playable-world
+                           (assoc :platforms [])
+                           (update-in [:players :player-1] assoc :vx 100)))
+  (client/init)
+  (fire-frame! 0)
+  (key-event! "keydown" "KeyA")
+  (fire-frame! 25)
+  (is (= :left (get-in @client/world [:players :player-1 :facing])))
+  (is (= 78 (get-in @client/world [:players :player-1 :vx])))
+  (key-event! "keydown" "KeyD")
+  (fire-frame! 50)
+  (is (= :left (get-in @client/world [:players :player-1 :facing])))
+  (is (= 50.5 (get-in @client/world [:players :player-1 :vx])))
+  (.dispatchEvent @target (js/Event. "blur"))
+  (fire-frame! 75)
+  (is (= :left (get-in @client/world [:players :player-1 :facing])))
+  (is (= 23 (get-in @client/world [:players :player-1 :vx])))
+  (key-event! "keydown" "KeyD")
+  (fire-frame! 100)
+  (is (= :right (get-in @client/world [:players :player-1 :facing]))))
+
+(deftest renderer-places-a-neutral-dot-on-the-remembered-side
+  (doseq [[facing dot-x] [[:left 392] [:right 408]]]
+    (let [arcs (atom [])
+          context #js {:beginPath (fn [])
+                       :arc (fn [x y radius _start _end]
+                              (this-as ctx
+                                (swap! arcs conj [x y radius (.-fillStyle ctx)])))
+                       :fill (fn [])}
+          canvas #js {:getContext (fn [_] context)}
+          player (assoc (game/make-player "#22d3ee" 400 160) :facing facing)]
+      (client/draw-player canvas player)
+      (is (= [[400 160 16 "#22d3ee"] [dot-x 160 3 "#f2f2f2"]] @arcs))
+      (is (= facing (:facing player)))
+      (is (= 400 (:x player))))))

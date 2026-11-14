@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**29 of 70 checkpoints complete.** Checkpoints 01–29 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**30 of 70 checkpoints complete.** Checkpoints 01–30 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -418,7 +418,7 @@ Checkpoints **28–30**. Move identity and per-player state into shared immutabl
 
 ### 30 — Remember facing from accepted intention
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Add left/right facing, initially right. Unlocked
   negative/positive A/D updates it; neutral, blur, braking, falling, contacts, and
   external velocity preserve it. Draw a neutral white facing dot.

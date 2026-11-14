@@ -9,7 +9,7 @@
 (defn make-player [color x y]
   {:x x :y y :vx 0 :vy 0 :radius 16
    :spawn-locked? true :air-jumps-left 1
-   :drop-through-platform-id nil :color color})
+   :drop-through-platform-id nil :color color :facing :right})
 
 (def local-player-fixtures
   {:player-1 (make-player "#22d3ee" 400 160)
@@ -265,6 +265,10 @@
   (let [player (clear-drop-through player platforms)
         locked? (:spawn-locked? player)
         horizontal (if locked? 0 horizontal)
+        player (cond
+                 (neg? horizontal) (assoc player :facing :left)
+                 (pos? horizontal) (assoc player :facing :right)
+                 :else player)
         support (supporting-platform player platforms)
         dropping? (and (not locked?) drop? (= :semisolid (:type support)))
         player (if dropping?

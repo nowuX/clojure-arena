@@ -23,6 +23,7 @@ flowchart LR
     subgraph Shared[Shared values: game.cljc]
         Step[step: iterate existing IDs]
         Player[step-player: one record]
+        Facing[remember accepted horizontal intention]
         Jump[drop request or apply-jump]
         Eligibility[support / spawn lock / air allowance / drop ID]
         Motion[accelerate-horizontal / gravity]
@@ -42,7 +43,7 @@ flowchart LR
     Advance --> Consume
     Consume -->|inputs| Advance
     Advance -->|world + inputs-by-player + dt| Step
-    Step --> Player --> Jump --> Eligibility --> Motion --> Collision
+    Step --> Player --> Facing --> Jump --> Eligibility --> Motion --> Collision
     Collision -->|supported top contact| Landing --> World
     Collision -->|other result| World
     World --> Draw --> Canvas
@@ -65,7 +66,7 @@ flowchart LR
 
 `frame` caps one measured interval at 100 ms and passes that elapsed time plus the prior fractional remainder to `advance-world!`. The latter processes every complete 25 ms tick and returns the new fractional remainder for `frame` to carry into the next animation frame. Each tick calls `consume-inputs!`, which snapshots `read-inputs` and then clears `pending-jump` and `pending-drop`; held A/D state remains. Quick W/S taps survive until a tick; only one tick receives each action.
 
-`step-player` forces horizontal input to zero while spawn locked. It clears stale drop state, selects drop or `apply-jump` before gravity and movement, then resolves contact and clears finished drop state. Only a supported top contact unlocks spawn and restores the one air jump. Drawing happens after simulation and does not change world state.
+`step-player` forces horizontal input to zero while spawn locked. Accepted nonzero intention updates `:facing` before acceleration; neutral input preserves it. It clears stale drop state, selects drop or `apply-jump` before gravity and movement, then resolves contact and clears finished drop state. Only a supported top contact unlocks spawn and restores the one air jump. Drawing happens after simulation and does not change world state.
 
 `init` calls `stop!` before registering listeners and scheduling a frame. `stop!` removes listeners, clears held keys and pending W/S through `handle-blur!`, cancels the scheduled frame, and resets its ID. `game.cljc` uses a reader conditional for `sqrt`; browser APIs remain in `client.cljs`.
 
@@ -86,3 +87,8 @@ fresh physics and input-eligibility values; `draw-world` reads every record.
 record with shared platform data and dt. Other IDs receive neutral input.
 Unknown input IDs cannot add a player, and each result depends only on that
 player, its input, and the shared platforms.
+
+Facing belongs to each shared player record, not to keyboard state or velocity.
+The browser only reads it to place the neutral white dot. Losing focus clears
+input without changing the remembered side; contact resolution changes physics
+without choosing a new side.

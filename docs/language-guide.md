@@ -10,7 +10,7 @@ La simulación compartida está en `src/clojure_arena/game.cljc`; los eventos y 
 
 ```clojure
 {:players {:player-1 {:x 400 :y 160 :vx 0 :vy 0 :radius 16
-          :spawn-locked? true :air-jumps-left 1}}}
+          :spawn-locked? true :air-jumps-left 1 :facing :right}}}
 ```
 
 `step` recibe mundo, entradas por ID y `dt` en segundos; `step-player` recibe
@@ -102,7 +102,7 @@ volver arriba y aterrizar. Blur, `stop!` e `init` borran las solicitudes.
 
 `:players` es un mapa cuya clave identifica a cada personaje. `make-player`
 construye sus datos; `get-in` consulta rutas como `[:players :player-1 :x]`
-y `assoc-in` o `update-in` devuelve un mundo con esa ruta actualizada.
+y `assoc-in` o `update-in` devuelven un mundo con esa ruta actualizada.
 Cambiar el color no cambia la identidad. `vals` obtiene los personajes para
 que `doseq` dibuje cada cuerpo sin modificar el mapa.
 
@@ -120,3 +120,15 @@ El estado de un personaje no depende del orden de los otros.
 El navegador usa solo `{local-player-id (consume-inputs!)}`, con
 `local-player-id` igual a `:player-1`. Los demás personajes siguen recibiendo
 gravedad y colisiones aunque no tengan controles asignados.
+
+### Dirección recordada
+
+`:facing` vale `:left` o `:right` y empieza en `:right`. `cond` consulta la
+intención horizontal ya filtrada por el bloqueo: `neg?` guarda izquierda,
+`pos?` guarda derecha y `:else` conserva el mapa. Se decide antes de acelerar,
+por eso el personaje puede mirar a la izquierda mientras aún se mueve a la
+derecha. La fricción y las colisiones no escriben ese campo.
+
+En `draw-player`, `if` elige un desplazamiento de medio radio según `:facing`.
+La interoperabilidad `.arc` dibuja primero el cuerpo y luego un punto blanco.
+Soltar teclas o perder foco limpia entradas, pero no borra esta memoria.

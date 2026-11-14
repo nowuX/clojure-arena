@@ -68,11 +68,16 @@
         (set! (.-fillStyle context) color)
         (.fillRect context x y width height)))))
 
-(defn draw-player [canvas {:keys [x y radius color]}]
+(defn draw-player [canvas {:keys [x y radius color facing]}]
   (let [context (.getContext canvas "2d")]
     (set! (.-fillStyle context) color)
     (.beginPath context)
     (.arc context x y radius 0 (* 2 js/Math.PI))
+    (.fill context)
+    (set! (.-fillStyle context) "#f2f2f2")
+    (.beginPath context)
+    (.arc context (+ x (* radius (if (= facing :left) -0.5 0.5)))
+          y 3 0 (* 2 js/Math.PI))
     (.fill context)))
 
 (defn draw-world [canvas {:keys [platforms players]}]
