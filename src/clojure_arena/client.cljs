@@ -17,6 +17,22 @@
 (def drop-key-code "KeyS")
 (def movement-key-codes #{"KeyA" "KeyD"})
 
+(defonce ^:private reset-frame-time? (atom false))
+
+(defn- clear-pending-actions! []
+  (reset! pending-jump false)
+  (reset! pending-drop false)
+  (reset! pending-attack false))
+
+(add-watch transport/connection-state ::clear-local-actions-on-admission
+           (fn [_ _ old-state new-state]
+             (when (and (not= (:admission old-state) (:admission new-state))
+                        (or (= :accepted (:admission old-state))
+                            (= :accepted (:admission new-state))))
+               (reset! reset-frame-time? true))
+             (when (transport/connected?)
+               (clear-pending-actions!))))
+
 (defn horizontal-input []
   (- (if (contains? @pressed-keys "KeyD") 1 0)
      (if (contains? @pressed-keys "KeyA") 1 0)))
@@ -43,8 +59,8 @@
       (when (and (not (.-repeat event))
                  (not (contains? @pressed-keys code)))
         (cond
-          (= code jump-key-code) (reset! pending-jump true)
-          (= code drop-key-code) (reset! pending-drop true))
+          (and (not (transport/connected?)) (= code jump-key-code)) (reset! pending-jump true)
+          (and (not (transport/connected?)) (= code drop-key-code)) (reset! pending-drop true))
         (swap! pressed-keys conj code)
         (transport/send-input! {:horizontal (horizontal-input)
                                :jump? (= code jump-key-code)
@@ -62,7 +78,7 @@
 (defn handle-pointer-down! [event]
   (when (zero? (.-button event))
     (.preventDefault event)
-    (reset! pending-attack true)
+    (when-not (transport/connected?) (reset! pending-attack true))
     (transport/send-input! (assoc protocol/neutral-input
                                 :horizontal (horizontal-input) :attack? true))))
 
@@ -128,18 +144,21 @@
         (.appendChild panel row)))))
 
 (defn advance-world! [elapsed-ms]
-  (loop [remaining-ms elapsed-ms]
-    (if (>= remaining-ms tick-ms)
-      (do
-        (swap! world game/step {local-player-id (consume-inputs!)} (/ tick-ms 1000))
-        (recur (- remaining-ms tick-ms)))
-      remaining-ms)))
+  (if (transport/connected?)
+    (do (clear-pending-actions!) 0)
+    (loop [remaining-ms elapsed-ms]
+      (if (>= remaining-ms tick-ms)
+        (do
+          (swap! world game/step {local-player-id (consume-inputs!)} (/ tick-ms 1000))
+          (recur (- remaining-ms tick-ms)))
+        remaining-ms))))
 
 (defn frame [canvas previous-time accumulated-ms timestamp]
-  (let [elapsed-ms (if (some? previous-time)
+  (let [reset-time? (compare-and-set! reset-frame-time? true false)
+        elapsed-ms (if (and (not reset-time?) (some? previous-time))
                      (min max-frame-ms (max 0 (- timestamp previous-time)))
                      0)
-        remainder (advance-world! (+ accumulated-ms elapsed-ms))
+        remainder (advance-world! (if reset-time? 0 (+ accumulated-ms elapsed-ms)))
         world-snapshot @world]
     (draw-world canvas world-snapshot)
     (render-players! world-snapshot)
@@ -148,6 +167,7 @@
 
 (defn stop! []
   (transport/stop!)
+  (reset! reset-frame-time? false)
   (when-let [canvas @input-canvas]
     (.removeEventListener canvas "pointerdown" handle-pointer-down!))
   (reset! input-canvas nil)

@@ -81,6 +81,7 @@
   (transport/start! "http://arena.example:8082/")
   (let [socket @transport/connection]
     (is (= :connecting (:status @transport/connection-state)))
+    (is (false? (transport/connected?)))
     (is (= "ws://arena.example:8082/ws" (.-url socket)))
     (is (empty? (array-seq (aget socket "sent"))))
     (open! socket)
@@ -128,12 +129,34 @@
             (receive! socket message)))
       (is (= identity (:identity @transport/connection-state)))
       (is (= :accepted (:admission @transport/connection-state)))
+      (is (true? (transport/connected?)))
       (is (= :ready (:status @transport/connection-state)))
-      (is (= "Comunicación con el servidor verificada. ID: player-41 · green."
+      (is (= "Simulación en el servidor; visualización compartida pendiente. ID: player-41 · green."
              (.-textContent @status-element)))
       (receive! socket message)
       (is (= identity (:identity @transport/connection-state)))
       (is (= 1 (alength (aget socket "sent")))))))
+
+(deftest connected-requires-an-open-accepted-socket-but-ignores-status-errors
+  (transport/start! "http://arena.example/")
+  (let [socket @transport/connection]
+    (is (false? (transport/connected?))
+        "connecting is not connected before the WebSocket opens")
+    (open! socket)
+    (is (false? (transport/connected?))
+        "an open socket is not connected until identity admission")
+    (receive! socket "{:type :identity :player-id :player-41 :color :green}")
+    (is (true? (transport/connected?)))
+    (receive! socket "not a valid server frame")
+    (is (= :error (:status @transport/connection-state)))
+    (is (= :accepted (:admission @transport/connection-state)))
+    (is (true? (transport/connected?))
+        "a transient protocol error does not return an open admitted socket to local physics")
+    (set! (.-readyState socket) 3)
+    (is (false? (transport/connected?))
+        "an admitted socket that is no longer OPEN is disconnected")
+    ((.-onclose socket) #js {})
+    (is (false? (transport/connected?)))))
 
 (deftest input-contract-is-exact-and-valid-inputs-buffer-until-admission
   (is (= {:horizontal 0 :jump? false :drop? false :attack? false}

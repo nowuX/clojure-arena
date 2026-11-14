@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**43 of 70 checkpoints complete.** Checkpoints 01–43 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**44 of 70 checkpoints complete.** Checkpoints 01–44 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -596,7 +596,7 @@ Checkpoints **39–49**. Add HTTP/WebSocket, exact EDN messages, connection-owne
 
 ### 44 — Advance one authoritative room at 40 Hz
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Serialize trusted 25 ms ticks with joins/inputs. Step the room
   world once, increment room tick, consume one-shot flags, and retain horizontal
   intention. Use at most one queued tick; drop overload pulses without catch-up. An

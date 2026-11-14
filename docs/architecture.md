@@ -106,8 +106,8 @@ without choosing a new side.
 5. Return a new world. The browser stores it and gives the same frame value to
    Canvas and the panel. New impulses move on the next tick, not this one.
 
-The simulation has no browser reads, clocks, atoms, or I/O. A future room owner
-can call the same `step` API with connection-owned inputs without changing
+The simulation has no browser reads, clocks, atoms, or I/O. The room owner
+calls the same `step` API with connection-owned inputs without changing
 these local mechanics. See [Local combat](combat.md) for the field contracts.
 
 ## HTTP boundary
@@ -124,5 +124,23 @@ flowchart LR
 ```
 
 The Clojure HTTP process owns file delivery and readiness; Shadow owns compilation.
-The local browser still owns the simulation. `server/start!` returns its own
+The browser owns fallback simulation; the admitted connection uses the room clock. `server/start!` returns its own
 http-kit handle, and `stop!` settles that handle without touching other services.
+
+## Room clock ownership
+
+```mermaid
+flowchart LR
+    Events[Browser controls] --> Transport[EDN input without identity]
+    Transport --> Socket[Server attaches private token]
+    Socket --> Agent[One room agent: join / input / tick]
+    Scheduler[25 ms scheduler: at most one pending tick] --> Agent
+    Agent --> Step[Pure game/step: all players]
+    Step --> Room[Committed room world and tick]
+    Admission[OPEN and accepted] --> Skip[Client skips local step and clears elapsed/actions]
+    RAF[Client RAF] --> Draw[Canvas and panel]
+```
+
+A tick calls `game/step` once, consumes pending actions, and retains horizontal
+input. Server stop drains owned scheduler work. Snapshots will connect the
+committed world to client drawing in the next checkpoint.

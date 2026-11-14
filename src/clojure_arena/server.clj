@@ -2,12 +2,14 @@
   (:require [clojure.string :as str]
             [clojure-arena.protocol :as protocol]
             [clojure-arena.room :as room]
+            [clojure-arena.ticker :as ticker]
             [org.httpkit.server :as http]
             [ring.middleware.content-type :refer [wrap-content-type]]
             [ring.middleware.file :refer [wrap-file]]
             [ring.middleware.head :refer [wrap-head]]))
 
 (def default-options {:host "127.0.0.1" :port 8082})
+(defonce ^:private tickers (atom {}))
 
 (defn deliver-effects! [connections effects]
   (doseq [{:keys [connection-token message]} effects]
@@ -56,10 +58,12 @@
                            (wrap-file public-dir)
                            wrap-content-type
                            wrap-head)]
-    (fn [request]
-      (if (and (= :get (:request-method request)) (= "/ws" (:uri request)))
-        (websocket-response request room-agent connections)
-        (static-handler request)))))
+    (with-meta
+      (fn [request]
+        (if (and (= :get (:request-method request)) (= "/ws" (:uri request)))
+          (websocket-response request room-agent connections)
+          (static-handler request)))
+      {::room-agent room-agent})))
 
 (defn parse-options [args]
   (let [[host port] args
@@ -75,12 +79,25 @@
 
 (defn start! [{:keys [host port public-dir]
                :or {host "127.0.0.1" port 8082 public-dir "public"}}]
-  (http/run-server (make-handler public-dir)
-                   {:ip host :port port :legacy-return-value? false}))
+  (let [handler (make-handler public-dir)
+        server (http/run-server handler
+                                {:ip host :port port :legacy-return-value? false})]
+    (try
+      (swap! tickers assoc server (ticker/start! (::room-agent (meta handler))))
+      server
+      (catch Exception error
+        (when-let [stopped (http/server-stop! server {:timeout 1000})]
+          @stopped)
+        (throw error)))))
 
 (defn stop! [server]
-  (when-let [stopped (http/server-stop! server {:timeout 1000})]
-    @stopped)
+  (locking server
+    (try
+      (ticker/stop! (get @tickers server))
+      (finally
+        (swap! tickers dissoc server)
+        (when-let [stopped (http/server-stop! server {:timeout 1000})]
+          @stopped))))
   nil)
 
 (defn -main [& args]

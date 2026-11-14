@@ -4,6 +4,7 @@
             [clojure-arena.protocol :as protocol]
             [clojure-arena.room :as room]
             [clojure-arena.server :as server]
+            [clojure-arena.ticker :as ticker]
             [org.httpkit.server :as http])
   (:import [java.net URI]
            [java.net.http HttpClient HttpRequest HttpResponse$BodyHandlers
@@ -273,7 +274,9 @@
                                (fn [deliver-effects!]
                                  (let [room-agent (make-room deliver-effects!)]
                                    (reset! captured-room room-agent)
-                                   room-agent))]
+                                   room-agent))
+                               ;; Inspect pending input without automatic consumption.
+                               ticker/start! (constantly nil)]
                    (start-test-server! host 0))
         port (http/server-port instance)
         connections (atom [])]

@@ -62,7 +62,8 @@
 
 (deftest initial-room-keeps-browser-fixtures-out-of-the-room-world-test
   (let [browser-world-before game/initial-world]
-    (is (= {:members {}
+    (is (= {:tick 0
+            :members {}
             :next-player-number 1
             :inputs-by-player {}
             :world (assoc game/initial-world :players {})}
@@ -245,13 +246,3 @@
       (is (== 264 (:y player)) (str player-id " should land on the central platform"))
       (is (false? (:spawn-locked? player)) (str player-id " should unlock on landing"))
       (is (= 1 (:air-jumps-left player)) (str player-id " should have one air jump")))))
-
-(deftest admission-creates-neutral-input-with-the-player-atomically
-  (let [envelope (room/apply-room-message room/initial-room
-                                           {:type :join :connection-token :fresh})
-        state (:room envelope)
-        player-id (get-in state [:members :fresh :player-id])]
-    (is (= #{player-id} (set (keys (get-in state [:world :players])))))
-    (is (= {player-id {:horizontal 0 :jump? false :drop? false :attack? false}}
-           (:inputs-by-player state)))
-    (is (= {} (:inputs-by-player room/initial-room)))))

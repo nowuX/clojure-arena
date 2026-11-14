@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–43 complete (43/70). Browser intentions are validated, buffered per session, and routed only to their connection-owned player.
+Checkpoints 01–44 complete (44/70). One room agent advances all admitted players at 40 Hz; connected browsers render without running local physics.
 Future mechanics remain specified in the roadmap.
 
 ## Run

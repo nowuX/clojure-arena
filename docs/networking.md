@@ -44,7 +44,7 @@ watcher, which has no gameplay WebSocket; use the query or the server's :8082 pa
 
 `init` starts transport; `stop!` detaches callbacks and closes its owned socket.
 Callbacks check their socket identity. Failure keeps the local fighting sandbox
-playable. No automatic reconnect or shared simulation exists at this stage.
+playable. There is no automatic reconnect. An admitted OPEN connection now uses the server clock; shared rendering is the next checkpoint.
 
 ## Serialized admission
 
@@ -61,8 +61,7 @@ The server maps fresh private Object tokens to channels; neither token nor
 client claims determine a wire-selected ID. Each server creates its own room.
 
 Wire identity is exactly `{:type :identity :player-id :player-N :color :cyan}`
-with one of `:cyan/:crimson/:amber/:green`. The browser shows ID/color. Gameplay
-is still local, and membership remains reserved after socket closure until
+with one of `:cyan/:crimson/:amber/:green`. The browser shows ID/color. Membership remains reserved after socket closure until
 explicit leave handling is introduced. Accepted identities now spawn bodies as described below.
 
 ## Admission and world data
@@ -78,7 +77,7 @@ The same admission transition inserts the member, body under that ID, and
 all existing body/input state. Full-room rejection inserts nothing. The world
 is serializable data; private channel tokens belong only to membership and
 captured delivery recipients. Server bodies are active records immediately;
-match phases have not been introduced. The server does not advance them yet.
+match phases have not been introduced. The server advances them at 40 Hz.
 
 ## Connection-owned input
 
@@ -92,4 +91,18 @@ The server attaches its private connection token. `apply-room-message` resolves
 that member and merges only its input; it does not move the world. A neutral
 release preserves an already captured jump, drop or attack until simulation
 consumes it. Keyboard repeat sends no extra action, and blur sends neutral
-movement immediately. The local fallback still runs independently at this stage.
+movement immediately. Only disconnected fallback runs local physics.
+
+## Authoritative clock
+
+`room/tick-seconds` is 0.025. Trusted exact `{:type :tick}` actions call
+`game/step` once with `:inputs-by-player`, increment `:tick`, consume one-shot
+flags and retain direction. Input and join actions share the same agent queue.
+`ticker/make-driver` admits at most one pending tick; overloaded pulses are
+dropped without catch-up, so overload slows simulation time. Its owned daemon
+scheduler stops before the HTTP handle is released.
+
+`transport/connected?` requires OPEN and accepted admission. The client keeps
+RAF/drawing but discards connected elapsed time and local action copies. A
+transition between local and authoritative ownership resets fractional time.
+The admitted display stays still until snapshots are introduced next.

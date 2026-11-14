@@ -2,6 +2,8 @@
   (:require [clojure-arena.game :as game]
             [clojure-arena.protocol :as protocol]))
 
+(def tick-seconds 0.025)
+
 (def spawn-config
   {:cyan {:fill "#22d3ee" :x 340 :y 160}
    :crimson {:fill "#e11d48" :x 380 :y 160}
@@ -13,7 +15,8 @@
     (game/make-player fill x y)))
 
 (def initial-room
-  {:members {}
+  {:tick 0
+   :members {}
    :next-player-number 1
    :inputs-by-player {}
    :world (assoc game/initial-world :players {})})
@@ -48,6 +51,25 @@
            :effects [{:connection-token connection-token
                       :message {:type :room-full}}]})))))
 
+(defn- clear-pending-actions [inputs-by-player]
+  (into {}
+        (map (fn [[player-id input]]
+               [player-id (assoc input
+                                 :jump? false
+                                 :drop? false
+                                 :attack? false)]))
+        inputs-by-player))
+
+(defn- tick-room [room]
+  (let [world (game/step (:world room)
+                         (:inputs-by-player room)
+                         tick-seconds)]
+    {:room (-> room
+               (assoc :world world)
+               (update :tick inc)
+               (update :inputs-by-player clear-pending-actions))
+     :effects []}))
+
 (defn apply-room-message [room internal-message]
   (let [{:keys [type connection-token input]} (when (map? internal-message)
                                               internal-message)
@@ -66,6 +88,10 @@
                           protocol/merge-pending-input input)
          :effects []}
         {:room room :effects []})
+
+      (and (= :tick type)
+           (= #{:type} fields))
+      (tick-room room)
 
       :else {:room room :effects []})))
 

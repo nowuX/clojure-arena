@@ -46,6 +46,7 @@
                   (tree-seq coll? seq first-result)))))
 
 (deftest initial-room-has-no-player-inputs-test
+  (is (= 0 (:tick room/initial-room)))
   (is (= {} (:inputs-by-player room/initial-room)))
   (is (= protocol/neutral-input
          {:horizontal 0 :jump? false :drop? false :attack? false})))

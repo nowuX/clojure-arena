@@ -331,9 +331,9 @@
             protocol/neutral-input]
            (sent-inputs socket))
         "A/D states are independent, and a quick W/S tap sends its fresh press")
-    (is (= {:horizontal 0 :jump? true :drop? true :attack? false}
+    (is (= protocol/neutral-input
            (client/read-inputs))
-        "local one-time requests remain available until the existing simulation consumes them")
+        "accepted input intents go to the server without entering the local simulation")
     (is (= 1 (count (:pending @raf-state)))
         "input delivery does not depend on running the queued animation frame")))
 
@@ -374,9 +374,9 @@
             {:horizontal 0 :jump? false :drop? false :attack? false}]
            (sent-inputs socket))
         "fresh W/S presses send one pulse each, while later movement updates carry no pulse")
-    (is (= {:horizontal 0 :jump? true :drop? true :attack? false}
+    (is (= {:horizontal 0 :jump? false :drop? false :attack? false}
            (client/read-inputs))
-        "network event snapshots do not consume local requests")))
+        "network event snapshots do not queue actions for local simulation")))
 
 (deftest only-primary-pointerdown-on-the-canvas-sends-an-attack
   (let [{:keys [socket]} (start-networked-session! game/initial-world)
@@ -391,7 +391,9 @@
     (dispatch-pointer-down! @arena-canvas 0)
     (is (= [{:horizontal 0 :jump? false :drop? false :attack? true}]
            (sent-inputs socket))
-        "a primary pointerdown on the arena canvas sends immediately")))
+        "a primary pointerdown on the arena canvas sends immediately")
+    (is (= protocol/neutral-input (client/read-inputs))
+        "accepted attacks are not queued for local simulation")))
 
 (deftest blur-immediately-sends-neutral-and-clears-local-input
   (let [{:keys [socket]} (start-networked-session! game/initial-world)]
@@ -401,8 +403,14 @@
     (dispatch-key! "keydown" "KeyS")
     (dispatch-pointer-down! @arena-canvas 0)
 
-    (is (= {:horizontal 1 :jump? true :drop? true :attack? true}
+    (is (= {:horizontal 1 :jump? false :drop? false :attack? false}
            (client/read-inputs)))
+    (is (= [{:horizontal 1 :jump? false :drop? false :attack? false}
+            {:horizontal 1 :jump? true :drop? false :attack? false}
+            {:horizontal 1 :jump? false :drop? true :attack? false}
+            {:horizontal 1 :jump? false :drop? false :attack? true}]
+           (sent-inputs socket))
+        "jump, drop, and attack intents are sent before any local frame runs")
     (dispatch-blur!)
     (is (= protocol/neutral-input (last (sent-inputs socket)))
         "blur sends a release without waiting for the suspended RAF callback")
@@ -424,6 +432,110 @@
     (is (= [{:horizontal 0 :jump? true :drop? false :attack? false}]
            (sent-inputs socket))
         "the transport keeps its captured one-time action while coalescing blur neutral")))
+
+(deftest admission-clears-local-actions-that-were-buffered-before-the-first-frame
+  (let [{:keys [socket]} (start-networked-session! (playable-world))
+        inputs-seen (atom [])]
+    (open-client-socket! socket)
+    (dispatch-key! "keydown" "KeyW")
+    (dispatch-pointer-down! @arena-canvas 0)
+    (is (= {:horizontal 0 :jump? true :drop? false :attack? true}
+           (client/read-inputs)))
+    (is (empty? (sent-inputs socket))
+        "the connecting session keeps its local fallback and waits for admission")
+
+    ((.-onmessage socket)
+     #js {:data "{:type :identity :player-id :player-1 :color :cyan}"})
+    (is (transport/connected?))
+    (is (= [{:horizontal 0 :jump? true :drop? false :attack? true}]
+           (sent-inputs socket))
+        "admission sends the buffered network intent")
+    (is (= {:horizontal 0 :jump? false :drop? false :attack? false}
+           (client/read-inputs))
+        "admission clears the local copy before any animation frame runs")
+
+    (set! (.-readyState socket) 3)
+    ((.-onclose socket) #js {})
+    (with-redefs [game/step (fn [world inputs-by-player _dt]
+                             (swap! inputs-seen conj
+                                    (get inputs-by-player client/local-player-id))
+                             world)]
+      (is (= 0 (client/advance-world! client/tick-ms)))
+      (is (= [protocol/neutral-input] @inputs-seen)
+          "a network intent admitted before the first frame is not replayed after close"))))
+
+(deftest accepted-frames-drop-local-time-but-keep-rendering-and-raf
+  (let [{:keys [socket]} (start-networked-session! {:steps 0 :players {}})
+        steps (atom [])
+        rendered (atom [])
+        rendered-players (atom [])]
+    (admit-client-socket! socket)
+    (is (transport/connected?))
+    (dispatch-key! "keydown" "KeyW")
+    (dispatch-pointer-down! @arena-canvas 0)
+    (is (= [{:horizontal 0 :jump? true :drop? false :attack? false}
+            {:horizontal 0 :jump? false :drop? false :attack? true}]
+           (sent-inputs socket))
+        "accepted key and pointer input reaches the server immediately")
+    (is (= protocol/neutral-input (client/read-inputs)))
+
+    ;; Model any action queued before the mode boundary and verify direct advances discard it.
+    (reset! client/pending-jump true)
+    (reset! client/pending-drop true)
+    (reset! client/pending-attack true)
+    (with-redefs [game/step (fn [world inputs-by-player _dt]
+                             (swap! steps conj
+                                    (get inputs-by-player client/local-player-id))
+                             (update world :steps inc))
+                  client/draw-world (fn [_canvas world]
+                                      (swap! rendered conj world))
+                  client/render-players!
+                  (fn [world] (swap! rendered-players conj (:players world)))]
+      (is (= 0 (client/advance-world! 100)))
+      (is (= [false false false]
+             [@client/pending-jump @client/pending-drop @client/pending-attack]))
+      (is (= [] @steps)
+          "direct accepted advances never call game/step")
+      (deliver-frame! 0)
+      (deliver-frame! 100)
+      (is (= [] @steps)
+          "accepted frames discard capped elapsed time instead of building catch-up")
+      (is (= [{:steps 0 :players {}} {:steps 0 :players {}}]
+             @rendered))
+      (is (= [{} {}] @rendered-players))
+      (is (= 1 (count (:pending @raf-state)))
+          "the animation loop continues while local simulation is disabled")
+
+      (dispatch-key! "keyup" "KeyW")
+      (set! (.-readyState socket) 3)
+      ((.-onclose socket) #js {})
+      (is (not (transport/connected?)))
+      (deliver-frame! 125)
+      (is (= [] @steps)
+          "the first fallback frame discards elapsed time from the connected interval")
+      (deliver-frame! 150)
+      (is (= [protocol/neutral-input] @steps)
+          "local fallback resumes without replaying accepted W or click intents")
+      (is (= [{:steps 0 :players {}}
+              {:steps 0 :players {}}
+              {:steps 0 :players {}}
+              {:steps 1 :players {}}]
+             @rendered)))))
+
+(deftest a-connected-session-with-no-frames-cannot-replay-its-time-on-close
+  (let [{:keys [socket]} (start-networked-session! {:steps 0 :players {}})]
+    (with-redefs [game/step (fn [world _inputs _dt] (update world :steps inc))]
+      (deliver-frame! 0)
+      (deliver-frame! 24)
+      (admit-client-socket! socket)
+      (set! (.-readyState socket) 3)
+      ((.-onclose socket) #js {})
+      (deliver-frame! 10000)
+      (is (zero? (:steps @client/world))
+          "both the old partial tick and suspended connected time are discarded")
+      (deliver-frame! 10025)
+      (is (= 1 (:steps @client/world))
+          "fresh local elapsed time resumes at the next normal interval"))))
 
 (deftest init-stop-cycles-do-not-replay-inputs-or-duplicate-listeners
   (let [sockets (install-websocket!)]

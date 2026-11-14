@@ -233,3 +233,11 @@ todo junto, sin exponer tokens privados dentro del mundo serializable.
 privado al mensaje interno; el navegador no puede elegir el jugador. Los
 handlers de teclado envían datos inmediatamente, mientras RAF sigue dedicado
 al avance y dibujo local.
+
+### Un reloj y una cola
+
+Un `agent` serializa admisiones, entradas y ticks mediante `send`. La función
+pura devuelve `{:room ... :effects ...}` y el watch entrega los efectos ya
+confirmados. El planificador de 25 ms admite como máximo un tick pendiente;
+no acumula una ráfaga para recuperar retrasos. `compare-and-set!` protege esa
+compuerta, mientras `game/step` sigue trabajando solo con valores.

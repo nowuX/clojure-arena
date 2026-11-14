@@ -5,6 +5,12 @@
 (defonce connection-state (atom {:status :closed}))
 (defonce ^:private pending-input (atom nil))
 
+(defn connected? []
+  (let [socket @connection]
+    (boolean (and socket
+                  (= 1 (.-readyState socket))
+                  (= :accepted (:admission @connection-state))))))
+
 (defn websocket-url [page-url]
   (let [page (js/URL. page-url)
         configured (.get (.-searchParams page) "server")
@@ -17,12 +23,14 @@
 (defn set-state! [state]
   (reset! connection-state state)
   (when-let [element (.getElementById js/document "connection-status")]
-    (let [label (case (:status state)
-                  :connecting "Conectando al servidor…"
-                  :open "Conectado al servidor."
-                  :ready "Comunicación con el servidor verificada."
-                  :error "Servidor no disponible; el juego continúa en modo local."
-                  "Conexión cerrada; el juego continúa en modo local.")
+    (let [label (if (= :accepted (:admission state))
+                  "Simulación en el servidor; visualización compartida pendiente."
+                  (case (:status state)
+                    :connecting "Conectando al servidor…"
+                    :open "Conectado al servidor."
+                    :ready "Comunicación con el servidor verificada."
+                    :error "Servidor no disponible; el juego continúa en modo local."
+                    "Conexión cerrada; el juego continúa en modo local."))
           {:keys [player-id color]} (:identity state)]
       (set! (.-textContent element)
             (str label (when player-id
