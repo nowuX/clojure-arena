@@ -15,8 +15,10 @@
                  (js-delete js/globalThis "document")))))))
 
 (defn element []
-  (let [node #js {:textContent "" :className "" :style #js {} :children #js []
-                  :setAttribute (fn [& _])}]
+  (let [attributes (atom {})
+        node #js {:textContent "" :className "" :style #js {} :children #js []
+                  :setAttribute (fn [key value] (swap! attributes assoc key value))
+                  :getAttribute (fn [key] (get @attributes key))}]
     (set! (.-appendChild node) (fn [child] (.push (.-children node) child)))
     (set! (.-replaceChildren node) (fn [] (set! (.-children node) #js [])))
     node))
@@ -58,7 +60,7 @@
     (with-redefs [js/document doc
                   client/draw-background (fn [& _]) client/draw-platform (fn [& _])
                   client/draw-player (fn [_ player] (swap! drawn conj player))]
-      (client/draw-world nil world)
+      (client/draw-world #js {:getContext (fn [_] #js {:fillText (fn [& _])})} world)
       (client/render-match! world)
       (is (= 2 (count @drawn)))
       (is (= 3 (.-length (.-children players))))

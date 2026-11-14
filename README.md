@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–68 complete (68/70). Player rows persist by identity/container; unchanged text, colors, clocks and captured results produce no DOM writes.
+Checkpoints 01–69 complete (69/70). A neutral controlled-player marker and accessible current row follow admitted snapshots; responsive grayscale layout preserves the 800x480 simulation.
 Future mechanics remain specified in the roadmap.
 
 ## Run

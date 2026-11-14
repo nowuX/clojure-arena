@@ -8,6 +8,8 @@
   (assoc-in fixtures/single-platform-world [:players :player-1 :spawn-locked?] false))
 
 (def draw-scene client/draw-world)
+(defn label-canvas []
+  #js {:getContext (fn [_] #js {:fillText (fn [& _])})})
 (def render-panel client/render-players!)
 
 (def callbacks (atom {}))
@@ -304,7 +306,7 @@
     (with-redefs [client/draw-background (fn [_])
                   client/draw-player (fn [_ _])
                   client/draw-platform (fn [_ platform] (swap! drawn conj platform))]
-      (draw-scene nil snapshot)
+      (draw-scene (label-canvas) snapshot)
       (is (= (:platforms snapshot) @drawn))
       (is (= game/initial-world snapshot)))))
 
@@ -409,7 +411,7 @@
       (with-redefs [client/draw-background (fn [_])
                     client/draw-platform (fn [_ _])
                     client/draw-player (fn [_ player] (swap! drawn conj player))]
-        (draw-scene nil snapshot)
+        (draw-scene (label-canvas) snapshot)
         (is (= n (count @drawn)))
         (is (= (set (vals players)) (set @drawn)))
         (is (= players (:players snapshot)))))))
@@ -545,8 +547,10 @@
 
 (defn panel-node []
   (let [children (atom [])
+        attributes (atom {})
         node #js {:style #js {} :children children
-                  :setAttribute (fn [_ _])
+                  :setAttribute (fn [key value] (swap! attributes assoc key value))
+                  :getAttribute (fn [key] (get @attributes key))
                   :appendChild #(swap! children conj %)
                   :replaceChildren #(reset! children [])}]
     node))
@@ -697,7 +701,7 @@
                   client/draw-background (fn [& _])
                   client/draw-platform (fn [& _])
                   client/draw-player (fn [_ player] (swap! drawn conj player))]
-      (draw-scene nil snapshot)
+      (draw-scene (label-canvas) snapshot)
       (render-panel snapshot)
       (is (= 2 (count @drawn)))
       (let [fields (mapv #(deref (.-children %)) @(.-children panel))]

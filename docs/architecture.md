@@ -162,3 +162,10 @@ Match clock/summary text changes only when its displayed string changes;
 standings rebuild only when the captured result or container changes.
 `stop!` clears presentation caches. Canvas still draws each RAF; none of these
 caches modifies the immutable world or determines gameplay state.
+
+The controlled row uses a neutral border and `aria-current`. Offline control is
+player-1; admitted connections use their assigned identity only after the first
+snapshot. Only a visible active contender receives the neutral Canvas `Tú`
+label. The label and protection ring restore the Canvas properties they change.
+CSS scales the 800 × 480 backing surface without changing world coordinates;
+wrapped cards and endpoint text keep the existing desktop controls visible.

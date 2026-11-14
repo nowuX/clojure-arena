@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**68 of 70 checkpoints complete.** Checkpoints 01–68 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**69 of 70 checkpoints complete.** Checkpoints 01–69 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -922,7 +922,7 @@ Checkpoints **67–70**. Improve the implemented game without adding mechanics o
 
 ### 69 — Polish the monochrome responsive interface
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Identify the controlled visible body with a neutral `Tú` label
   and highlight its row using neutral border/text plus accessible current marker. Use
   assigned identity only after the first shared snapshot; local mode uses player-1. Keep

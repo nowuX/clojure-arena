@@ -20,11 +20,13 @@
 (def ^:private connection-status (atom nil))
 
 (defn- fixture-element [tag-name]
-  (let [element #js {:tagName tag-name
+  (let [attributes (atom {})
+        element #js {:tagName tag-name
                      :className ""
                      :textContent ""
                      :style #js {:backgroundColor ""}
-                     :setAttribute (fn [& _])
+                     :setAttribute (fn [key value] (swap! attributes assoc key value))
+                     :getAttribute (fn [key] (get @attributes key))
                      :children #js []}]
     (set! (.-appendChild element)
           (fn [child]
@@ -86,6 +88,9 @@
           (fn []
             (swap! calls conj {:op :fill
                                :fill-style (.-fillStyle context)})))
+    (set! (.-fillText context)
+          (fn [text x y] (swap! calls conj {:op :text :text text :x x :y y})))
+    (set! (.-stroke context) (fn []))
     {:canvas canvas :calls calls}))
 
 (defn- fixture-canvas []
@@ -96,7 +101,9 @@
                      :strokeRect (fn [_x _y _width _height])
                      :beginPath (fn [])
                      :arc (fn [_x _y _radius _start _end])
-                     :fill (fn [])}]
+                     :fill (fn [])
+                     :stroke (fn [])
+                     :fillText (fn [& _])}]
     (set! (.-width canvas) 800)
     (set! (.-height canvas) 480)
     (set! (.-getContext canvas) (fn [_kind] context))

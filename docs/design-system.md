@@ -47,8 +47,7 @@ inactive player keeps its identity row without an arena body.
 
 ## Responsive presentation
 
-The simulation and Canvas backing size stay 800 × 480. When responsive polish
-is introduced, CSS scales the canvas proportionally to available width. Wrap
+The simulation and Canvas backing size stay 800 × 480. CSS scales the canvas proportionally to available width. Wrap
 long IDs and server addresses. Player rows and result standings wrap without
 horizontal page overflow. Show A/D, W, S, and primary-click controls visibly.
 No touch controls or new input mechanics are implied by small-screen support.

@@ -178,9 +178,9 @@
                                  :accumulated-percentage 100 :forfeited? true}]}}})
 
 (defn context [counters]
-  (let [ctx #js {:calls (atom []) :state-stack (atom [])}
+  (let [ctx #js {:calls (atom []) :stateStack (atom [])}
         calls (.-calls ctx)
-        stack (.-state-stack ctx)]
+        stack (.-stateStack ctx)]
     (doseq [property ["fillStyle" "strokeStyle" "font" "textAlign" "textBaseline"]]
       (define-tracked-property! ctx property counters :canvas-writes "" str))
     (define-tracked-property! ctx "lineWidth" counters :canvas-writes 1 identity)

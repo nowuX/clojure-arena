@@ -367,3 +367,11 @@ contenedor sigue siendo el mismo objeto; la igualdad de valores evita escribir
 texto sin cambios. Guardar el color original evita confundir un hexadecimal
 con el formato `rgb(...)` que devuelve CSS. Estas cachés se limpian al detener
 el cliente y no forman parte del mundo inmutable de la simulación.
+
+### Identidad visible y estado de Canvas
+
+La identidad controlada se calcula a partir de la conexión y del primer snapshot;
+no se adivina por el color ni se guarda dentro del mundo. `try`/`finally` restaura
+las propiedades temporales de Canvas incluso si dibujar falla. `aria-current`
+expone la selección en el DOM; CSS añade el marcador neutral sin alterar el ID.
+El ancho CSS escala la presentación, no las coordenadas de simulación.

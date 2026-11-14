@@ -99,6 +99,12 @@
   (reset! pending-attack false)
   (transport/send-input! protocol/neutral-input))
 
+(defn- controlled-player-id []
+  (if (transport/connected?)
+    (when (:snapshot @transport/connection-state)
+      (get-in @transport/connection-state [:identity :player-id]))
+    local-player-id))
+
 (defn draw-background [canvas]
   (let [context (.getContext canvas "2d")]
     (set! (.-fillStyle context) "#101010")
@@ -127,11 +133,17 @@
           y 3 0 (* 2 js/Math.PI))
     (.fill context)
     (when (game/protected-player? player)
-      (set! (.-strokeStyle context) "#f2f2f2")
-      (set! (.-lineWidth context) 2)
-      (.beginPath context)
-      (.arc context x y (+ radius 5) 0 (* 2 js/Math.PI))
-      (.stroke context))))
+      (let [previous-stroke (.-strokeStyle context)
+            previous-width (.-lineWidth context)]
+        (try
+          (set! (.-strokeStyle context) "#f2f2f2")
+          (set! (.-lineWidth context) 2)
+          (.beginPath context)
+          (.arc context x y (+ radius 5) 0 (* 2 js/Math.PI))
+          (.stroke context)
+          (finally
+            (set! (.-strokeStyle context) previous-stroke)
+            (set! (.-lineWidth context) previous-width)))))))
 
 (defn- drawable-player? [match player-id player]
   (and (game/active-player? player)
@@ -140,12 +152,33 @@
                 (contains? (:contenders match) player-id)
                 (not (get-in match [:contenders player-id :forfeited?]))))))
 
+(defn- draw-controlled-player-label [canvas {:keys [x y radius]}]
+  (let [context (.getContext canvas "2d")
+        previous-fill (.-fillStyle context)
+        previous-font (.-font context)
+        previous-align (.-textAlign context)
+        previous-baseline (.-textBaseline context)]
+    (try
+      (set! (.-fillStyle context) "#f2f2f2")
+      (set! (.-font context) "600 12px system-ui")
+      (set! (.-textAlign context) "center")
+      (set! (.-textBaseline context) "bottom")
+      (.fillText context "Tú" x (- y radius 8))
+      (finally
+        (set! (.-fillStyle context) previous-fill)
+        (set! (.-font context) previous-font)
+        (set! (.-textAlign context) previous-align)
+        (set! (.-textBaseline context) previous-baseline)))))
+
 (defn draw-world [canvas {:keys [platforms players match]}]
-  (draw-background canvas)
-  (doseq [platform platforms] (draw-platform canvas platform))
-  (doseq [[player-id player] players
-          :when (drawable-player? match player-id player)]
-    (draw-player canvas player)))
+  (let [controlled-id (controlled-player-id)]
+    (draw-background canvas)
+    (doseq [platform platforms] (draw-platform canvas platform))
+    (doseq [[player-id player] players
+            :when (drawable-player? match player-id player)]
+      (draw-player canvas player)
+      (when (= player-id controlled-id)
+        (draw-controlled-player-label canvas player)))))
 
 (defn player-state-label [player]
   (case (:lifecycle player :active)
@@ -186,9 +219,16 @@
     {:row row :swatch swatch :label label :percentage percentage
      :stocks stocks :state state}))
 
-(defn- update-player-row! [entry player-id player match]
-  (let [{:keys [swatch percentage stocks state]} entry
-        color (:color player)]
+(defn- update-player-row! [entry player-id player match controlled-id]
+  (let [{:keys [row swatch percentage stocks state]} entry
+        color (:color player)
+        controlled? (= player-id controlled-id)
+        row-class (str "player-row" (when controlled? " player-row-local"))
+        current (if controlled? "true" "false")]
+    (when-not (= row-class (.-className row))
+      (set! (.-className row) row-class))
+    (when-not (= current (.getAttribute row "aria-current"))
+      (.setAttribute row "aria-current" current))
     ;; Native CSS reads normalize colors; retain the original assigned value.
     (when-not (= color (:color entry))
       (set! (.-backgroundColor (.-style swatch)) color))
@@ -202,6 +242,7 @@
   (when-let [panel (.getElementById js/document "players")]
     (let [cached @player-panel-cache
           previous (when (identical? panel (:container cached)) cached)
+          controlled-id (controlled-player-id)
           ordered (sort-by (comp str key) players)
           order (mapv key ordered)
           rows (into {}
@@ -209,7 +250,7 @@
                             [player-id (update-player-row!
                                         (or (get-in previous [:rows player-id])
                                             (create-player-row! player-id))
-                                        player-id player match)]))
+                                        player-id player match controlled-id)]))
                      ordered)]
       (when-not (= order (:order previous))
         (.replaceChildren panel)
