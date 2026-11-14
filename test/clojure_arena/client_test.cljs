@@ -114,4 +114,4 @@
         fast (simulate (range 0 1001 10))
         slow (simulate (range 0 1001 100))]
     (is (= fast slow))
-    (is (= 620 (get-in fast [:player :x])))))
+    (is (< (abs (- 595.25 (get-in fast [:player :x]))) 1e-8))))

@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**12 of 70 checkpoints complete.** Checkpoints 01–12 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**13 of 70 checkpoints complete.** Checkpoints 01–13 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -214,7 +214,7 @@ Checkpoints **01–21**. Introduce rendering, immutable data, input, fixed time,
 
 ### 13 — Add horizontal acceleration
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Accelerate voluntary X toward the ±220 target by at most 880 ×
   dt, without overshoot. Keep immediate neutral stopping until the separate friction step.
 - **Verify:** At 25 ms, speed changes by 22 units/s and reaches 220 from rest in ten

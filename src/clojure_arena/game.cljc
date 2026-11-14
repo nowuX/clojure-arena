@@ -1,6 +1,7 @@
 (ns clojure-arena.game)
 
 (def horizontal-speed 220)
+(def horizontal-acceleration 880)
 (def gravity 980)
 
 (def initial-world
@@ -141,10 +142,20 @@
                      fall-dt contacts-left true))
             proposed))))))
 
+(defn accelerate-horizontal [vx horizontal dt]
+  (if (zero? horizontal)
+    0
+    (let [target (* horizontal horizontal-speed)
+          change (* horizontal-acceleration dt)]
+      (cond
+        (< vx target) (min target (+ vx change))
+        (> vx target) (max target (- vx change))
+        :else vx))))
+
 (defn step [world {:keys [horizontal] :or {horizontal 0}} dt]
   (update world :player
           (fn [player]
             (-> player
-                (assoc :vx (* horizontal horizontal-speed))
+                (update :vx accelerate-horizontal horizontal dt)
                 (update :vy + (* gravity dt))
                 (collide-platform (:platform world) dt)))))

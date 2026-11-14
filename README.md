@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–12 complete (12/70). Swept circle contacts resolve all solid faces, rounded corners, overlap, and remaining travel with a four-contact cap.
+Checkpoints 01–13 complete (13/70). Horizontal intention accelerates toward 220 units/s at 880 units/s², with solid contacts and gravity.
 Future mechanics remain specified in the roadmap.
 
 ## Run
