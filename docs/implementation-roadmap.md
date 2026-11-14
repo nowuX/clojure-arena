@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**41 of 70 checkpoints complete.** Checkpoints 01–41 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**42 of 70 checkpoints complete.** Checkpoints 01–42 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -569,7 +569,7 @@ Checkpoints **39–49**. Add HTTP/WebSocket, exact EDN messages, connection-owne
 
 ### 42 — Spawn a player for each accepted connection
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Use color spawn configuration and the shared factory to insert
   one player and neutral input atomically with admission. Start the server room without
   offline fixtures. Until match phases exist, admitted players are active; do not

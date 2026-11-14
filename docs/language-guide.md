@@ -218,3 +218,10 @@ transiciones; el núcleo puro devuelve `{:room ... :effects ...}`. `add-watch`
 recibe ese valor después de guardarlo y entrega las respuestas capturadas.
 El token es un objeto privado de la conexión; la identidad visible es otro dato.
 Así la capacidad y la elección de color forman una sola decisión de estado.
+
+### Configuración de aparición
+
+`spawn-config` es un mapa de color lógico a relleno y coordenadas. La sala
+reutiliza `make-player`; no tiene otra versión de la física. Una misma cadena
+`->` inserta miembro, personaje y entrada neutral con `assoc-in`. Se devuelve
+todo junto, sin exponer tokens privados dentro del mundo serializable.

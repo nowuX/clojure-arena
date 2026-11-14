@@ -1,5 +1,6 @@
 (ns clojure-arena.room-test
   (:require [clojure.test :refer [deftest is]]
+            [clojure-arena.game :as game]
             [clojure-arena.protocol :as protocol]
             [clojure-arena.room :as room])
   (:import [java.util.concurrent CountDownLatch LinkedBlockingQueue TimeUnit]))
@@ -23,8 +24,13 @@
     (is (= room/initial-room initial))
     (is (identical? initial
                     (:room (room/apply-room-message initial {:type :unknown}))))
-    (is (= {:room {:members {:connection-a {:player-id :player-1 :color :cyan}}
-                   :next-player-number 2}
+    (is (= {:room (-> room/initial-room
+                      (assoc-in [:members :connection-a]
+                                {:player-id :player-1 :color :cyan})
+                      (assoc :next-player-number 2)
+                      (assoc-in [:inputs-by-player :player-1] protocol/neutral-input)
+                      (assoc-in [:world :players :player-1]
+                                (game/make-player "#22d3ee" 340 160)))
             :effects [{:connection-token :connection-a
                        :message {:type :identity
                                  :player-id :player-1
@@ -79,12 +85,16 @@
            (:effects duplicate)))))
 
 (deftest player-number-counter-is-independent-from-palette-position-test
-  (let [seeded-room {:members {:existing {:player-id :player-7 :color :cyan}}
-                     :next-player-number 41}
+  (let [seeded-room (-> (:room (join-room room/initial-room :existing))
+                        (assoc :next-player-number 41))
         result (join-room seeded-room :new-connection)]
-    (is (= {:members {:existing {:player-id :player-7 :color :cyan}
-                      :new-connection {:player-id :player-41 :color :crimson}}
-            :next-player-number 42}
+    (is (= (-> seeded-room
+               (assoc-in [:members :new-connection]
+                         {:player-id :player-41 :color :crimson})
+               (assoc :next-player-number 42)
+               (assoc-in [:inputs-by-player :player-41] protocol/neutral-input)
+               (assoc-in [:world :players :player-41]
+                         (game/make-player "#e11d48" 380 160)))
            (:room result)))
     (is (= [{:connection-token :new-connection
              :message {:type :identity
@@ -110,10 +120,16 @@
         callback-records (atom [])
         room-agent (room/make-room
                     (fn [effects]
-                      (swap! callback-records conj
-                             {:effects effects
-                              :committed-member-count
-                              (count (:members (:room (deref (deref room-ref)))))})))]
+                      (let [committed-room (:room (deref (deref room-ref)))
+                            members (:members committed-room)
+                            players (get-in committed-room [:world :players])]
+                        (swap! callback-records conj
+                               {:effects effects
+                                :committed-member-count (count members)
+                                :committed-world-player-count (count players)
+                                :committed-member-player-ids
+                                (set (map :player-id (vals members)))
+                                :committed-world-player-ids (set (keys players))}))))]
     (try
       (reset! room-ref room-agent)
       (is (= {:room room/initial-room :effects []} @room-agent))
@@ -126,6 +142,11 @@
                                                :connection-token :third})
       (await-agent! room-agent)
       (is (= [1 2 3] (mapv :committed-member-count @callback-records)))
+      (is (= [1 2 3] (mapv :committed-world-player-count @callback-records)))
+      (is (every? #(= (:committed-member-player-ids %)
+                      (:committed-world-player-ids %))
+                  @callback-records)
+          "post-commit callbacks should observe matching member and world player IDs")
       (is (= [[{:connection-token :first
                 :message {:type :identity :player-id :player-1 :color :cyan}}]
               [{:connection-token :second
@@ -133,10 +154,17 @@
               [{:connection-token :third
                 :message {:type :identity :player-id :player-3 :color :amber}}]]
              (mapv :effects @callback-records)))
-      (is (= {:room {:members {:first {:player-id :player-1 :color :cyan}
-                               :second {:player-id :player-2 :color :crimson}
-                               :third {:player-id :player-3 :color :amber}}
-                     :next-player-number 4}
+      (is (= {:room (-> room/initial-room
+                        (assoc :members
+                               {:first {:player-id :player-1 :color :cyan}
+                                :second {:player-id :player-2 :color :crimson}
+                                :third {:player-id :player-3 :color :amber}})
+                        (assoc :next-player-number 4)
+                        (assoc :inputs-by-player (zipmap [:player-1 :player-2 :player-3] (repeat protocol/neutral-input)))
+                        (assoc-in [:world :players]
+                                  {:player-1 (game/make-player "#22d3ee" 340 160)
+                                   :player-2 (game/make-player "#e11d48" 380 160)
+                                   :player-3 (game/make-player "#f59e0b" 420 160)}))
               :effects [{:connection-token :third
                          :message {:type :identity
                                    :player-id :player-3
@@ -170,7 +198,20 @@
         finished (CountDownLatch. request-count)
         failures (atom [])
         deliveries (LinkedBlockingQueue.)
-        room-agent (room/make-room #(.add deliveries %))
+        room-ref (atom nil)
+        room-agent (room/make-room
+                    (fn [effects]
+                      (let [committed-room (:room (deref (deref room-ref)))
+                            members (:members committed-room)
+                            players (get-in committed-room [:world :players])]
+                        (.add deliveries
+                              {:effects effects
+                               :members members
+                               :member-player-ids
+                               (set (map :player-id (vals members)))
+                               :world-player-ids (set (keys players))
+                               :next-player-number
+                               (:next-player-number committed-room)}))))
         threads (mapv (fn [connection-token]
                         (doto (Thread.
                                ^Runnable
@@ -191,6 +232,7 @@
                           (.setDaemon true)))
                       request-tokens)]
     (try
+      (reset! room-ref room-agent)
       (doseq [thread threads]
         (.start thread))
       (let [all-ready? (.await ready 2 TimeUnit/SECONDS)]
@@ -202,7 +244,7 @@
       (await-agent! room-agent)
       (let [captured (mapv (fn [_] (.poll deliveries))
                            (range request-count))
-            effects (vec (mapcat identity (remove nil? captured)))
+            effects (vec (mapcat :effects (remove nil? captured)))
             replies-by-token (group-by :connection-token effects)
             identity-effects (filter #(= :identity (get-in % [:message :type]))
                                     effects)
@@ -211,8 +253,42 @@
         (is (every? some? captured)
             "each queued join should yield one captured delivery vector")
         (is (= request-count (count effects)))
+        (let [committed-player-counts (mapv #(count (:world-player-ids %)) captured)]
+          (is (= 1 (first committed-player-counts)))
+          (is (= 4 (last committed-player-counts)))
+          (is (every? #(<= 1 % 4) committed-player-counts))
+          (is (every? (fn [[before after]] (<= before after (inc before)))
+                      (partition 2 1 committed-player-counts))))
+        (is (= request-count (count captured))
+            "each callback should observe the committed world after that join")
+        (is (every? #(= (:member-player-ids %) (:world-player-ids %)) captured)
+            "every post-commit callback should see one world player per member")
+        (is (every? #(= (inc (count (:members %)))
+                        (:next-player-number %))
+                    captured)
+            "the committed identity counter should match admitted members")
+        (doseq [[previous current] (partition 2 1 (cons {:members {}
+                                                        :world-player-ids #{}
+                                                        :next-player-number 1}
+                                                       captured))]
+          (let [[effect] (:effects current)
+                connection-token (:connection-token effect)
+                previous-player-ids (:world-player-ids previous)
+                current-player-ids (:world-player-ids current)
+                admitted-before? (contains? (:members previous) connection-token)
+                room-full? (= :room-full (get-in effect [:message :type]))]
+            (if (or admitted-before? room-full?)
+              (is (= previous-player-ids current-player-ids)
+                  "duplicate replies and capacity rejections must not spawn players")
+              (is (= (inc (count previous-player-ids))
+                     (count current-player-ids))
+                  "a newly accepted member should add one world player"))))
         (is (= 4 (count admitted-members)))
         (is (= 5 (get-in @room-agent [:room :next-player-number])))
+        (is (= 4 (count (get-in @room-agent [:room :world :players]))))
+        (is (= (set (map :player-id admitted-members))
+               (set (keys (get-in @room-agent [:room :world :players]))))
+            "concurrent joins should commit exactly one world player per member")
         (is (= 4 (count accepted-tokens)))
         (is (= 4 (count (set (map :player-id admitted-members))))
             "accepted members should have distinct player IDs")
@@ -227,4 +303,5 @@
                                 (get-in % [:message :type]))
                     effects)))
       (finally
-        (.countDown start)))))
+        (.countDown start)
+        (reset! room-ref nil)))))

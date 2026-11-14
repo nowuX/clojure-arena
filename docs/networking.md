@@ -62,5 +62,20 @@ client claims determine a wire-selected ID. Each server creates its own room.
 
 Wire identity is exactly `{:type :identity :player-id :player-N :color :cyan}`
 with one of `:cyan/:crimson/:amber/:green`. The browser shows ID/color. Gameplay
-is still local, and this stage reserves membership after socket closure until
-explicit leave handling is introduced. No player body is spawned on the server yet.
+is still local, and membership remains reserved after socket closure until
+explicit leave handling is introduced. Accepted identities now spawn bodies as described below.
+
+## Admission and world data
+
+The room begins with the shared platforms and an empty `:players` map, not the
+four offline fixtures. `spawn-config` maps palette keywords to body fill and
+spawns `(340,160)/(380,160)/(420,160)/(460,160)`. `make-spawn-player` delegates
+to the shared factory, including spawn lock, facing, jump/drop, percentage,
+melee sequences/cooldown, and retained motion.
+
+The same admission transition inserts the member, body under that ID, and
+`protocol/neutral-input` in `:inputs-by-player`. Duplicate admission preserves
+all existing body/input state. Full-room rejection inserts nothing. The world
+is serializable data; private channel tokens belong only to membership and
+captured delivery recipients. Server bodies are active records immediately;
+match phases have not been introduced. The server does not advance them yet.

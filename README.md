@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–41 complete (41/70). A room agent serializes trusted admission and allocates at most four monotonic player IDs with unique cyan/crimson/amber/green identities. Private tokens own connections and captured effects are delivered after commit. Browsers still play locally; server spawn and simulation follow.
+Checkpoints 01–42 complete (42/70). Accepted connections now own independent spawned characters and neutral input in the server room.
 Future mechanics remain specified in the roadmap.
 
 ## Run

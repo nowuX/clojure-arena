@@ -1,9 +1,22 @@
 (ns clojure-arena.room
-  (:require [clojure-arena.protocol :as protocol]))
+  (:require [clojure-arena.game :as game]
+            [clojure-arena.protocol :as protocol]))
+
+(def spawn-config
+  {:cyan {:fill "#22d3ee" :x 340 :y 160}
+   :crimson {:fill "#e11d48" :x 380 :y 160}
+   :amber {:fill "#f59e0b" :x 420 :y 160}
+   :green {:fill "#4ade80" :x 460 :y 160}})
+
+(defn make-spawn-player [color]
+  (let [{:keys [fill x y]} (get spawn-config color)]
+    (game/make-player fill x y)))
 
 (def initial-room
   {:members {}
-   :next-player-number 1})
+   :next-player-number 1
+   :inputs-by-player {}
+   :world (assoc game/initial-world :players {})})
 
 (defn apply-room-message [room internal-message]
   (if (and (map? internal-message)
@@ -28,6 +41,9 @@
                           :color color}]
               {:room (-> room
                          (assoc-in [:members connection-token] member)
+                         (assoc-in [:world :players player-id]
+                                   (make-spawn-player color))
+                         (assoc-in [:inputs-by-player player-id] protocol/neutral-input)
                          (update :next-player-number inc))
                :effects [{:connection-token connection-token
                           :message {:type :identity
