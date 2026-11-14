@@ -136,34 +136,68 @@
                  (or (contains? contenders player-id) (= :waiting (:lifecycle player))))
                players)))
 
-(defn- match-state? [state players]
+(defn- result-state? [result contenders time-seconds-left]
+  (let [standings (:standings result)]
+    (and (map? result)
+         (= #{:reason :winner-id :winner-color :standings} (set (keys result)))
+         (contains? #{:last-contender :no-contenders :time-limit} (:reason result))
+         (or (and (nil? (:winner-id result)) (nil? (:winner-color result)))
+             (and (player-id? (:winner-id result)) (color? (:winner-color result))))
+         (vector? standings)
+         (= (count contenders) (count standings))
+         (every? (fn [standing]
+                   (and (map? standing)
+                        (player-id? (:player-id standing))
+                        (contender-state? (dissoc standing :player-id))))
+                 standings)
+         (= (set (keys contenders)) (set (map :player-id standings)))
+         (every? (fn [{:keys [player-id forfeited?] :as standing}]
+                   (let [current (get contenders player-id)]
+                     (and (= (select-keys standing [:color :stocks :accumulated-percentage])
+                             (select-keys current [:color :stocks :accumulated-percentage]))
+                          (or (not forfeited?) (:forfeited? current)))))
+                 standings)
+         (let [captured (into {} (map (fn [standing]
+                                       [(:player-id standing) (dissoc standing :player-id)]))
+                              standings)]
+           (= result (match/result-for captured time-seconds-left))))))
+
+(defn- match-state? [match-state players]
   (let [{:keys [id phase countdown-seconds-left time-seconds-left
-                intermission-seconds-left result contenders]} state]
-    (and (map? state)
+                intermission-seconds-left result contenders]} match-state]
+    (and (map? match-state)
          (= #{:id :phase :countdown-seconds-left :time-seconds-left
-              :intermission-seconds-left :result :contenders} (set (keys state)))
+              :intermission-seconds-left :result :contenders}
+            (set (keys match-state)))
          (safe-nonnegative-integer? id)
          (contains? #{:waiting :countdown :running :finished} phase)
-         (finite-number? countdown-seconds-left) (<= 0 countdown-seconds-left 3)
-         (finite-number? time-seconds-left) (<= 0 time-seconds-left match/duration)
-         (and (finite-number? intermission-seconds-left) (zero? intermission-seconds-left))
-         (nil? result)
+         (finite-number? countdown-seconds-left)
+         (<= 0 countdown-seconds-left 3)
+         (finite-number? time-seconds-left)
+         (<= 0 time-seconds-left match/duration)
+         (finite-number? intermission-seconds-left)
+         (<= 0 intermission-seconds-left 5)
+         (zero? intermission-seconds-left)
          (map? contenders)
          (every? player-id? (keys contenders))
          (every? contender-state? (vals contenders))
          (case phase
-           :waiting
-           (and (empty? contenders) (zero? time-seconds-left)
-                (zero? countdown-seconds-left) (< (count players) 2)
-                (every? #(= :waiting (:lifecycle %)) (vals players)))
-           :countdown
-           (and (empty? contenders) (zero? time-seconds-left)
-                (pos? countdown-seconds-left) (<= 2 (count players) 4)
-                (every? #(= :waiting (:lifecycle %)) (vals players)))
-           (:running :finished)
-           (and (pos? id) (zero? countdown-seconds-left)
-                (<= 2 (count contenders) 4)
-                (roster-matches-players? contenders players))
+           :waiting (and (zero? countdown-seconds-left) (zero? time-seconds-left)
+                         (nil? result) (empty? contenders)
+                         (< (count players) 2)
+                         (every? #(= :waiting (:lifecycle %)) (vals players)))
+           :countdown (and (pos? countdown-seconds-left) (zero? time-seconds-left)
+                           (nil? result) (empty? contenders)
+                           (<= 2 (count players) 4)
+                           (every? #(= :waiting (:lifecycle %)) (vals players)))
+           :running (and (pos? id) (zero? countdown-seconds-left)
+                         (not (neg? time-seconds-left)) (nil? result)
+                         (<= 2 (count contenders) 4)
+                         (roster-matches-players? contenders players))
+           :finished (and (pos? id) (zero? countdown-seconds-left)
+                          (<= 2 (count contenders) 4)
+                          (roster-matches-players? contenders players)
+                          (result-state? result contenders time-seconds-left))
            false))))
 
 (defn snapshot-message? [message]

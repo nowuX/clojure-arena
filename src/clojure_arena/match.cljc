@@ -42,6 +42,33 @@
 (defn- capture-contender [contender player]
   (merge contender (select-keys player [:color :stocks :accumulated-percentage])))
 
+(defn ranked-standings [contenders]
+  (->> contenders
+       (map (fn [[player-id contender]] (assoc contender :player-id player-id)))
+       (sort-by (comp str :player-id))
+       vec))
+
+(defn result-for [contenders _time-seconds-left]
+  (let [standings (ranked-standings contenders)
+        eligible (filterv #(and (not (:forfeited? %)) (pos? (:stocks %))) standings)
+        remaining (count eligible)
+        reason (cond (zero? remaining) :no-contenders
+                     (= 1 remaining) :last-contender)
+        winner (when (= 1 remaining) (first eligible))]
+    (when reason
+      {:reason reason :winner-id (:player-id winner)
+       :winner-color (:color winner) :standings standings})))
+
+(defn- finish-if-decided [world]
+  (if (= :running (get-in world [:match :phase]))
+    (if-let [result (result-for (get-in world [:match :contenders])
+                               (get-in world [:match :time-seconds-left]))]
+      (update world :match assoc :phase :finished :result result
+              :intermission-seconds-left 0)
+      world)
+    world))
+
+
 (defn remove-player [world player-id]
   (let [player (get-in world [:players player-id])
         world (if (and player (get-in world [:match :contenders player-id]))
@@ -50,7 +77,9 @@
                 world)]
     (-> world
         (update :players dissoc player-id)
-        reconcile-entrants)))
+        reconcile-entrants
+        finish-if-decided)))
+
 
 (defn- step-running [world inputs-by-player dt]
   (let [player-ids (filter #(contender? world %) (keys (:players world)))
@@ -73,7 +102,9 @@
         (update-in [:match :time-seconds-left]
                    (fn [seconds]
                      (let [remaining (- seconds dt)]
-                       (if (<= remaining game/cooldown-epsilon) 0 remaining)))))))
+                       (if (<= remaining game/cooldown-epsilon) 0 remaining))))
+        finish-if-decided)))
+
 
 (defn- start-match [world]
   (let [players (into {}

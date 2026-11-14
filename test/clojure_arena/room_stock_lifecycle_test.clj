@@ -5,8 +5,9 @@
             [clojure-arena.room :as room]))
 
 (deftest stock-loss-keeps-session-ownership-and-consumes-inactive-actions
-  (let [joined (:room (room/apply-room-message room/initial-room
-                                              {:type :join :connection-token :session}))
+  (let [joined (reduce (fn [state token]
+                         (:room (room/apply-room-message state {:type :join :connection-token token})))
+                       room/initial-room [:session :partner])
         before (-> (match-helpers/active-room joined)
                    (assoc-in [:world :players :player-1 :x] 900)
                    (assoc-in [:inputs-by-player :player-1]
@@ -16,14 +17,14 @@
         next-result (room/apply-room-message after {:type :tick})
         player (get-in after [:world :players :player-1])]
     (is (= (:members joined) (:members after)))
-    (is (= 2 (:next-player-number after)))
+    (is (= 3 (:next-player-number after)))
     (is (= [2 :respawning] ((juxt :stocks :lifecycle) player)))
     (is (= (assoc protocol/neutral-input :horizontal 1)
            (get-in after [:inputs-by-player :player-1])))
     (is (= (select-keys player [:stocks :lifecycle :x :y :vx :vy])
            (select-keys (get-in next-result [:room :world :players :player-1])
                         [:stocks :lifecycle :x :y :vx :vy])))
-    (is (= [:session] (:connection-tokens (first (:effects result)))))
+    (is (= #{:session :partner} (set (:connection-tokens (first (:effects result))))))
     (is (protocol/snapshot-message? (:message (first (:effects result)))))
     (is (= (:world after) (:world (:message (first (:effects result))))))))
 

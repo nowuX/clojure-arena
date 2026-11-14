@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–61 complete (61/70). Matches own a three-minute simulation clock that starts at full duration and advances only on later running ticks.
+Checkpoints 01–62 complete (62/70). Matches commit a winner or draw when at most one eligible contender remains, then freeze gameplay while snapshots continue.
 Future mechanics remain specified in the roadmap.
 
 ## Run

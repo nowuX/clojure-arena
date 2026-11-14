@@ -45,3 +45,13 @@ processed simulation dt and clamp tiny remainders to zero: 7,200 ticks at 40 Hz.
 Waiting, countdown and finished phases hold gameplay time. Scheduler pulses
 that are dropped under overload do not advance simulation time. Rendering has
 no authority over this clock; time-limit resolution is introduced separately.
+
+## Last-contender results
+
+After movement, exits, hits and roster score capture, nonforfeited contenders
+with remaining stocks stay eligible, including those currently respawning.
+One wins; none produces a draw. Trusted contender departure uses the same
+resolution. `result-for` calculates facts and `finish-if-decided` captures the
+result once. Finished ticks freeze physics, attacks, lifecycle/protection and
+the running clock while transport ticks and snapshots continue. Later departures
+may update eligibility metadata but never rewrite the captured result.
