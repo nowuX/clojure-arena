@@ -25,7 +25,7 @@ A successful release compile does not establish browser startup or appearance.
 
 Start locally with `just dev` and open `http://127.0.0.1:8081/` on the service host.
 
-- Confirm `Arena lista.` appears with the dark background, neutral platform, and colored player.
+- Confirm `Arena lista.` appears with the dark background, filled main platform, three neutral outlined semisolids, and colored player.
 - On first fall, hold D and press W. The player should stay at its spawn X and should not jump. After landing on the platform top, controls unlock; the earlier W request must not replay. A held D direction should begin moving on the following tick.
 - Hold D, release it, then reverse with A. Check acceleration and gradual braking. Hold both keys together and check neutral braking.
 - Walk off either platform edge and confirm falling resumes. A fresh W press after leaving an edge can use the single air jump. Reload to restore the initial scene after falling out of view.
@@ -34,3 +34,14 @@ Start locally with `just dev` and open `http://127.0.0.1:8081/` on the service h
 - While holding a direction or with a W request pending, move focus away from the page. Confirm blur clears both held directions and the pending jump. Repeat startup/stop through the development workflow and check for duplicate input response or animation loops.
 
 A browser can verify event ordering, focus behavior, native `requestAnimationFrame`, and visible Canvas output. Node doubles cannot establish those behaviors. Use deterministic automated fixtures for side, underside, and corner-contact constructions that are not practical to reproduce through this local play loop.
+
+## Multiple-platform checks
+
+- Move toward a side outline and jump through it from below. On the descent,
+  land on its top and make another ground jump. Use the extra air jump to
+  reach the upper outline.
+- Leave each semisolid slowly and at full speed from either edge. The circle
+  should start descending around the upper endpoint rather than penetrating
+  the rectangular platform or catching a side wall.
+- Automated fixtures isolate the main platform for earlier movement tests;
+  semisolid and scene tests exercise the complete four-entry scene separately.

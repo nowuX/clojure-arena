@@ -1,12 +1,13 @@
 (ns clojure-arena.jump-test
   (:require [clojure-arena.game :as game]
+            [clojure-arena.fixtures :as fixtures]
             #?(:clj [clojure.test :refer [deftest is]]
                :cljs [cljs.test :refer-macros [deftest is]])))
 
 (def dt 0.025)
-(def platform (first (:platforms game/initial-world)))
+(def platform (first (:platforms fixtures/single-platform-world)))
 (def ground-world
-  (update game/initial-world :player assoc :y 264 :vy 0 :spawn-locked? false))
+  (update fixtures/single-platform-world :player assoc :y 264 :vy 0 :spawn-locked? false))
 (defn near? [a b] (< (abs (- a b)) 1e-8))
 
 (deftest ground-launch-precedes-gravity-and-preserves-horizontal-rules
@@ -39,7 +40,7 @@
 (deftest air-launch-spends-one-allowance-and-ground-launch-preserves-it
   (let [first-jump (game/step ground-world {:jump? true} dt)
         airborne-request (game/step first-jump {:jump? true} dt)]
-    (is (= 1 (get-in game/initial-world [:player :air-jumps-left])))
+    (is (= 1 (get-in fixtures/single-platform-world [:player :air-jumps-left])))
     (is (= 1 (get-in first-jump [:player :air-jumps-left])))
     (is (= 0 (get-in airborne-request [:player :air-jumps-left])))
     (is (near? -395.5 (get-in airborne-request [:player :vy])))))

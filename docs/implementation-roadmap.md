@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**24 of 70 checkpoints complete.** Checkpoints 01–24 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**25 of 70 checkpoints complete.** Checkpoints 01–25 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -355,7 +355,7 @@ Checkpoints **22–27**. Extend the scene while preserving existing movement, su
 
 ### 25 — Land on semisolid tops and rounded endpoints
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Filter descending swept contacts to tops and upper endpoint arcs
   while preserving upward and side/underside traversal. Flat support requires center X
   inside the inclusive span. Slide around upper corners on departure without rectangle

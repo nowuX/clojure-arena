@@ -1,5 +1,6 @@
 (ns clojure-arena.jump-integration-test
   (:require [clojure-arena.game :as game]
+            [clojure-arena.fixtures :as fixtures]
             #?(:clj [clojure.test :refer [deftest is testing]]
                :cljs [cljs.test :refer-macros [deftest is testing]])))
 
@@ -12,7 +13,7 @@
   (:player world))
 
 (defn grounded-world [overrides]
-  (update game/initial-world :player
+  (update fixtures/single-platform-world :player
           merge {:x 400 :y 264 :vx 0 :vy 0
                  :spawn-locked? false :air-jumps-left 1}
           overrides))
@@ -36,9 +37,9 @@
       :else (recur (game/step state {} dt) (dec ticks-left)))))
 
 (deftest flat-support-is-center-based-and-includes-both-endpoints
-  (let [platform (first (:platforms game/initial-world))
+  (let [platform (first (:platforms fixtures/single-platform-world))
         supported (fn [x]
-                    (assoc (:player game/initial-world) :x x :y 264 :vy 0))]
+                    (assoc (:player fixtures/single-platform-world) :x x :y 264 :vy 0))]
     (doseq [x [(:x platform) (+ (:x platform) (:width platform))]]
       (let [player (supported x)]
         (is (game/grounded? player platform))
@@ -51,7 +52,7 @@
       (is (not (game/supporting-platform player [platform]))))))
 
 (deftest spawn-lock-blocks-held-controls-through-landing-tick
-  (let [initial game/initial-world
+  (let [initial fixtures/single-platform-world
         [before-landing landing]
         (landing-transition initial {:horizontal 1})
         attempted-landing-jump

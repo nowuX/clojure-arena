@@ -1,10 +1,11 @@
 (ns clojure-arena.game-test
   (:require [clojure-arena.game :as game]
+            [clojure-arena.fixtures :as fixtures]
             #?(:clj [clojure.test :refer [deftest is testing]]
                :cljs [cljs.test :refer-macros [deftest is testing]])))
 
 (def playable-world
-  (assoc-in game/initial-world [:player :spawn-locked?] false))
+  (assoc-in fixtures/single-platform-world [:player :spawn-locked?] false))
 
 (def dt 0.025)
 (defn near? [a b] (< (abs (- a b)) 1e-8))

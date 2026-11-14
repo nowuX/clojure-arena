@@ -55,7 +55,7 @@ flowchart LR
 
 | Concern | Owner | Current functions or values |
 | --- | --- | --- |
-| World, support, jump eligibility, physics | Shared simulation | `initial-world`, `grounded?`, `supporting-platform`, `apply-jump`, `step`, `collide-platforms` |
+| World, support, jump eligibility, physics | Shared simulation | `initial-world`, `earliest-contact`, `semisolid-contact`, `grounded?`, `supporting-platform`, `apply-jump`, `step`, `collide-platforms` |
 | Held directions and one-shot W request | Browser client | `pressed-keys`, `pending-jump`, `handle-key-down!`, `handle-key-up!`, `handle-blur!` |
 | Input snapshot and action lifetime | Browser client | `horizontal-input`, `read-inputs`, `consume-inputs!` |
 | Frame clock and fixed ticks | Browser client | `frame`, `advance-world!`, `tick-ms`, `max-frame-ms` |
@@ -67,3 +67,9 @@ flowchart LR
 `step` forces horizontal input to zero while spawn locked. It calls `apply-jump` before gravity and movement, then resolves contact. Only a supported top contact unlocks spawn and restores the one air jump. Drawing happens after simulation and does not change world state.
 
 `init` calls `stop!` before registering listeners and scheduling a frame. `stop!` removes listeners, clears held keys and pending W through `handle-blur!`, cancels the scheduled frame, and resets its ID. `game.cljc` uses a reader conditional for `sqrt`; browser APIs remain in `client.cljs`.
+
+Platform geometry lives in the `:platforms` vector. `earliest-contact` selects
+the earliest eligible surface, using stable platform IDs for equal times.
+Solid entries use every face and rounded corner; semisolids filter this to
+descending tops and upper endpoint arcs. The same remaining-time loop and
+four-contact budget process both types.

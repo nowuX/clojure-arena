@@ -69,5 +69,7 @@ Al presionar W, `handle-key-down!` marca `pending-jump` solo para una pulsación
 
 `:platforms` es un vector de mapas con `:id` estable y `:type`. `step` pasa
 el vector a `supporting-platform`, `apply-jump` y `collide-platforms`. El
-renderizador usa `doseq` para dibujar cada entrada. La escena contiene
-por ahora únicamente la plataforma principal, con la misma geometría.
+renderizador usa `doseq` para dibujar cada entrada. La escena contiene la plataforma principal sólida y tres semisólidas.
+`case` elige la regla de contacto según `:type`; `filter` selecciona apoyos
+y `sort-by` ordena por tiempo e ID para resolver empates de forma estable.
+Las semisólidas aceptan solo contactos descendentes con su parte superior.

@@ -5,7 +5,8 @@ The shared simulation is `src/clojure_arena/game.cljc`. Its functions receive va
 ## World and movement
 
 `initial-world` contains one solid, three visible semisolid entries, and one player.
-The semisolids are currently traversable; only solids participate in contact.
+Descending players land on semisolid tops and upper endpoint arcs; rising,
+side, and underside movement passes through.
 The main entry and player are:
 
 ```clojure
@@ -32,9 +33,9 @@ The initial player falls with controls locked. A resolved supported top landing 
 
 ## Contact and integration
 
-`move-player` advances the circle center using velocity and seconds. `supported-travel-time` bounds motion along a supported top and lets gravity begin after leaving an edge. `earliest-contact` chooses the earliest contact across solid entries, using stable ID order for exact time ties. `platform-contact` checks overlap and swept contact against each rectangle's faces and rounded corners; `resolve-contact` removes only inward normal velocity. `collide-platforms` allows up to four contacts per tick and uses a `1e-9` tolerance.
+`move-player` advances the circle center using velocity and seconds. `supported-travel-time` bounds motion along a supported top and lets gravity begin after leaving an edge. `earliest-contact` chooses the earliest contact across eligible platform surfaces, using stable ID order for exact time ties. `platform-contact` checks overlap and swept contact against each rectangle's faces and rounded corners; `resolve-contact` removes only inward normal velocity. `collide-platforms` allows up to four contacts per tick and uses a `1e-9` tolerance.
 
-The world contains the main solid plus three neutral outlined semisolids; constructed solid collections share the same four-contact budget. Any solid flat top supports jumping. See [Architecture](architecture.md) for ownership and [Simulation verification](simulation-verification.md) for checks.
+The world contains the main solid plus three neutral outlined semisolids; constructed solid collections share the same four-contact budget. Any solid or semisolid flat top supports jumping. See [Architecture](architecture.md) for ownership and [Simulation verification](simulation-verification.md) for checks.
 
 ## Platform presentation
 
@@ -42,3 +43,12 @@ The left and right outlines are at (200, 210) and (480, 210), each 120 × 8.
 The upper outline is at (340, 130), also 120 × 8. `draw-platform` uses
 `fillRect` for solids and `strokeRect` for semisolids; type is conveyed by
 shape treatment with neutral colors.
+
+## Semisolid contacts
+
+`semisolid-contact` accepts only descending top or upper-corner sweeps.
+`semisolid-corner-overlap` corrects upper endpoint penetration while moving
+around an edge. There are no semisolid side walls or underside contacts.
+Support uses the circle center inside the flat span; corner-only contact
+retains the spawn lock and spent air jump. Supported travel ends at the
+center endpoint, then remaining falling time follows the rounded boundary.

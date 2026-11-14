@@ -1,10 +1,11 @@
 (ns clojure-arena.client-test
   (:require [cljs.test :refer-macros [deftest is use-fixtures]]
             [clojure-arena.client :as client]
-            [clojure-arena.game :as game]))
+            [clojure-arena.game :as game]
+            [clojure-arena.fixtures :as fixtures]))
 
 (def playable-world
-  (assoc-in game/initial-world [:player :spawn-locked?] false))
+  (assoc-in fixtures/single-platform-world [:player :spawn-locked?] false))
 
 (def draw-scene client/draw-world)
 
@@ -194,7 +195,7 @@
     (is (= {:horizontal 0 :jump? false} (client/read-inputs)))))
 
 (deftest held-spawn-input-waits-for-landing-and-discards-old-w
-  (reset! client/world game/initial-world)
+  (reset! client/world fixtures/single-platform-world)
   (client/init)
   (fire-frame! 0)
   (key-event! "keydown" "KeyD")
@@ -219,7 +220,7 @@
                    (let [tick (atom 0)
                          seen (atom [])]
                      (client/stop!)
-                     (reset! client/world game/initial-world)
+                     (reset! client/world fixtures/single-platform-world)
                      (with-redefs
                        [client/consume-inputs!
                         (fn []

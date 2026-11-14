@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–24 complete (24/70). Four platform entries render with neutral fill or outline; the three outlined semisolids are still physically traversable at this stage.
+Checkpoints 01–25 complete (25/70). The four-platform arena supports rising through semisolids, descending top and rounded-endpoint landings, and stable support with ground and air jumps.
 Future mechanics remain specified in the roadmap.
 
 ## Run

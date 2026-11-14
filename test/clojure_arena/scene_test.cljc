@@ -15,8 +15,8 @@
     (is (> (get-in fallen [:player :y]) (get-in airborne [:player :y])))
     (is (= platforms (:platforms (game/step world {} 0.025))))))
 
-(deftest visible-semisolids-do-not-block-physics-yet
+(deftest visible-semisolids-now-catch-descending-players
   (let [world (update game/initial-world :player assoc :x 250 :y 160 :vy 0)
         below (nth (iterate #(game/step % {} 0.025) world) 40)]
-    (is (game/grounded? (:player below) (first (:platforms world))))
-    (is (== 264 (get-in below [:player :y])))))
+    (is (= :left (:id (game/supporting-platform (:player below) (:platforms world)))))
+    (is (== 194 (get-in below [:player :y])))))

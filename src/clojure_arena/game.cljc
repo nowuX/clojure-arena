@@ -34,7 +34,7 @@
 
 (defn supporting-platform [player platforms]
   (first (sort-by (comp str :id)
-                  (filter #(and (= :solid (:type %)) (grounded? player %))
+                  (filter #(and (#{:solid :semisolid} (:type %)) (grounded? player %))
                           platforms))))
 
 (defn apply-jump [player platforms jump?]
@@ -108,6 +108,28 @@
                        (< (+ (* dx nx) (* dy ny)) (- contact-epsilon)))
               {:time time :x x :y y :nx nx :ny ny})))))))
 
+(defn semisolid-corner-overlap [player platform]
+  (when (and (< (:y player) (:y platform))
+             (or (< (:x player) (:x platform))
+                 (> (:x player) (+ (:x platform) (:width platform)))))
+    (overlap-contact player platform)))
+
+(defn semisolid-contact [player proposed platform]
+  (let [left (:x platform)
+        right (+ left (:width platform))
+        top (:y platform)
+        dx (- (:x proposed) (:x player))
+        dy (- (:y proposed) (:y player))]
+    (when (> dy contact-epsilon)
+      (or (semisolid-corner-overlap player platform)
+          (first
+            (sort-by :time
+                     (keep identity
+                           [(face-contact player dx dy 0 -1
+                                          (- top (:radius player)) left right)
+                            (corner-contact player dx dy left top -1 -1)
+                            (corner-contact player dx dy right top 1 -1)])))))))
+
 (defn platform-contact [player proposed platform]
   (or (overlap-contact player platform)
       (let [left (:x platform)
@@ -139,13 +161,20 @@
   (first
     (sort-by (juxt :time #(str (get-in % [:platform :id])))
              (keep (fn [platform]
-                     (when (= :solid (:type platform))
-                       (when-let [contact
+                     (when-let [contact
+                                (case (:type platform)
+                                  :solid
                                   (if (contains? departing-ids (:id platform))
                                     (when-let [overlap (overlap-contact proposed platform)]
                                       (assoc overlap :time 1))
-                                    (platform-contact player proposed platform))]
-                         (assoc contact :platform platform))))
+                                    (platform-contact player proposed platform))
+                                  :semisolid
+                                  (if (contains? departing-ids (:id platform))
+                                    (when-let [overlap (semisolid-corner-overlap proposed platform)]
+                                      (assoc overlap :time 1))
+                                    (semisolid-contact player proposed platform))
+                                  nil)]
+                       (assoc contact :platform platform)))
                    platforms))))
 
 (defn collide-platforms [player platforms dt]
