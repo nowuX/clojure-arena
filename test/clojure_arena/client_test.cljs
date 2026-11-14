@@ -348,7 +348,7 @@
     (clear-input!)
     (is (= {:horizontal 0 :jump? false :drop? false} (client/read-inputs)))))
 
-(deftest captured-drop-does-not-yet-change-physics
+(deftest captured-drop-leaves-the-supporting-semisolid
   (let [platform (first (filter #(= :left (:id %)) (:platforms game/initial-world)))]
     (reset! client/world (update game/initial-world :player assoc
                                  :x 260 :y 194 :vy 0 :spawn-locked? false))
@@ -356,5 +356,43 @@
     (fire-frame! 0)
     (key-event! "keydown" "KeyS")
     (fire-frame! 25)
-    (is (game/grounded? (:player @client/world) platform))
+    (is (not (game/grounded? (:player @client/world) platform)))
+    (is (= :left (get-in @client/world [:player :drop-through-platform-id])))
+    (is (> (get-in @client/world [:player :y]) 194))
     (is (false? (:drop? (client/read-inputs))))))
+
+(deftest holding-s-does-not-drop-again-after-landing-on-the-next-semisolid
+  (let [upper {:id :upper :type :semisolid :x 100 :y 200 :width 100 :height 8}
+        lower (assoc upper :id :lower :y 260)]
+    (reset! client/world {:platforms [upper lower]
+                          :player (assoc (:player game/initial-world)
+                                         :x 150 :y 184 :vy 0 :vx 0 :spawn-locked? false)})
+    (client/init)
+    (fire-frame! 0)
+    (key-event! "keydown" "KeyS")
+    (fire-frame! 25)
+    (is (= :upper (get-in @client/world [:player :drop-through-platform-id])))
+    (doseq [timestamp (range 50 1001 25)] (fire-frame! timestamp))
+    (is (= :lower (:id (game/supporting-platform (:player @client/world)
+                                                (:platforms @client/world)))))
+    (key-event! "keydown" "KeyS" true)
+    (fire-frame! 1025)
+    (is (game/grounded? (:player @client/world) lower))
+    (key-event! "keyup" "KeyS")
+    (key-event! "keydown" "KeyS")
+    (fire-frame! 1050)
+    (is (= :lower (get-in @client/world [:player :drop-through-platform-id])))
+    (is (> (get-in @client/world [:player :y]) 244))))
+
+(deftest a-drop-tap-lost-on-blur-does-not-cross-the-platform
+  (let [semi (first (filter #(= :left (:id %)) (:platforms game/initial-world)))]
+    (reset! client/world (update game/initial-world :player assoc
+                                 :x 260 :y 194 :vy 0 :spawn-locked? false))
+    (client/init)
+    (fire-frame! 0)
+    (key-event! "keydown" "KeyS")
+    (key-event! "keyup" "KeyS")
+    (.dispatchEvent @target (js/Event. "blur"))
+    (fire-frame! 25)
+    (is (game/grounded? (:player @client/world) semi))
+    (is (nil? (get-in @client/world [:player :drop-through-platform-id])))))

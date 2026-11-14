@@ -13,13 +13,13 @@ La simulación compartida está en `src/clojure_arena/game.cljc`; los eventos y 
           :spawn-locked? true :air-jumps-left 1}}
 ```
 
-`step` recibe mundo, entradas y `dt` en segundos. El argumento `{:keys [horizontal jump?] :or {horizontal 0 jump? false}}` extrae valores del mapa y fija sus valores por defecto. La simulación devuelve mapas nuevos; no consulta el navegador ni cambia el argumento original.
+`step` recibe mundo, entradas y `dt` en segundos. El argumento `{:keys [horizontal jump? drop?] :or {horizontal 0 jump? false drop? false}}` extrae valores del mapa y fija sus valores por defecto. La simulación devuelve mapas nuevos; no consulta el navegador ni cambia el argumento original.
 
 ### Condiciones y valores nuevos
 
 Las funciones con `?`, como `grounded?`, responden una pregunta. `supporting-platform` devuelve el mapa de plataforma si el jugador está apoyado arriba o `nil` si no lo está. `if`, `and` y `not` combinan condiciones; `cond` elige una rama según varios casos. `assoc` devuelve un mapa con un valor reemplazado y `update` calcula un valor nuevo para una clave.
 
-`apply-jump` usa el estado del jugador, la plataforma y el pulso `jump?`. Con controles desbloqueados, acepta el salto terrestre si `grounded?` es verdadero y conserva la recarga aérea; en el aire acepta un solo salto si `:air-jumps-left` es positivo y reduce el contador. En otro caso deja el jugador sin lanzamiento. `step` aplica esta decisión antes de sumar gravedad.
+`apply-jump` usa el estado del jugador, las plataformas y el pulso `jump?`. Con controles desbloqueados, acepta el salto terrestre si `grounded?` es verdadero y conserva la recarga aérea; en el aire acepta un solo salto si `:air-jumps-left` es positivo y reduce el contador. En otro caso deja el jugador sin lanzamiento. `step` aplica esta decisión antes de sumar gravedad.
 
 ### Composición, bucles y portabilidad
 
@@ -49,9 +49,9 @@ un reader conditional para seleccionar la biblioteca de cada entorno:
 
 ### Átomos y eventos
 
-`defonce` conserva referencias entre recargas de desarrollo; `atom` contiene una referencia mutable del cliente; `@world` la lee y `swap!` guarda el resultado de aplicar una función al valor actual. `reset!` reemplaza el contenido completo de un átomo. `pressed-keys` representa teclas mantenidas en un conjunto (`#{}`); `conj`, `disj` y `contains?` agregan, quitan y consultan sus elementos. `pending-jump` es aparte: conserva un pulso W hasta un tick. `read-inputs` solo lee ambos estados; `consume-inputs!` lee y luego limpia `pending-jump`.
+`defonce` conserva referencias entre recargas de desarrollo; `atom` contiene una referencia mutable del cliente; `@world` la lee y `swap!` guarda el resultado de aplicar una función al valor actual. `reset!` reemplaza el contenido completo de un átomo. `pressed-keys` representa teclas mantenidas en un conjunto (`#{}`); `conj`, `disj` y `contains?` agregan, quitan y consultan sus elementos. `pending-jump` y `pending-drop` conservan pulsos independientes de W y S hasta un tick. `read-inputs` lee el estado sin consumirlo; `consume-inputs!` lee y limpia ambos pulsos.
 
-Un evento W nuevo y no repetido marca el pulso. Soltar W quita la tecla mantenida, pero no borra el pulso capturado. `handle-blur!` limpia ambos estados; `stop!` también lo hace mediante esa función. Así, un toque rápido puede llegar al siguiente tick y un pulso no se repite en los ticks siguientes.
+Un evento W o S nuevo y no repetido marca su pulso. Soltar la tecla quita su estado mantenido, pero no borra el pulso capturado. `handle-blur!` limpia las teclas y ambos pulsos; `stop!` también lo hace mediante esa función. Así, un toque rápido puede llegar al siguiente tick y un pulso no se repite en los ticks siguientes.
 
 `js/window`, `.addEventListener`, `.-code` y `(.preventDefault event)` son interoperabilidad con JavaScript. `frame` usa `requestAnimationFrame`; `advance-world!` ejecuta ticks de 25 ms. Después, `draw-world` llama a las funciones que pintan el fondo, la plataforma y el jugador. Dibujar no avanza la simulación. El estado visible de inicio es `Arena lista.`.
 
@@ -63,7 +63,7 @@ está desbloqueado. Al soltar la tecla, la dirección es `0` y actúa la fricci�
 con A y D juntas también se obtiene `0`.
 
 
-Al presionar W, `handle-key-down!` marca `pending-jump` solo para una pulsación nueva; autorepeat y mantener W no crean pulsos adicionales. En un tick, `consume-inputs!` pasa `:jump? true` a `game/step` y limpia el pulso. `apply-jump` revisa el bloqueo de aparición, el apoyo y la recarga aérea. El mundo siguiente guarda `vy`, el contador y los cambios por contacto; el cliente lo dibuja. Si W se presiona antes del aterrizaje, el pulso se consume mientras el jugador sigue bloqueado y no se reproduce después: hay que volver a pulsar W ya en tierra.
+Al presionar W, `handle-key-down!` marca `pending-jump` solo para una pulsación nueva; autorepeat y mantener W no crean pulsos adicionales. En un tick, `consume-inputs!` pasa `:jump? true` a `game/step` y limpia el pulso. `apply-jump` revisa el bloqueo de aparición, el apoyo y la recarga aérea. El mundo siguiente guarda `vy`, el contador y los cambios por contacto; el cliente lo dibuja. Si W se presiona durante la caída inicial, el pulso se consume mientras el jugador sigue bloqueado y no se reproduce después: hay que volver a pulsar W ya en tierra.
 
 ### Colección de plataformas
 
@@ -73,3 +73,25 @@ renderizador usa `doseq` para dibujar cada entrada. La escena contiene la plataf
 `case` elige la regla de contacto según `:type`; `filter` selecciona apoyos
 y `sort-by` ordena por tiempo e ID para resolver empates de forma estable.
 Las semisólidas aceptan solo contactos descendentes con su parte superior.
+
+### Excepción temporal para bajar
+
+El jugador guarda `:drop-through-platform-id`, inicialmente `nil`. Un S
+aceptado devuelve un mapa con el ID de la semisólida de apoyo; el mapa de
+plataformas permanece igual. `drop-through-platform?` permite ignorar solo
+esa entrada. `clear-drop-through` devuelve el ID a `nil` al terminar el cruce,
+volver por encima de la superficie o desaparecer esa plataforma.
+
+`if-let` y `when-let` vinculan un valor cuando no es `nil` ni `false`.
+`when-not` ejecuta su cuerpo cuando una condición es falsa. `earliest-contact`
+usa `juxt` para ordenar primero por tiempo y luego por ID; así el resultado no
+depende del orden del vector. Las transiciones siguen siendo funciones puras.
+
+### Pulso de S
+
+`pending-drop` es independiente de `pending-jump`: leer no los consume,
+`consume-inputs!` limpia ambos y conserva las teclas mantenidas. Al pulsar S
+sobre una semisólida, `step` crea la excepción y deja que la gravedad haga
+bajar el cuerpo. Si también se pulsó W, la bajada tiene prioridad allí.
+En el aire, S se descarta; W aún puede usar el salto aéreo disponible para
+volver arriba y aterrizar. Blur, `stop!` e `init` borran las solicitudes.

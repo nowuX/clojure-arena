@@ -11,7 +11,7 @@ just setup
 just test
 ```
 
-`just test` compiles the Shadow test target and runs `.shadow-cljs/test.js`. Use deterministic fixtures for acceleration/friction, spawn lock, support, jump eligibility and allowance, action consumption, frame-cadence equivalence, focus/cleanup, and face/corner contacts. Client fixtures use `EventTarget` and controlled animation-frame callbacks; they do not verify native focus handling or Canvas pixels.
+`just test` compiles the Shadow test target and runs `.shadow-cljs/test.js`. Use deterministic fixtures for acceleration/friction, spawn lock, support, jump eligibility and allowance, jump/drop action consumption, frame-cadence equivalence, focus/cleanup, and face/corner contacts. Client fixtures use `EventTarget` and controlled animation-frame callbacks; they do not verify native focus handling or Canvas pixels.
 
 To check the release compiler path with isolated output:
 
@@ -31,7 +31,7 @@ Start locally with `just dev` and open `http://127.0.0.1:8081/` on the service h
 - Walk off either platform edge and confirm falling resumes. A fresh W press after leaving an edge can use the single air jump. Reload to restore the initial scene after falling out of view.
 - Release W, then make a fresh W press while grounded. Confirm a ground jump. While airborne, make another fresh W press and confirm one air jump. A third fresh press must not launch; it must not be saved for later.
 - Land on the platform and confirm a fresh W press can launch again. This checks that supported landing restores the air-jump allowance.
-- While holding a direction or with a W request pending, move focus away from the page. Confirm blur clears both held directions and the pending jump. Repeat startup/stop through the development workflow and check for duplicate input response or animation loops.
+- While holding a direction or with a W/S request pending, move focus away from the page. Confirm blur clears both held directions and both pending actions. Repeat startup/stop through the development workflow and check for duplicate input response or animation loops.
 
 A browser can verify event ordering, focus behavior, native `requestAnimationFrame`, and visible Canvas output. Node doubles cannot establish those behaviors. Use deterministic automated fixtures for side, underside, and corner-contact constructions that are not practical to reproduce through this local play loop.
 
@@ -45,3 +45,16 @@ A browser can verify event ordering, focus behavior, native `requestAnimationFra
   the rectangular platform or catching a side wall.
 - Automated fixtures isolate the main platform for earlier movement tests;
   semisolid and scene tests exercise the complete four-entry scene separately.
+
+## Drop-through checks
+
+- On each of the three semisolids, tap S: the body starts falling under normal
+  gravity. S on the main solid keeps support; a simultaneous W still jumps
+  from that solid. On a semisolid, simultaneous W/S drops instead of jumping.
+- Keep S held after dropping onto another platform. It should retain support
+  until a fresh S press. Only the originally supporting semisolid is ignored.
+- Drop partly through a small platform, release S, then press W while the
+  air jump remains. Rise above it and descend onto it again.
+- Tap S and lose focus before the next tick: the pending drop is discarded.
+  Automated fixtures additionally test full-body clearance, missing IDs,
+  coincident contacts, and lower solid/semisolid interception.

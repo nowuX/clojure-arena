@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**26 of 70 checkpoints complete.** Checkpoints 01–26 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**27 of 70 checkpoints complete.** Checkpoints 01–27 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -378,7 +378,7 @@ Checkpoints **22–27**. Extend the scene while preserving existing movement, su
 
 ### 27 — Drop through the supporting semisolid
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** When unlocked and supported by a semisolid, record its ID as a
   per-player contact exception. Let gravity lower the body without teleport/extra impulse.
   Drop beats simultaneous jump there and preserves the air jump. Clear the exception after

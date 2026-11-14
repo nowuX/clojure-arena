@@ -6,11 +6,11 @@
 flowchart LR
     subgraph Browser[Browser effects: client.cljs]
         Events[window keydown / keyup / blur]
-        Keys[pressed-keys atom: A D W]
-        Pending[pending-jump atom]
-        Clear[handle-blur!: clear both input states]
+        Keys[pressed-keys atom: A D W S]
+        Pending[pending-jump / pending-drop atoms]
+        Clear[handle-blur!: clear keys and both requests]
         Read[read-inputs]
-        Consume[consume-inputs!: read, then clear jump]
+        Consume[consume-inputs!: read, then clear both requests]
         RAF[requestAnimationFrame]
         Frame[frame: cap elapsed, carry remainder]
         Advance[advance-world!: complete 25 ms ticks]
@@ -22,15 +22,15 @@ flowchart LR
 
     subgraph Shared[Shared values: game.cljc]
         Step[step]
-        Jump[apply-jump]
-        Eligibility[spawn lock / grounded? / air-jumps-left]
+        Jump[drop request or apply-jump]
+        Eligibility[support / spawn lock / air allowance / drop ID]
         Motion[accelerate-horizontal / gravity]
         Collision[collide-platforms]
         Landing[supported top: unlock / restore allowance]
     end
 
     Events --> Keys
-    Events -->|fresh non-repeat W| Pending
+    Events -->|fresh non-repeat W or S| Pending
     Events -->|blur| Clear
     Lifecycle -->|stop calls| Clear
     Clear --> Keys
@@ -56,20 +56,24 @@ flowchart LR
 | Concern | Owner | Current functions or values |
 | --- | --- | --- |
 | World, support, jump eligibility, physics | Shared simulation | `initial-world`, `earliest-contact`, `semisolid-contact`, `grounded?`, `supporting-platform`, `apply-jump`, `step`, `collide-platforms` |
-| Held directions and one-shot W request | Browser client | `pressed-keys`, `pending-jump`, `handle-key-down!`, `handle-key-up!`, `handle-blur!` |
+| Held directions and one-shot W/S requests | Browser client | `pressed-keys`, `pending-jump`, `pending-drop`, `handle-key-down!`, `handle-key-up!`, `handle-blur!` |
 | Input snapshot and action lifetime | Browser client | `horizontal-input`, `read-inputs`, `consume-inputs!` |
 | Frame clock and fixed ticks | Browser client | `frame`, `advance-world!`, `tick-ms`, `max-frame-ms` |
 | Storage and presentation | Browser client | `world`, `draw-world`, Canvas drawing functions |
 | Startup and cleanup | Browser client | `init`, `stop!` |
 
-`frame` caps one measured interval at 100 ms and passes that elapsed time plus the prior fractional remainder to `advance-world!`. The latter processes every complete 25 ms tick and returns the new fractional remainder for `frame` to carry into the next animation frame. Each tick calls `consume-inputs!`, which snapshots `read-inputs` and then clears only `pending-jump`; held A/D state remains. Thus a quick W tap can survive until a tick, while at most its first tick receives `:jump? true`.
+`frame` caps one measured interval at 100 ms and passes that elapsed time plus the prior fractional remainder to `advance-world!`. The latter processes every complete 25 ms tick and returns the new fractional remainder for `frame` to carry into the next animation frame. Each tick calls `consume-inputs!`, which snapshots `read-inputs` and then clears `pending-jump` and `pending-drop`; held A/D state remains. Quick W/S taps survive until a tick; only one tick receives each action.
 
-`step` forces horizontal input to zero while spawn locked. It calls `apply-jump` before gravity and movement, then resolves contact. Only a supported top contact unlocks spawn and restores the one air jump. Drawing happens after simulation and does not change world state.
+`step` forces horizontal input to zero while spawn locked. It clears stale drop state, selects drop or `apply-jump` before gravity and movement, then resolves contact and clears finished drop state. Only a supported top contact unlocks spawn and restores the one air jump. Drawing happens after simulation and does not change world state.
 
-`init` calls `stop!` before registering listeners and scheduling a frame. `stop!` removes listeners, clears held keys and pending W through `handle-blur!`, cancels the scheduled frame, and resets its ID. `game.cljc` uses a reader conditional for `sqrt`; browser APIs remain in `client.cljs`.
+`init` calls `stop!` before registering listeners and scheduling a frame. `stop!` removes listeners, clears held keys and pending W/S through `handle-blur!`, cancels the scheduled frame, and resets its ID. `game.cljc` uses a reader conditional for `sqrt`; browser APIs remain in `client.cljs`.
 
 Platform geometry lives in the `:platforms` vector. `earliest-contact` selects
 the earliest eligible surface, using stable platform IDs for equal times.
 Solid entries use every face and rounded corner; semisolids filter this to
 descending tops and upper endpoint arcs. The same remaining-time loop and
 four-contact budget process both types.
+
+The per-player `:drop-through-platform-id` belongs to immutable simulation
+state. It changes surface eligibility for one platform only; neither the
+platform vector nor the browser clock is modified to implement a drop.

@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–26 complete (26/70). Fresh S presses produce one independent drop request per press; capture survives taps and is cleared by ticks, focus loss, and restart, with physics unchanged.
+Checkpoints 01–27 complete (27/70). Milestone 2 is complete: four platforms with stable contact ordering, rounded semisolid landings, and one fresh S request to drop through only the supporting semisolid.
 Future mechanics remain specified in the roadmap.
 
 ## Run

@@ -11,7 +11,9 @@
                {:id :left :type :semisolid :x 200 :y 210 :width 120 :height 8 :color "#9c9c9c"}
                {:id :right :type :semisolid :x 480 :y 210 :width 120 :height 8 :color "#9c9c9c"}
                {:id :upper :type :semisolid :x 340 :y 130 :width 120 :height 8 :color "#9c9c9c"}]
-   :player {:x 400 :y 160 :vx 0 :vy 0 :radius 16 :spawn-locked? true :air-jumps-left 1 :color "#22d3ee"}})
+   :player {:x 400 :y 160 :vx 0 :vy 0 :radius 16
+            :spawn-locked? true :air-jumps-left 1
+            :drop-through-platform-id nil :color "#22d3ee"}})
 
 (defn move-player [player dt]
   (-> player
@@ -27,6 +29,22 @@
 (def contact-epsilon 1e-9)
 (def max-contacts-per-tick 4)
 
+(defn drop-through-platform? [player platform]
+  (and (= :semisolid (:type platform))
+       (= (:drop-through-platform-id player) (:id platform))))
+
+(defn clear-drop-through [player platforms]
+  (if-let [id (:drop-through-platform-id player)]
+    (let [platform (first (filter #(= id (:id %)) platforms))]
+      (if (or (not= :semisolid (:type platform))
+              (< (+ (:y player) (:radius player))
+                 (- (:y platform) contact-epsilon))
+              (>= (- (:y player) (:radius player))
+                  (+ (:y platform) (:height platform))))
+        (assoc player :drop-through-platform-id nil)
+        player))
+    player))
+
 (defn grounded? [{:keys [x y radius vy]} platform]
   (and (zero? vy)
        (<= (:x platform) x (+ (:x platform) (:width platform)))
@@ -34,7 +52,9 @@
 
 (defn supporting-platform [player platforms]
   (first (sort-by (comp str :id)
-                  (filter #(and (#{:solid :semisolid} (:type %)) (grounded? player %))
+                  (filter #(and (#{:solid :semisolid} (:type %))
+                                (not (drop-through-platform? player %))
+                                (grounded? player %))
                           platforms))))
 
 (defn apply-jump [player platforms jump?]
@@ -165,14 +185,16 @@
                                 (case (:type platform)
                                   :solid
                                   (if (contains? departing-ids (:id platform))
+                                    ;; Preserve corner correction at the end of an edge departure.
                                     (when-let [overlap (overlap-contact proposed platform)]
                                       (assoc overlap :time 1))
                                     (platform-contact player proposed platform))
                                   :semisolid
-                                  (if (contains? departing-ids (:id platform))
-                                    (when-let [overlap (semisolid-corner-overlap proposed platform)]
-                                      (assoc overlap :time 1))
-                                    (semisolid-contact player proposed platform))
+                                  (when-not (drop-through-platform? player platform)
+                                    (if (contains? departing-ids (:id platform))
+                                      (when-let [overlap (semisolid-corner-overlap proposed platform)]
+                                        (assoc overlap :time 1))
+                                      (semisolid-contact player proposed platform)))
                                   nil)]
                        (assoc contact :platform platform)))
                    platforms))))
@@ -228,12 +250,21 @@
         (> vx target) (max target (- vx change))
         :else vx))))
 
-(defn step [world {:keys [horizontal jump?] :or {horizontal 0 jump? false}} dt]
-  (update world :player
-          (fn [player]
-            (let [horizontal (if (:spawn-locked? player) 0 horizontal)]
-              (-> player
-                  (apply-jump (:platforms world) jump?)
-                  (update :vx accelerate-horizontal horizontal dt)
-                  (update :vy + (* gravity dt))
-                  (collide-platforms (:platforms world) dt))))))
+(defn step [world {:keys [horizontal jump? drop?]
+                   :or {horizontal 0 jump? false drop? false}} dt]
+  (let [platforms (:platforms world)]
+    (update world :player
+            (fn [player]
+              (let [player (clear-drop-through player platforms)
+                    locked? (:spawn-locked? player)
+                    horizontal (if locked? 0 horizontal)
+                    support (supporting-platform player platforms)
+                    dropping? (and (not locked?) drop? (= :semisolid (:type support)))
+                    player (if dropping?
+                             (assoc player :drop-through-platform-id (:id support))
+                             (apply-jump player platforms jump?))]
+                (-> player
+                    (update :vx accelerate-horizontal horizontal dt)
+                    (update :vy + (* gravity dt))
+                    (collide-platforms platforms dt)
+                    (clear-drop-through platforms)))))))
