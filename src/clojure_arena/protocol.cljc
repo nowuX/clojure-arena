@@ -145,7 +145,7 @@
          (safe-nonnegative-integer? id)
          (contains? #{:waiting :countdown :running :finished} phase)
          (finite-number? countdown-seconds-left) (<= 0 countdown-seconds-left 3)
-         (finite-number? time-seconds-left) (<= 0 time-seconds-left 180)
+         (finite-number? time-seconds-left) (<= 0 time-seconds-left match/duration)
          (and (finite-number? intermission-seconds-left) (zero? intermission-seconds-left))
          (nil? result)
          (map? contenders)

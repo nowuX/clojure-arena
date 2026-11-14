@@ -37,3 +37,11 @@ Disconnect and timeout use the same trusted leave path. An observer departure
 only removes ownership. Reused colors receive a new ID and do not restore the
 old contender. Departure does not charge a stock or grant elimination credit;
 result resolution is added separately.
+
+## Running clock
+
+A start installs 180 seconds. Only subsequent running ticks subtract their
+processed simulation dt and clamp tiny remainders to zero: 7,200 ticks at 40 Hz.
+Waiting, countdown and finished phases hold gameplay time. Scheduler pulses
+that are dropped under overload do not advance simulation time. Rendering has
+no authority over this clock; time-limit resolution is introduced separately.

@@ -2,6 +2,7 @@
   (:require [clojure-arena.game :as game]))
 
 (def countdown-duration 3)
+(def duration 180)
 
 (def initial-match
   {:id 0 :phase :waiting :countdown-seconds-left 0
@@ -68,7 +69,11 @@
                                           (get-in next-world [:players player-id]))]
                            (assoc result player-id (capture-contender contender player))
                            result))
-                       contenders contenders))))))
+                       contenders contenders)))
+        (update-in [:match :time-seconds-left]
+                   (fn [seconds]
+                     (let [remaining (- seconds dt)]
+                       (if (<= remaining game/cooldown-epsilon) 0 remaining)))))))
 
 (defn- start-match [world]
   (let [players (into {}
@@ -87,7 +92,7 @@
            :match {:id (inc (get-in world [:match :id]))
                    :phase :running
                    :countdown-seconds-left 0
-                   :time-seconds-left 0
+                   :time-seconds-left duration
                    :intermission-seconds-left 0
                    :result nil
                    :contenders contenders})))

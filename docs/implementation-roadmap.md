@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**60 of 70 checkpoints complete.** Checkpoints 01–60 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**61 of 70 checkpoints complete.** Checkpoints 01–61 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -816,7 +816,7 @@ Checkpoints **57–66**. Separate connections from contenders and compose match 
 
 ### 61 — Advance the three-minute match clock
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Set 180 seconds at match start and decrease only on later
   running ticks, clamped at zero. Waiting/countdown/finished hold the clock; time-limit
   resolution is added at checkpoint 63.

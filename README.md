@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–60 complete (60/70). The authoritative match records contender departures as forfeits while ordinary cleanup frees connection ownership and colors.
+Checkpoints 01–61 complete (61/70). Matches own a three-minute simulation clock that starts at full duration and advances only on later running ticks.
 Future mechanics remain specified in the roadmap.
 
 ## Run
