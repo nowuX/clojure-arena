@@ -113,7 +113,7 @@
         (set! (.-fillStyle context) color)
         (.fillRect context x y width height)))))
 
-(defn draw-player [canvas {:keys [x y radius color facing]}]
+(defn draw-player [canvas {:keys [x y radius color facing] :as player}]
   (let [context (.getContext canvas "2d")]
     (set! (.-fillStyle context) color)
     (.beginPath context)
@@ -123,7 +123,13 @@
     (.beginPath context)
     (.arc context (+ x (* radius (if (= facing :left) -0.5 0.5)))
           y 3 0 (* 2 js/Math.PI))
-    (.fill context)))
+    (.fill context)
+    (when (game/protected-player? player)
+      (set! (.-strokeStyle context) "#f2f2f2")
+      (set! (.-lineWidth context) 2)
+      (.beginPath context)
+      (.arc context x y (+ radius 5) 0 (* 2 js/Math.PI))
+      (.stroke context))))
 
 (defn draw-world [canvas {:keys [platforms players]}]
   (draw-background canvas)
@@ -134,7 +140,9 @@
 
 (defn player-state-label [player]
   (case (:lifecycle player :active)
-    :active "Activo"
+    :active (str "Activo" (when (game/protected-player? player)
+                             (str " · Protegido "
+                                  (js/Math.ceil (:protection-seconds-left player)) " s")))
     :respawning (str "Reapareciendo en " (js/Math.ceil (:respawn-seconds-left player 0)) " s")
     :eliminated "Eliminado"
     "Sin estado"))

@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**55 of 70 checkpoints complete.** Checkpoints 01–55 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**56 of 70 checkpoints complete.** Checkpoints 01–56 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -751,7 +751,7 @@ Checkpoints **50–56**. Introduce each lifecycle responsibility separately; no 
 
 ### 56 — Add visible incoming-hit protection
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Add a simulation timer and a reusable two-second protection
   helper. Grant it on respawn; reserve match-start wiring for checkpoint 58. Exclude
   protected targets from percentage and impulse, consume attackers normally, and draw a

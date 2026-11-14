@@ -34,3 +34,16 @@
             value [nil "160" ##Inf ##NaN]]
       (is (not (protocol/snapshot-message?
                  (assoc-in snapshot [:world :players :player-1 field] value)))))))
+
+(deftest snapshots-bound-protection-to-active-lives
+  (let [snapshot {:type :snapshot :tick 0 :world game/initial-world}
+        path [:world :players :player-1]]
+    (doseq [seconds [0 0.025 2]]
+      (is (protocol/snapshot-message? (assoc-in snapshot (conj path :protection-seconds-left) seconds))))
+    (doseq [seconds [-1 2.001 ##Inf ##NaN nil "2"]]
+      (is (not (protocol/snapshot-message? (assoc-in snapshot (conj path :protection-seconds-left) seconds)))))
+    (doseq [state [:respawning :eliminated]]
+      (is (not (protocol/snapshot-message?
+                 (update-in snapshot path assoc :stocks (if (= state :eliminated) 0 1)
+                            :lifecycle state :respawn-seconds-left (if (= state :respawning) 3 0)
+                            :protection-seconds-left 1)))))))

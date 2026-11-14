@@ -55,7 +55,8 @@
       (is (false? (game/active-player? (get-in before-expiry [:players :runner]))))
       (is (true? (game/active-player? fresh)))
       (is (= 2 (:stocks fresh)))
-      (is (= (assoc (game/make-player "#4ade80" 320 20) :stocks 2) fresh))
+      (is (= (game/grant-spawn-protection
+               (assoc (game/make-player "#4ade80" 320 20) :stocks 2)) fresh))
       (is (= "#4ade80" (:color fresh)))
       (is (= [320 20] ((juxt :x :y) fresh))
           "the new body receives no physics on its return tick")
@@ -100,3 +101,26 @@
         moving (game/step landed {:runner {:horizontal 1}} 0.025)]
     (is (> (get-in moving [:players :runner :x]) 320))
     (is (zero? (get-in moving [:players :runner :melee-strike-id])))))
+
+(deftest repeated-losses-return-only-while-opportunities-remain
+  (let [start (assoc game/initial-world :players
+                     {:player-1 (game/make-player "#4ade80" 400 160)})]
+    (loop [world start remaining [2 1 0]]
+      (let [expected (first remaining)
+            loss (game/step (assoc-in world [:players :player-1 :x] 900) {} 0)
+            lost (get-in loss [:players :player-1])
+            later (ticks loss 120 0.025)
+            player (get-in later [:players :player-1])]
+        (is (= expected (:stocks lost)))
+        (is (= expected (:stocks player)))
+        (if (pos? expected)
+          (do
+            (is (= :active (:lifecycle player)))
+            (is (= [400 160] ((juxt :x :y) player)))
+            (is (= 2 (:protection-seconds-left player)))
+            (recur later (rest remaining)))
+          (do
+            (is (= :eliminated (:lifecycle player)))
+            (is (= lost player))
+            (is (= lost (get-in (game/step later {:player-1 {:attack? true :jump? true}} 30)
+                               [:players :player-1])))))))))

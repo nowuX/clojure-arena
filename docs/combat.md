@@ -92,6 +92,19 @@ browser A/D/W/S/click input. The same scene supports movement, ground and air
 jumps, drop-through, facing, cooldowns, targeting, accumulation, and knockback.
 Connected play uses the same pure mechanics with server-owned inputs and
 snapshots; the fixture controls above describe disconnected fallback only.
-HP, stocks, respawn and automatic opponents are not implemented.
+Stocks, respawn and incoming-hit protection use the lifecycle described in
+[Simulation](simulation.md). HP, match phases and automatic opponents are not
+implemented.
 See the [architecture](architecture.md) for the complete tick and the
 [verification guide](simulation-verification.md) for reproducible checks.
+
+
+## Lifecycle and incoming protection
+
+Only active bodies can attack or be selected. Resolve ring-outs after movement
+and before targeting. Protected active targets are excluded both by the query
+and by the resolver; a consumed strike cannot become a delayed hit after the
+protection expires. Outgoing attacks remain normal after landing unlocks them.
+The two-second protection timer decrements before that tick's targeting and
+expires on the 80th later 25 ms tick. It blocks percentage and impulse together,
+not gravity, motion, platform contacts or ring-outs.

@@ -14,15 +14,18 @@
 
 (def initial-stocks 3)
 (def respawn-delay 3)
+(def spawn-protection-duration 2)
 
 (defn make-player [color x y]
-  {:x x :y y :spawn-x x :spawn-y y :vx 0 :vy 0 :knockback-vx 0 :knockback-vy 0 :radius 16
+  {:x x :y y :spawn-x x :spawn-y y
+   :vx 0 :vy 0 :knockback-vx 0 :knockback-vy 0 :radius 16
    :spawn-locked? true :air-jumps-left 1
    :drop-through-platform-id nil :color color :facing :right
    :melee-cooldown-left 0 :melee-strike-id 0 :melee-resolved-strike-id 0
    :melee-target-ids #{}
    :accumulated-percentage 0
-   :stocks initial-stocks :lifecycle :active :respawn-seconds-left 0})
+   :stocks initial-stocks :lifecycle :active
+   :respawn-seconds-left 0 :protection-seconds-left 0})
 
 (def local-player-fixtures
   {:player-1 (make-player "#22d3ee" 400 160)
@@ -51,16 +54,30 @@
 (defn active-player? [player]
   (and (map? player) (= :active (:lifecycle player :active))))
 
+(defn protected-player? [player]
+  (and (active-player? player) (pos? (:protection-seconds-left player 0))))
+
+(defn grant-spawn-protection [player]
+  (if (active-player? player)
+    (assoc player :protection-seconds-left spawn-protection-duration)
+    player))
+
 (defn- remaining-seconds [seconds dt]
   (let [remaining (- seconds dt)]
     (if (<= remaining cooldown-epsilon) 0 remaining)))
+
+(defn- step-protection [player dt]
+  (if (protected-player? player)
+    (update player :protection-seconds-left remaining-seconds dt)
+    player))
 
 (defn- step-respawn [player dt]
   (if (and (= :respawning (:lifecycle player)) (pos? (:stocks player)))
     (let [remaining (remaining-seconds (:respawn-seconds-left player) dt)]
       (if (zero? remaining)
-        (assoc (make-player (:color player) (:spawn-x player) (:spawn-y player))
-               :stocks (:stocks player))
+        (-> (make-player (:color player) (:spawn-x player) (:spawn-y player))
+            (assoc :stocks (:stocks player))
+            grant-spawn-protection)
         (assoc player :respawn-seconds-left remaining)))
     player))
 
@@ -72,6 +89,7 @@
       (assoc player :stocks stocks
              :lifecycle (if (pos? stocks) :respawning :eliminated)
              :respawn-seconds-left (if (pos? stocks) respawn-delay 0)
+             :protection-seconds-left 0
              :vx 0 :vy 0 :knockback-vx 0 :knockback-vy 0
              :spawn-locked? true :air-jumps-left 1
              :drop-through-platform-id nil :melee-cooldown-left 0
@@ -343,6 +361,7 @@
         (let [dx (- (:x target) (:x attacker))
               dy (- (:y target) (:y attacker))]
           (if (and (active-player? target)
+                   (not (protected-player? target))
                    (not= target-id attacker-id)
                    (case (:facing attacker)
                      :right (pos? dx)
@@ -405,7 +424,8 @@
         (reduce (fn [hits [_ attacker]]
                   (reduce (fn [hits target-id]
                             (if (and (contains? players target-id)
-                                     (active-player? (get players target-id)))
+                                     (active-player? (get players target-id))
+                                     (not (protected-player? (get players target-id))))
                               (update hits target-id (fnil conj []) (:facing attacker))
                               hits))
                           hits (:melee-target-ids attacker)))
@@ -436,7 +456,7 @@
                      (assoc result player-id
                             (if (active-player? player)
                               (resolve-ring-out
-                                (step-player player (:platforms world)
+                                (step-player (step-protection player dt) (:platforms world)
                                              (get inputs-by-player player-id) dt)
                                 (:blast-bounds world))
                               (step-respawn player dt))))

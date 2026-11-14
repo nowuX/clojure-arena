@@ -58,7 +58,7 @@
    :melee-resolved-strike-id 0
    :melee-target-ids #{}
    :accumulated-percentage 0
-   :stocks 3 :lifecycle :active :respawn-seconds-left 0
+   :stocks 3 :lifecycle :active :respawn-seconds-left 0 :protection-seconds-left 0
    :radius 16
    :color fill})
 

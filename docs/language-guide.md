@@ -314,3 +314,12 @@ color guardados. Luego restaura solo las vidas restantes; la clave externa del
 mapa mantiene el ID. Así reinicia porcentaje y estado físico/de combate sin
 una segunda lista de valores iniciales. La rama de retorno no ejecuta física
 ni interpreta acciones; el siguiente tick inicia la caída con controles bloqueados.
+
+
+### Protección al reaparecer
+
+`grant-spawn-protection` devuelve otro mapa con dos segundos solo si el jugador
+está activo. El tick reduce ese dato antes de buscar objetivos; la consulta y
+el resolver excluyen destinos protegidos. Los marcadores de golpe se confirman
+igual, evitando impactos aplazados. Canvas dibuja un anillo blanco y el panel
+muestra segundos redondeados, sin controlar el reloj de la simulación.

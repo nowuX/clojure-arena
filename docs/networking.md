@@ -69,7 +69,7 @@ The room begins with the shared platforms and an empty `:players` map, not the
 four offline fixtures. `spawn-config` maps palette keywords to body fill and
 spawns `(340,160)/(380,160)/(420,160)/(460,160)`. `make-spawn-player` delegates
 to the shared factory, including spawn lock, facing, jump/drop, percentage,
-melee sequences/cooldown, and retained motion.
+melee sequences/cooldown, retained motion, stocks/lifecycle and stored spawn.
 
 The same admission transition inserts the member, body under that ID, and
 `protocol/neutral-input` in `:inputs-by-player`. Duplicate admission preserves
@@ -166,3 +166,14 @@ it can be rejected while old cleanup is pending, and it receives a larger ID
 and fresh factory state after a slot is released. Color reuse does not restore
 old percentage, motion, strike, input or snapshot state. The room tick continues
 across joins/leaves rather than restarting for an individual session.
+
+
+## Lifecycle snapshots
+
+Player schema includes `:stocks` (integer 0–3), `:lifecycle`
+(active/respawning/eliminated), finite `:spawn-x/:spawn-y`, and finite timers
+`:respawn-seconds-left` (0–3) / `:protection-seconds-left` (0–2). Active players
+have stocks and no respawn countdown. Respawning records have stocks and no
+protection; eliminated records have zero stocks and zero timers. Neither
+stock loss nor elimination removes membership or snapshot delivery. Only
+socket retirement removes the body record and frees its color.

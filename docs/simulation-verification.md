@@ -30,7 +30,8 @@ Start locally with `just dev` and open `http://127.0.0.1:8081/` on the service h
 - Confirm `Arena lista.` appears with the dark background, filled main platform, three neutral outlined semisolids, and four distinct player bodies (cyan, crimson, amber, green), each with a white facing dot.
 - On first fall, hold D and press W. The player should stay at its spawn X and should not jump. After landing on the platform top, controls unlock; the earlier W request must not replay. A held D direction should begin moving on the following tick.
 - Hold D, release it, then reverse with A. Check acceleration and gradual braking. Hold both keys together and check neutral braking.
-- Walk off either platform edge and confirm falling resumes. A fresh W press after leaving an edge can use the single air jump. Reload to restore the initial scene after falling out of view.
+- Walk off either platform edge and confirm falling resumes. A fresh W press after leaving an edge can use the single air jump. A complete blast-bound exit spends one opportunity; survivors return after
+  three simulation seconds.
 - Release W, then make a fresh W press while grounded. Confirm a ground jump. While airborne, make another fresh W press and confirm one air jump. A third fresh press must not launch; it must not be saved for later.
 - Land on the platform and confirm a fresh W press can launch again. This checks that supported landing restores the air-jump allowance.
 - While holding a direction or with a W/S/click request pending, move focus away from the page. Confirm blur clears held directions and all pending actions. Repeat startup/stop through the development workflow and check for duplicate input response or animation loops.
@@ -100,10 +101,10 @@ reach only `:player-1` and never create it if it is absent.
   before the next tick: the pending request is discarded.
 - Jump and click together while unlocked. On a supported semisolid, S/W/click
   together drops instead of jumping while independently requesting melee.
-- Walk or jump toward the crimson/amber semisolids, face a nearby body and hit.
-  Watch its trajectory through one-way surfaces and later landing. Reload
-  restores the local scene if a fixture leaves the view; stocks/respawn are not
-  part of this milestone.
+- Walk or jump toward the upper semisolids, face a nearby body and hit.
+  Watch its trajectory through one-way surfaces and later landing. Surviving fixtures return after three simulation seconds with reset
+  percentage and two-second hit protection. At zero opportunities, reload
+  restores the local sandbox.
 
 Automated fixtures exercise clicks through `EventTarget`, actual `game/step`,
 and controlled RAF at different frame cadences. Recording DOM/Canvas doubles
@@ -111,3 +112,22 @@ check the same-frame world and displayed values. Pure tests cover opposing
 simultaneous hits, wall/corner projection after real hits, rejected/valid jumps,
 and semisolid rise/landing/drop. These passes do not establish native pointer,
 focus, Canvas pixels, or cross-device behavior; those remain manual checks.
+
+
+## Stocks, respawn and protection checks
+
+- Walk off the arena far enough for the whole circle to cross a blast bound.
+  The row loses exactly one opportunity, retains percentage and shows the
+  three-second respawn countdown; its body is absent during that delay.
+- On return, verify 0%, original spawn, right facing, one air jump and locked
+  controls until top landing. Held A/D begins only after landing; earlier W/S
+  or click pulses must not replay. The return tick does not also move the body.
+- During the two-second neutral ring, incoming strikes change neither percentage
+  nor impulse. After it disappears, a fresh valid strike works. A protected
+  player may attack after landing, and can still lose a stock by exiting.
+- Repeat until zero opportunities. The row stays «Eliminado» with no body or
+  timer and cannot hit or be hit. There is no victory/rematch flow yet.
+
+The automated boundary tests check 119/120 respawn ticks, 79/80 protection
+ticks, complete/partial exits on every edge, simultaneous exits/attacks,
+independent timers and exact snapshot schemas on JVM and ClojureScript.

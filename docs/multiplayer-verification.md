@@ -57,3 +57,15 @@ world for Canvas/panel with separate offline fallback. They do not render a
 native browser or emulate physical network loss. The release checks compiler
 compatibility only. Native focus, appearance and cross-device behavior require
 the checklist above.
+
+
+## Stock lifecycle across connected pages
+
+Drive one player's whole circle outside the blast bounds. All accepted pages
+should show one opportunity lost, the same absent body and countdown. At three
+simulation seconds it returns with 0%, fresh motion, locked spawn and a neutral
+two-second protection ring/text. Verify incoming hits are ignored only while
+protected, then work on a fresh strike after expiry. Repeat through elimination:
+its connected row remains, receives snapshots and still occupies its slot.
+Disconnect/reload creates a fresh session under the ordinary admission rules;
+it does not revive the old ID. Match phases/results are not implemented yet.

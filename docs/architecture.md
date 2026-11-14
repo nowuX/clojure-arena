@@ -57,8 +57,8 @@ not resume retired identities.
 
 | Function | Input → result | Effects / ownership |
 | --- | --- | --- |
-| `game/make-player` | body color, spawn X/Y → fresh player | Pure; starts locked with neutral motion/combat |
-| `game/step` | world, input by existing player ID, dt → next world | Pure; moves all bodies, targets final positions, resolves hits once |
+| `game/make-player` | body color, spawn X/Y → fresh player | Pure; three stocks, stored spawn, locked neutral motion/combat |
+| `game/step` | world, input by existing player ID, dt → next world | Pure; steps active bodies and inactive timers, resolves exits before hits |
 | `game/step-player` | player, platforms, intention, dt → next player | Pure; facing, cooldown, jump/drop, gravity, motion and swept contacts |
 | `game/collide-platforms` | player, platforms, dt → resolved player | Pure; earliest surface/corner, remaining time and four-contact budget |
 | `game/melee-target-ids` | players, attacker ID → target ID set | Pure; forward center-to-center half-disk of radius 60 |
@@ -83,12 +83,16 @@ not resume retired identities.
 ## One complete simulation tick
 
 1. Step each existing player once, using its owned intention or neutral input.
-   Initial lock ignores voluntary movement/actions until supported landing.
-2. Update facing/cooldown, choose semisolid drop before jump, apply acceleration,
+   Inactive records count respawn time or remain eliminated. Initial lock
+   ignores voluntary movement/actions until supported landing.
+2. Decrement active protection, update facing/cooldown, choose semisolid drop
+   before jump, apply acceleration,
    friction and gravity, then sweep surfaces and corners. Supported top contact
    unlocks spawn and restores one air jump. Drop ignores only its stored platform.
-3. Freeze all resulting players for every newly accepted melee sequence.
-   A miss consumes its sequence and cooldown too.
+3. Resolve whole-circle blast-bound exits, consuming one stock before combat.
+   Freeze the resulting players for every newly accepted melee sequence.
+   Inactive/protected targets are excluded. A miss or protected attempt consumes
+   its sequence and cooldown too.
 4. Group hits per target, add 10 percentage points per hit, calculate impulses at
    the final percentage, then store total/received velocities and resolved markers
    together. The added velocity moves the target on the next tick.
@@ -113,3 +117,19 @@ stops owned schedulers/worker, closes HTTP channels and waits for room cleanup.
 It does not stop unrelated processes. Real JVM socket tests and Node doubles
 cover different boundaries; [Multiplayer verification](multiplayer-verification.md)
 contains the native-browser and remote-device checklist.
+
+
+## Player lifecycle inside the room tick
+
+`outside-arena?` queries whole-circle strict exits against world bounds.
+`resolve-ring-out` consumes a stock once and clears physical/hit effects.
+`active-player?` gates motion, attacks and body rendering; the record remains
+under the same ID for connection ownership and panel display.
+
+An already respawning record counts down three simulation seconds. On expiry,
+`step-respawn` rebuilds through `make-player` at its stored spawn, preserving
+color/stocks and the outer ID. That return tick performs no extra physics or
+action handling. `grant-spawn-protection` grants two full seconds; only later
+active ticks decrement protection before targeting. Eliminated records never
+respawn. Snapshot validation includes finite bounds, stored spawns, integer
+stocks, lifecycle and bounded timers. No match phase or result is introduced.

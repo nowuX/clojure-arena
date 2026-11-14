@@ -718,3 +718,22 @@
                               [0 "Reapareciendo en 0 s"]]]
     (is (= expected (client/player-state-label {:lifecycle :respawning
                                                :respawn-seconds-left seconds})))))
+
+(deftest protection-renders-a-neutral-ring-and-read-only-countdown-label
+  (let [calls (atom [])
+        context #js {:fillStyle "" :strokeStyle ""
+                     :beginPath (fn []) :fill (fn [])
+                     :arc (fn [& args] (swap! calls conj [:arc (vec args)]))}
+        canvas #js {:getContext (fn [_] context)}
+        player (assoc (game/grant-spawn-protection (game/make-player "#4ade80" 400 160))
+                      :protection-seconds-left 0.025)]
+    (set! (.-stroke context) (fn [] (swap! calls conj [:stroke (.-strokeStyle context)])))
+    (client/draw-player canvas player)
+    (is (= [:stroke "#f2f2f2"] (last @calls)))
+    (is (= 21 (nth (second (nth @calls 2)) 2)))
+    (is (= "Activo · Protegido 1 s" (client/player-state-label player)))
+    (is (= 0.025 (:protection-seconds-left player)))
+    (reset! calls [])
+    (client/draw-player canvas (assoc player :protection-seconds-left 0))
+    (is (not-any? #(= :stroke (first %)) @calls))
+    (is (= "Activo" (client/player-state-label (assoc player :protection-seconds-left 0))))))

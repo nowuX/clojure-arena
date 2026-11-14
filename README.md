@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–55 complete (55/70). After three seconds, survivors return at their stored spawn with fresh physics/combat state, preserved identity and stocks, and movement locked until landing.
+Checkpoints 01–56 complete (56/70). Players have three opportunities, simulation-owned respawns and two-second incoming-hit protection with neutral lifecycle presentation.
 Future mechanics remain specified in the roadmap.
 
 ## Run

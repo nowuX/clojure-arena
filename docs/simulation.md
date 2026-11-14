@@ -185,3 +185,20 @@ cooldown, sequences and targets reset. Controls stay locked until supported
 landing. The return branch ignores actions and performs no physics; later
 ticks resume ordinary falling. Inactive action pulses are consumed by room
 and local input clocks, so no old jump/attack can replay after landing.
+
+
+## Incoming-hit protection
+
+New ordinary admissions start with no protection. `grant-spawn-protection`
+returns a new active player with `:protection-seconds-left 2`; inactive values
+are unchanged. Respawn grants the full duration on the return tick. Only later
+active ticks consume it, before motion/ring-out and melee targeting. At zero,
+that tick's hits can apply. A protection-rejected strike is still consumed;
+protection does not defer impacts or prevent ring-outs. Initial match-start
+protection is reserved for the future match-start checkpoint.
+
+Canvas adds a neutral white ring around a protected body and the panel adds
+«Protegido N s» with rounded-up simulation time. Both disappear at zero. Body
+colors remain reserved for identity; stocks, lifecycle and protection are
+separate fields. At zero stocks a player remains connected and eliminated;
+match completion and rematches belong to the next milestone.
