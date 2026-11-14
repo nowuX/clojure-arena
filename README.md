@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–11 complete (11/70). The character lands on the swept flat top, stays supported, and falls after either edge.
+Checkpoints 01–12 complete (12/70). Swept circle contacts resolve all solid faces, rounded corners, overlap, and remaining travel with a four-contact cap.
 Future mechanics remain specified in the roadmap.
 
 ## Run

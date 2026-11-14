@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**11 of 70 checkpoints complete.** Checkpoints 01–11 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**12 of 70 checkpoints complete.** Checkpoints 01–12 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -202,7 +202,7 @@ Checkpoints **01–21**. Introduce rendering, immutable data, input, fixed time,
 
 ### 12 — Complete solid-platform contacts
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Add swept side, underside, and rounded-corner contacts for a
   circle against the solid rectangle, including overlap correction. Remove inward normal
   velocity and continue remaining movement with a four-contact limit and 1e-9 tolerance.
