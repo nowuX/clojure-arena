@@ -8,6 +8,7 @@
   (assoc-in fixtures/single-platform-world [:players :player-1 :spawn-locked?] false))
 
 (def draw-scene client/draw-world)
+(def render-panel client/render-players!)
 
 (def callbacks (atom {}))
 (def next-id (atom 0))
@@ -56,7 +57,8 @@
       (aset js/globalThis "cancelAnimationFrame" #(swap! callbacks dissoc %))
       (reset! client/world playable-world)
       (try
-        (with-redefs [client/draw-world (fn [& _])]
+        (with-redefs [client/draw-world (fn [& _])
+                      client/render-players! (fn [& _])]
           (client/stop!)
           (run)
           (client/stop!))
@@ -540,3 +542,40 @@
          (client/consume-inputs!)))
   (is (= {:horizontal 1 :jump? false :drop? false :attack? false}
          (client/read-inputs))))
+
+(defn panel-node []
+  (let [children (atom [])
+        node #js {:style #js {} :children children
+                  :setAttribute (fn [_ _])
+                  :appendChild #(swap! children conj %)
+                  :replaceChildren #(reset! children [])}]
+    node))
+
+(deftest player-panel-uses-identities-swatches-and-unbounded-values
+  (let [panel (panel-node)
+        doc #js {:getElementById (fn [id] (when (= id "players") panel))
+                 :createElement (fn [_] (panel-node))}
+        snapshot (assoc game/initial-world :players
+                        {:player-2 (assoc (get-in game/initial-world [:players :player-2]) :accumulated-percentage 140)
+                         :player-1 (assoc (get-in game/initial-world [:players :player-1]) :accumulated-percentage 50)})]
+    (with-redefs [js/document doc]
+      (render-panel snapshot)
+      (let [rows @(.-children panel)
+            fields (mapv #(deref (.-children %)) rows)]
+        (is (= ["player-1" "player-2"] (mapv #(.-textContent (nth % 1)) fields)))
+        (is (= ["50 %" "140 %"] (mapv #(.-textContent (nth % 2)) fields)))
+        (is (= ["#22d3ee" "#e11d48"]
+               (mapv #(.-backgroundColor (.-style (first %))) fields))))
+      (render-panel (assoc snapshot :players {}))
+      (is (empty? @(.-children panel))))
+    (is (= 140 (get-in snapshot [:players :player-2 :accumulated-percentage])))))
+
+(deftest canvas-and-player-panel-read-the-same-world-for-a-frame
+  (let [seen (atom [])]
+    (with-redefs [client/draw-world (fn [_ snapshot] (swap! seen conj snapshot))
+                  client/render-players! (fn [snapshot] (swap! seen conj snapshot))]
+      (client/init)
+      (fire-frame! 0)
+      (fire-frame! 25)
+      (doseq [[drawn displayed] (partition 2 @seen)]
+        (is (identical? drawn displayed))))))

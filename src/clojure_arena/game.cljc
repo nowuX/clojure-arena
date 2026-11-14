@@ -7,13 +7,15 @@
 (def jump-velocity -420)
 (def melee-cooldown 0.25)
 (def melee-reach 60)
+(def melee-hit-percentage 10)
 (def cooldown-epsilon 1e-9)
 
 (defn make-player [color x y]
   {:x x :y y :vx 0 :vy 0 :radius 16
    :spawn-locked? true :air-jumps-left 1
    :drop-through-platform-id nil :color color :facing :right
-   :melee-cooldown-left 0 :melee-strike-id 0 :melee-target-ids #{}})
+   :melee-cooldown-left 0 :melee-strike-id 0 :melee-target-ids #{}
+   :accumulated-percentage 0})
 
 (def local-player-fixtures
   {:player-1 (make-player "#22d3ee" 400 160)
@@ -312,6 +314,16 @@
         (collide-platforms platforms dt)
         (clear-drop-through platforms))))
 
+(defn apply-melee-hits [players]
+  (let [hits-by-target (frequencies (mapcat :melee-target-ids (vals players)))]
+    (reduce-kv
+      (fn [result target-id hits]
+        (if (contains? players target-id)
+          (update-in result [target-id :accumulated-percentage]
+                     (fnil + 0) (* melee-hit-percentage hits))
+          result))
+      players hits-by-target)))
+
 (defn step [world inputs-by-player dt]
   (let [players (:players world)
         stepped-players
@@ -329,4 +341,4 @@
                         (melee-target-ids stepped-players player-id))
               result))
           stepped-players stepped-players)]
-    (assoc world :players targeted-players)))
+    (assoc world :players (apply-melee-hits targeted-players))))

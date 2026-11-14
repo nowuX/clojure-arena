@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**33 of 70 checkpoints complete.** Checkpoints 01–33 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**34 of 70 checkpoints complete.** Checkpoints 01–34 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -467,7 +467,7 @@ Checkpoints **31–38**. Accept input, select targets, resolve percentage once, 
 
 ### 34 — Accumulate percentage and show the player panel
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Add independent accumulated percentage, initially zero, and +10
   points for each selected hit without a 100 cap. Render ID/swatch/value beneath the arena
   using the same frame world. All panel surfaces/text stay neutral.

@@ -96,6 +96,25 @@
   (doseq [player (vals players)]
     (draw-player canvas player)))
 
+(defn render-players! [{:keys [players]}]
+  (when-let [panel (.getElementById js/document "players")]
+    (.replaceChildren panel)
+    (doseq [[player-id player] (sort-by (comp str key) players)]
+      (let [row (.createElement js/document "li")
+            swatch (.createElement js/document "span")
+            label (.createElement js/document "span")
+            percentage (.createElement js/document "span")]
+        (set! (.-className row) "player-row")
+        (set! (.-className swatch) "player-swatch")
+        (set! (.-backgroundColor (.-style swatch)) (:color player))
+        (.setAttribute swatch "aria-hidden" "true")
+        (set! (.-textContent label) (name player-id))
+        (set! (.-textContent percentage) (str (:accumulated-percentage player 0) " %"))
+        (.appendChild row swatch)
+        (.appendChild row label)
+        (.appendChild row percentage)
+        (.appendChild panel row)))))
+
 (defn advance-world! [elapsed-ms]
   (loop [remaining-ms elapsed-ms]
     (if (>= remaining-ms tick-ms)
@@ -108,8 +127,10 @@
   (let [elapsed-ms (if (some? previous-time)
                      (min max-frame-ms (max 0 (- timestamp previous-time)))
                      0)
-        remainder (advance-world! (+ accumulated-ms elapsed-ms))]
-    (draw-world canvas @world)
+        remainder (advance-world! (+ accumulated-ms elapsed-ms))
+        world-snapshot @world]
+    (draw-world canvas world-snapshot)
+    (render-players! world-snapshot)
     (reset! frame-id
             (js/requestAnimationFrame (partial frame canvas timestamp remainder)))))
 
@@ -131,8 +152,10 @@
   (.addEventListener js/window "keyup" handle-key-up!)
   (.addEventListener js/window "blur" handle-blur!)
   (set! (.-textContent (.getElementById js/document "status")) "Arena lista.")
-  (let [canvas (.getElementById js/document "arena")]
+  (let [canvas (.getElementById js/document "arena")
+        world-snapshot @world]
     (.addEventListener canvas "pointerdown" handle-pointer-down!)
     (reset! input-canvas canvas)
-    (draw-world canvas @world)
+    (draw-world canvas world-snapshot)
+    (render-players! world-snapshot)
     (reset! frame-id (js/requestAnimationFrame (partial frame canvas nil 0)))))

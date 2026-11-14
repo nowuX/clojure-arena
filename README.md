@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–33 complete (33/70). Accepted melee strikes query a 60-pixel forward half-disk once after every player finishes movement and contacts. Target sets share one final snapshot, support multiple targets, and ignore platform occlusion; hit effects are pending.
+Checkpoints 01–34 complete (34/70). Melee hits add 10 percentage points independently without a 100 cap. A monochrome panel beneath the arena displays each ID, identity swatch, and percentage from the same world used by Canvas; physical impulses are pending.
 Future mechanics remain specified in the roadmap.
 
 ## Run

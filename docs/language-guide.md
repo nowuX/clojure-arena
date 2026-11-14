@@ -154,3 +154,11 @@ bloqueado y el cooldown terminó, `update` incrementa `:melee-strike-id` y
 `case` elige el signo de X según la mirada y la distancia al cuadrado evita
 una raíz. `step` termina primero el movimiento de todos; luego consulta el
 mismo mapa para cada secuencia nueva. Leer ese mapa no modifica posiciones.
+
+### Acumular impactos y dibujar valores
+
+`frequencies` cuenta los IDs seleccionados y `update-in` suma diez puntos por
+impacto a `:accumulated-percentage`. El porcentaje no es vida ni velocidad.
+El cliente lee `@world` una vez por frame y entrega el mismo valor al canvas y
+al panel. `createElement`, `textContent` y `appendChild` crean las filas del DOM;
+los efectos siguen fuera de las funciones puras de simulación.

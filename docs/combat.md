@@ -9,8 +9,8 @@ clamp at zero within `cooldown-epsilon` (1e-9), and accept a fresh request only
 when unlocked and ready. Acceptance increments that player's sequence and sets
 0.25 seconds. At 25 ms per tick, the tenth later tick can accept another strike.
 Rejected clicks are consumed, never stored until readiness. Misses still spend
-the cooldown. Acceptance triggers the geometric query below; percentage and physical effects
-are not applied yet.
+the cooldown. Acceptance triggers the geometric query and percentage update below. Physical
+impulses are not integrated yet.
 
 ## Post-movement targeting
 
@@ -24,3 +24,16 @@ is at most 3600 and dx is strictly positive for right or negative for left.
 Exclude the attacker ID and the vertical center line. Radius does not expand
 reach, and platforms do not occlude it. Multiple targets and simultaneous
 attackers use one snapshot, independent of player-map iteration order.
+
+## Percentage and presentation
+
+`apply-melee-hits` groups selected IDs and adds 10 percentage points per hit.
+Each record starts with `:accumulated-percentage 0`; values exceed 100 without
+changing normal movement or representing HP. Hits on the same target add up.
+The next step clears target sets, so the ordinary loop has no lingering hitbox.
+Explicit replay protection is the next checkpoint.
+
+`frame` and `init` dereference the world once and pass that same value to Canvas
+and `render-players!`. The panel beneath the arena lists ID, color swatch, and
+percentage, ordered by ID. Only the small swatch has hue; surfaces and text are
+neutral. Rendering reads state without updating gameplay.
