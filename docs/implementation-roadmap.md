@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**30 of 70 checkpoints complete.** Checkpoints 01–30 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**31 of 70 checkpoints complete.** Checkpoints 01–31 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -433,7 +433,7 @@ Checkpoints **31–38**. Accept input, select targets, resolve percentage once, 
 
 ### 31 — Capture one melee request from primary click
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Listen for primary pointer presses only on the arena canvas.
   Queue one attack action with the same consume/blur/stop/restart lifecycle as W/S;
   holding does not repeat. No hit effect exists yet.

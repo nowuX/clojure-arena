@@ -108,3 +108,11 @@ effect only if still held on the following tick.
 `draw-player` draws a neutral `#f2f2f2` dot of radius 3 at half the body radius
 left or right of its center. It reads facing rather than inferring it from vx.
 The only colored graphics remain the four player bodies.
+
+## Primary-pointer intention
+
+The arena canvas alone listens for `pointerdown` with button 0. A press stores
+`:attack?` in `pending-attack`; reads preserve it and the next fixed tick consumes
+it alongside W/S. Multiple presses before a tick coalesce. A held pointer does
+not repeat. Blur, stop, and restart discard pending attacks; replacing the canvas
+removes its old listener. Capturing this intention has no hit effect yet.

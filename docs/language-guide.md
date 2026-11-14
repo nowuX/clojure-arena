@@ -132,3 +132,11 @@ derecha. La fricción y las colisiones no escriben ese campo.
 En `draw-player`, `if` elige un desplazamiento de medio radio según `:facing`.
 La interoperabilidad `.arc` dibuja primero el cuerpo y luego un punto blanco.
 Soltar teclas o perder foco limpia entradas, pero no borra esta memoria.
+
+### Pulso del clic principal
+
+`pending-attack` es otro átomo booleano. El canvas registra `pointerdown` y
+acepta solo `button = 0`; el evento indica intención, no un impacto. Varios
+clics antes del tick conservan un único `true`. `consume-inputs!` lo entrega
+como `:attack?` y lo limpia con W/S. `input-canvas` recuerda dónde quitar el
+listener durante `stop!`, incluso si el DOM reemplazó el canvas.

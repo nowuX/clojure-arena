@@ -9,6 +9,8 @@
 (defonce pressed-keys (atom #{}))
 (defonce pending-jump (atom false))
 (defonce pending-drop (atom false))
+(defonce pending-attack (atom false))
+(defonce input-canvas (atom nil))
 (def jump-key-code "KeyW")
 (def drop-key-code "KeyS")
 (def movement-key-codes #{"KeyA" "KeyD"})
@@ -18,12 +20,13 @@
      (if (contains? @pressed-keys "KeyA") 1 0)))
 
 (defn read-inputs []
-  {:horizontal (horizontal-input) :jump? @pending-jump :drop? @pending-drop})
+  {:horizontal (horizontal-input) :jump? @pending-jump :drop? @pending-drop :attack? @pending-attack})
 
 (defn consume-inputs! []
   (let [inputs (read-inputs)]
     (reset! pending-jump false)
     (reset! pending-drop false)
+    (reset! pending-attack false)
     inputs))
 
 (defn- control-key? [code]
@@ -47,10 +50,16 @@
     (.preventDefault event)
     (swap! pressed-keys disj (.-code event))))
 
+(defn handle-pointer-down! [event]
+  (when (zero? (.-button event))
+    (.preventDefault event)
+    (reset! pending-attack true)))
+
 (defn handle-blur! [_event]
   (reset! pressed-keys #{})
   (reset! pending-jump false)
-  (reset! pending-drop false))
+  (reset! pending-drop false)
+  (reset! pending-attack false))
 
 (defn draw-background [canvas]
   (let [context (.getContext canvas "2d")]
@@ -105,6 +114,9 @@
             (js/requestAnimationFrame (partial frame canvas timestamp remainder)))))
 
 (defn stop! []
+  (when-let [canvas @input-canvas]
+    (.removeEventListener canvas "pointerdown" handle-pointer-down!))
+  (reset! input-canvas nil)
   (.removeEventListener js/window "keydown" handle-key-down!)
   (.removeEventListener js/window "keyup" handle-key-up!)
   (.removeEventListener js/window "blur" handle-blur!)
@@ -120,5 +132,7 @@
   (.addEventListener js/window "blur" handle-blur!)
   (set! (.-textContent (.getElementById js/document "status")) "Arena lista.")
   (let [canvas (.getElementById js/document "arena")]
+    (.addEventListener canvas "pointerdown" handle-pointer-down!)
+    (reset! input-canvas canvas)
     (draw-world canvas @world)
     (reset! frame-id (js/requestAnimationFrame (partial frame canvas nil 0)))))

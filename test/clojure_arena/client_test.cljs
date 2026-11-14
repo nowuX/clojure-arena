@@ -13,6 +13,7 @@
 (def next-id (atom 0))
 (def listeners (atom {}))
 (def target (atom nil))
+(def canvas-target (atom nil))
 
 (defn fire-frame! [timestamp]
   (let [[id callback] (first @callbacks)]
@@ -36,6 +37,7 @@
       (reset! callbacks {})
       (reset! listeners {})
       (reset! target event-target)
+      (reset! canvas-target (js/EventTarget.))
       (set! (.-addEventListener event-target)
             (fn [type listener]
               (swap! listeners update type (fnil conj #{}) listener)
@@ -45,7 +47,7 @@
               (swap! listeners update type disj listener)
               (.call remove event-target type listener)))
       (aset js/globalThis "window" event-target)
-      (aset js/globalThis "document" #js {:getElementById (fn [_] #js {})})
+      (aset js/globalThis "document" #js {:getElementById (fn [id] (if (= id "arena") @canvas-target #js {}))})
       (aset js/globalThis "requestAnimationFrame"
             (fn [callback]
               (let [id (swap! next-id inc)]
@@ -96,7 +98,7 @@
   (client/init)
   (key-event! "keydown" "KeyD")
   (key-event! "keydown" "KeyD" true)
-  (is (= {:horizontal 1 :jump? false :drop? false} (client/read-inputs)))
+  (is (= {:horizontal 1 :jump? false :drop? false :attack? false} (client/read-inputs)))
   (key-event! "keydown" "KeyA")
   (is (= 0 (client/horizontal-input)))
   (key-event! "keyup" "KeyD")
@@ -192,7 +194,7 @@
     (key-event! "keydown" "KeyW")
     (key-event! "keydown" "KeyD")
     (reset-input!)
-    (is (= {:horizontal 0 :jump? false :drop? false} (client/read-inputs)))))
+    (is (= {:horizontal 0 :jump? false :drop? false :attack? false} (client/read-inputs)))))
 
 (deftest held-spawn-input-waits-for-landing-and-discards-old-w
   (reset! client/world fixtures/single-platform-world)
@@ -270,7 +272,7 @@
     (client/stop!)
     (is (empty? @callbacks))
     (is (every? empty? (vals @listeners)))
-    (is (= {:horizontal 0 :jump? false :drop? false} (client/read-inputs))))
+    (is (= {:horizontal 0 :jump? false :drop? false :attack? false} (client/read-inputs))))
   (reset! client/world (update-in playable-world [:players :player-1] assoc :y 264 :vy 0))
   (client/init)
   (fire-frame! 0)
@@ -334,10 +336,10 @@
   (client/init)
   (doseq [code ["KeyW" "KeyS" "KeyA" "KeyD"]]
     (key-event! "keydown" code))
-  (is (= {:horizontal 0 :jump? true :drop? true} (client/consume-inputs!)))
-  (is (= {:horizontal 0 :jump? false :drop? false} (client/read-inputs)))
+  (is (= {:horizontal 0 :jump? true :drop? true :attack? false} (client/consume-inputs!)))
+  (is (= {:horizontal 0 :jump? false :drop? false :attack? false} (client/read-inputs)))
   (key-event! "keyup" "KeyA")
-  (is (= {:horizontal 1 :jump? false :drop? false} (client/consume-inputs!)))
+  (is (= {:horizontal 1 :jump? false :drop? false :attack? false} (client/consume-inputs!)))
   (is (= 1 (client/horizontal-input))))
 
 (deftest lifecycle-clears-s-w-and-directions-together
@@ -346,7 +348,7 @@
     (client/init)
     (doseq [code ["KeyW" "KeyS" "KeyD"]] (key-event! "keydown" code))
     (clear-input!)
-    (is (= {:horizontal 0 :jump? false :drop? false} (client/read-inputs)))))
+    (is (= {:horizontal 0 :jump? false :drop? false :attack? false} (client/read-inputs)))))
 
 (deftest captured-drop-leaves-the-supporting-semisolid
   (let [platform (first (filter #(= :left (:id %)) (:platforms game/initial-world)))]
@@ -426,7 +428,7 @@
       (is (zero? (get-in players [id :vx])))
       (is (= 24.5 (get-in players [id :vy])))
       (is (= 1 (get-in players [id :air-jumps-left]))))
-  (is (= {:horizontal 1 :jump? false :drop? false} (client/read-inputs)))))
+  (is (= {:horizontal 1 :jump? false :drop? false :attack? false} (client/read-inputs)))))
 
 (deftest local-controls-do-not-create-a-missing-player-1
   (reset! client/world (-> game/initial-world
@@ -479,3 +481,62 @@
       (is (= [[400 160 16 "#22d3ee"] [dot-x 160 3 "#f2f2f2"]] @arcs))
       (is (= facing (:facing player)))
       (is (= 400 (:x player))))))
+
+(defn pointer-event! [event-target button]
+  (let [event (js/Event. "pointerdown" #js {:cancelable true})]
+    (aset event "button" button)
+    (.dispatchEvent event-target event)))
+
+(deftest short-primary-clicks-coalesce-and-reach-only-one-of-four-ticks
+  (let [seen (atom [])]
+    (with-redefs [game/step (fn [world inputs _] (swap! seen conj inputs) world)]
+      (client/init)
+      (fire-frame! 0)
+      (pointer-event! @canvas-target 0)
+      (pointer-event! @canvas-target 0)
+      (is (:attack? (client/read-inputs)))
+      (is (:attack? (client/read-inputs)))
+      (fire-frame! 10)
+      (is (:attack? (client/read-inputs)))
+      (fire-frame! 100)
+      (is (= [true false false false] (mapv #(get-in % [:player-1 :attack?]) @seen)))
+      (fire-frame! 200)
+      (is (= 1 (count (filter #(get-in % [:player-1 :attack?]) @seen)))))))
+
+(deftest other-buttons-and-outside-canvas-do-not-request-melee
+  (client/init)
+  (doseq [button [1 2]] (pointer-event! @canvas-target button))
+  (pointer-event! @target 0)
+  (pointer-event! (js/EventTarget.) 0)
+  (is (false? (:attack? (client/consume-inputs!)))))
+
+(deftest blur-stop-and-restart-discard-pending-melee
+  (doseq [clear! [#(.dispatchEvent @target (js/Event. "blur"))
+                 client/stop! client/init]]
+    (client/init)
+    (pointer-event! @canvas-target 0)
+    (is (:attack? (client/read-inputs)))
+    (clear!)
+    (is (false? (:attack? (client/read-inputs))))))
+
+(deftest replacing-the-canvas-removes-the-old-pointer-listener
+  (client/init)
+  (let [old-canvas @canvas-target]
+    (reset! canvas-target (js/EventTarget.))
+    (client/init)
+    (pointer-event! old-canvas 0)
+    (is (false? (:attack? (client/read-inputs))))
+    (pointer-event! @canvas-target 0)
+    (is (:attack? (client/consume-inputs!)))
+    (client/stop!)
+    (pointer-event! @canvas-target 0)
+    (is (false? (:attack? (client/read-inputs))))))
+
+(deftest attack-jump-drop-and-direction-have-independent-input-lifetimes
+  (client/init)
+  (doseq [code ["KeyD" "KeyW" "KeyS"]] (key-event! "keydown" code))
+  (pointer-event! @canvas-target 0)
+  (is (= {:horizontal 1 :jump? true :drop? true :attack? true}
+         (client/consume-inputs!)))
+  (is (= {:horizontal 1 :jump? false :drop? false :attack? false}
+         (client/read-inputs))))

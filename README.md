@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–30 complete (30/70). Four ID-keyed local players advance independently; A/D, W, and S control only cyan player-1. Each body remembers accepted left/right intention and shows it with a neutral white dot, preserving facing through braking, jumps, drops, and contacts.
+Checkpoints 01–31 complete (31/70). Four local players move independently and remember facing. The page controls cyan player-1 with A/D, W, S, and one pending primary-pointer melee request per tick; attacks have no hit effect yet.
 Future mechanics remain specified in the roadmap.
 
 ## Run
