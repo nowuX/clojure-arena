@@ -52,3 +52,8 @@ around an edge. There are no semisolid side walls or underside contacts.
 Support uses the circle center inside the flat span; corner-only contact
 retains the spawn lock and spent air jump. Supported travel ends at the
 center endpoint, then remaining falling time follows the rounded boundary.
+
+S captures a separate `:drop?` request with the same fresh-press lifetime as W.
+`read-inputs` preserves both flags; `consume-inputs!` clears both action pulses
+and retains held A/D. Blur and lifecycle cleanup clear every pending action.
+At this stage `step` ignores the drop request.

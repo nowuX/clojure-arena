@@ -96,7 +96,7 @@
   (client/init)
   (key-event! "keydown" "KeyD")
   (key-event! "keydown" "KeyD" true)
-  (is (= {:horizontal 1 :jump? false} (client/read-inputs)))
+  (is (= {:horizontal 1 :jump? false :drop? false} (client/read-inputs)))
   (key-event! "keydown" "KeyA")
   (is (= 0 (client/horizontal-input)))
   (key-event! "keyup" "KeyD")
@@ -192,7 +192,7 @@
     (key-event! "keydown" "KeyW")
     (key-event! "keydown" "KeyD")
     (reset-input!)
-    (is (= {:horizontal 0 :jump? false} (client/read-inputs)))))
+    (is (= {:horizontal 0 :jump? false :drop? false} (client/read-inputs)))))
 
 (deftest held-spawn-input-waits-for-landing-and-discards-old-w
   (reset! client/world fixtures/single-platform-world)
@@ -270,7 +270,7 @@
     (client/stop!)
     (is (empty? @callbacks))
     (is (every? empty? (vals @listeners)))
-    (is (= {:horizontal 0 :jump? false} (client/read-inputs))))
+    (is (= {:horizontal 0 :jump? false :drop? false} (client/read-inputs))))
   (reset! client/world (update playable-world :player assoc :y 264 :vy 0))
   (client/init)
   (fire-frame! 0)
@@ -303,3 +303,58 @@
       (draw-scene nil snapshot)
       (is (= (:platforms snapshot) @drawn))
       (is (= game/initial-world snapshot)))))
+
+(deftest quick-drop-tap-survives-until-one-of-four-ticks
+  (let [seen (atom [])]
+    (with-redefs [game/step (fn [world inputs _] (swap! seen conj inputs) world)]
+      (client/init)
+      (fire-frame! 0)
+      (key-event! "keydown" "KeyS")
+      (key-event! "keyup" "KeyS")
+      (is (:drop? (client/read-inputs)))
+      (is (:drop? (client/read-inputs)))
+      (fire-frame! 10)
+      (is (:drop? (client/read-inputs)))
+      (fire-frame! 100)
+      (is (= [true false false false] (mapv :drop? @seen)))
+      (is (false? (:drop? (client/read-inputs)))))))
+
+(deftest held-s-and-autorepeat-need-a-fresh-press
+  (client/init)
+  (key-event! "keydown" "KeyS")
+  (is (:drop? (client/consume-inputs!)))
+  (key-event! "keydown" "KeyS" true)
+  (key-event! "keydown" "KeyS")
+  (is (false? (:drop? (client/consume-inputs!))))
+  (key-event! "keyup" "KeyS")
+  (key-event! "keydown" "KeyS")
+  (is (:drop? (client/consume-inputs!))))
+
+(deftest jump-drop-and-held-direction-have-independent-lifetimes
+  (client/init)
+  (doseq [code ["KeyW" "KeyS" "KeyA" "KeyD"]]
+    (key-event! "keydown" code))
+  (is (= {:horizontal 0 :jump? true :drop? true} (client/consume-inputs!)))
+  (is (= {:horizontal 0 :jump? false :drop? false} (client/read-inputs)))
+  (key-event! "keyup" "KeyA")
+  (is (= {:horizontal 1 :jump? false :drop? false} (client/consume-inputs!)))
+  (is (= 1 (client/horizontal-input))))
+
+(deftest lifecycle-clears-s-w-and-directions-together
+  (doseq [clear-input! [#(.dispatchEvent @target (js/Event. "blur"))
+                       client/stop! client/init]]
+    (client/init)
+    (doseq [code ["KeyW" "KeyS" "KeyD"]] (key-event! "keydown" code))
+    (clear-input!)
+    (is (= {:horizontal 0 :jump? false :drop? false} (client/read-inputs)))))
+
+(deftest captured-drop-does-not-yet-change-physics
+  (let [platform (first (filter #(= :left (:id %)) (:platforms game/initial-world)))]
+    (reset! client/world (update game/initial-world :player assoc
+                                 :x 260 :y 194 :vy 0 :spawn-locked? false))
+    (client/init)
+    (fire-frame! 0)
+    (key-event! "keydown" "KeyS")
+    (fire-frame! 25)
+    (is (game/grounded? (:player @client/world) platform))
+    (is (false? (:drop? (client/read-inputs))))))

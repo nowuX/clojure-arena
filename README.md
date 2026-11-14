@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–25 complete (25/70). The four-platform arena supports rising through semisolids, descending top and rounded-endpoint landings, and stable support with ground and air jumps.
+Checkpoints 01–26 complete (26/70). Fresh S presses produce one independent drop request per press; capture survives taps and is cleared by ticks, focus loss, and restart, with physics unchanged.
 Future mechanics remain specified in the roadmap.
 
 ## Run

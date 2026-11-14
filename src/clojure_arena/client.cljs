@@ -7,7 +7,9 @@
 (defonce frame-id (atom nil))
 (defonce pressed-keys (atom #{}))
 (defonce pending-jump (atom false))
+(defonce pending-drop (atom false))
 (def jump-key-code "KeyW")
+(def drop-key-code "KeyS")
 (def movement-key-codes #{"KeyA" "KeyD"})
 
 (defn horizontal-input []
@@ -15,24 +17,28 @@
      (if (contains? @pressed-keys "KeyA") 1 0)))
 
 (defn read-inputs []
-  {:horizontal (horizontal-input) :jump? @pending-jump})
+  {:horizontal (horizontal-input) :jump? @pending-jump :drop? @pending-drop})
 
 (defn consume-inputs! []
   (let [inputs (read-inputs)]
     (reset! pending-jump false)
+    (reset! pending-drop false)
     inputs))
 
 (defn- control-key? [code]
-  (or (contains? movement-key-codes code) (= code jump-key-code)))
+  (or (contains? movement-key-codes code)
+      (= code jump-key-code)
+      (= code drop-key-code)))
 
 (defn handle-key-down! [event]
   (let [code (.-code event)]
     (when (control-key? code)
       (.preventDefault event)
-      (when (and (= code jump-key-code)
-                 (not (.-repeat event))
+      (when (and (not (.-repeat event))
                  (not (contains? @pressed-keys code)))
-        (reset! pending-jump true))
+        (cond
+          (= code jump-key-code) (reset! pending-jump true)
+          (= code drop-key-code) (reset! pending-drop true)))
       (swap! pressed-keys conj code))))
 
 (defn handle-key-up! [event]
@@ -42,7 +48,8 @@
 
 (defn handle-blur! [_event]
   (reset! pressed-keys #{})
-  (reset! pending-jump false))
+  (reset! pending-jump false)
+  (reset! pending-drop false))
 
 (defn draw-background [canvas]
   (let [context (.getContext canvas "2d")]
