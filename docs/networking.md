@@ -126,3 +126,11 @@ the assigned player present and a tick greater than the previous accepted tick.
 both Canvas and panel. No interpolation or local prediction is added. On close,
 the separate saved offline world is restored; it never simulates a network
 world or replays the connected interval.
+
+## Full-room rejection
+
+A fifth join changes no accepted player or allocation counter. The browser
+shows «La sala está llena; el juego continúa en modo local.», clears identity,
+snapshot and buffered input, and closes the unaccepted socket. Late callbacks
+cannot replace this terminal notice. Only an explicit new `start!`/page reload
+starts a fresh attempt; there is no retry loop.

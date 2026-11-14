@@ -11,7 +11,9 @@
   (let [socket #js {:url url :readyState 0 :sent #js [] :closeCount 0}]
     (set! (.-send socket) (fn [message] (.push (aget socket "sent") message)))
     (set! (.-close socket)
-          (fn []
+          (fn [code reason]
+            (aset socket "closeCode" code)
+            (aset socket "closeReason" reason)
             (aset socket "closeCount" (inc (aget socket "closeCount")))
             (set! (.-readyState socket) 2)))
     (swap! sockets conj socket)
@@ -310,7 +312,18 @@
     (receive! full-socket "{:type :room-full}")
     (transport/send-input! {:horizontal 1 :jump? false :drop? false :attack? true})
     (is (= :full (:admission @transport/connection-state)))
+    (is (= 2 (.-readyState full-socket))
+        "a full-room rejection immediately starts closing the socket")
+    (is (= 1 (aget full-socket "closeCount")))
     (is (empty? (sent-inputs full-socket)))
+    ((.-onclose full-socket) #js {})
+    (is (nil? @transport/connection))
+    (is (= :full (:admission @transport/connection-state))
+        "the rejection remains recorded after the close event")
+    (is (false? (transport/connected?)))
+    (transport/stop!)
+    (is (= {:status :closed} @transport/connection-state)
+        "an explicit stop clears the rejected session state")
 
     (transport/start! "http://arena.example/")
     (let [replacement @transport/connection]
@@ -368,18 +381,62 @@
     (is (= identity (:identity @transport/connection-state)))
     (is (= :ready (:status @transport/connection-state)))))
 
-(deftest full-room-is-recorded-without-assigning-an-identity
+(deftest full-room-rejection-wins-message-and-error-ordering-through-close
   (transport/start! "http://arena.example/")
   (let [socket @transport/connection]
     (open! socket)
     (receive! socket "{:type :ready}")
+    (receive! socket "{:type :identity :player-id :player-1 :color :cyan}")
+    (receive! socket (snapshot-frame 4 game/initial-world))
+    (is (transport/connected?))
+    (is (= {:tick 4 :world game/initial-world}
+           (:snapshot @transport/connection-state))
+        "the session has a valid snapshot for rejection to clear")
+
     (receive! socket "{:type :room-full}")
-    (receive! socket "{:type :pong}")
-    (is (= :full (:admission @transport/connection-state)))
-    (is (nil? (:identity @transport/connection-state)))
-    (is (= :ready (:status @transport/connection-state)))
-    (is (identical? socket @transport/connection))
-    (is (zero? (aget socket "closeCount")))))
+    (let [rejected-state @transport/connection-state]
+      (is (= :full (:admission rejected-state)))
+      (is (= :full (:status rejected-state)))
+      (is (nil? (:identity rejected-state)))
+      (is (nil? (:snapshot rejected-state)))
+      (is (false? (transport/connected?)))
+      (is (= "La sala está llena; el juego continúa en modo local."
+             (.-textContent @status-element)))
+      (is (= 2 (.-readyState socket)))
+      (is (= 1 (aget socket "closeCount")))
+      (is (= 1000 (aget socket "closeCode")))
+      (is (= "Room full" (aget socket "closeReason")))
+
+      (receive! socket "{:type :ready}")
+      (receive! socket "{:type :pong}")
+      (receive! socket "{:type :identity :player-id :player-42 :color :amber}")
+      (receive! socket (snapshot-frame 5 game/initial-world))
+      ((.-onerror socket) #js {})
+      (is (= rejected-state @transport/connection-state)
+          "later messages and errors cannot replace the rejection")
+      (is (= 1 (aget socket "closeCount"))
+          "repeated callbacks cannot issue another close")
+
+      ((.-onclose socket) #js {})
+      (is (nil? @transport/connection))
+      (is (= rejected-state @transport/connection-state)
+          "close preserves the full-room status and its message")
+      (receive! socket "{:type :pong}")
+      ((.-onerror socket) #js {})
+      (is (= rejected-state @transport/connection-state)
+          "queued callbacks after close are ignored")
+      (is (= "La sala está llena; el juego continúa en modo local."
+             (.-textContent @status-element)))))
+
+  (testing "a connecting socket is also closed after a rejection"
+    (transport/start! "http://arena.example/")
+    (let [socket @transport/connection]
+      (receive! socket "{:type :room-full}")
+      (is (= 2 (.-readyState socket)))
+      (is (= 1 (aget socket "closeCount")))
+      (receive! socket "{:type :room-full}")
+      (is (= 1 (aget socket "closeCount"))
+          "a rejected session requests close exactly once"))))
 
 (deftest replaced-or-closed-sessions-clear-their-identity
   (transport/start! "http://arena.example/")

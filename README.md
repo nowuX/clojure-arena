@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–45 complete (45/70). Accepted browsers display validated committed snapshots from one shared arena, with bounded asynchronous publication and isolated offline fallback.
+Checkpoints 01–46 complete (46/70). Four accepted players share the arena; a fifth receives a persistent full-room notice and keeps local fallback.
 Future mechanics remain specified in the roadmap.
 
 ## Run

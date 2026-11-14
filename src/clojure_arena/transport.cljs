@@ -23,10 +23,16 @@
 (defn set-state! [state]
   (reset! connection-state state)
   (when-let [element (.getElementById js/document "connection-status")]
-    (let [label (if (= :accepted (:admission state))
+    (let [label (cond
+                  (= :full (:admission state))
+                  "La sala está llena; el juego continúa en modo local."
+
+                  (= :accepted (:admission state))
                   (if (:snapshot state)
                     "Arena compartida conectada."
                     "Esperando estado de la arena…")
+
+                  :else
                   (case (:status state)
                     :connecting "Conectando al servidor…"
                     :open "Conectado al servidor."
@@ -37,6 +43,12 @@
       (set! (.-textContent element)
             (str label (when player-id
                          (str " ID: " (name player-id) " · " (name color) ".")))))))
+
+(defn- close-rejected-socket! [socket]
+  (when (< (.-readyState socket) 2)
+    (try
+      (.close socket 1000 "Room full")
+      (catch :default _ nil))))
 
 (defn- flush-input! []
   (when-let [socket @connection]
@@ -79,12 +91,14 @@
       (set-state! {:status :connecting :url url})
       (set! (.-onopen socket)
             (fn [_]
-              (when (identical? socket @connection)
+              (when (and (identical? socket @connection)
+                         (not= :full (:admission @connection-state)))
                 (set-state! {:status :open :url url})
                 (.send socket (pr-str {:type :ping})))))
       (set! (.-onmessage socket)
             (fn [event]
-              (when (identical? socket @connection)
+              (when (and (identical? socket @connection)
+                         (not= :full (:admission @connection-state)))
                 (try
                   (let [message (protocol/decode (.-data event))]
                     (if-not (protocol/server-message? message)
@@ -108,26 +122,31 @@
                                :identity (assoc state :admission :accepted
                                                 :identity (select-keys message [:player-id :color]))
                                :room-full (-> state
-                                              (assoc :admission :full)
+                                              (assoc :admission :full :status :full)
                                               (dissoc :identity :snapshot))
                                :pong (assoc state :status :ready)
                                :ready (assoc state :status :open)
                                (assoc state :status :error)))
                             (case (:type message)
                               :identity (flush-input!)
-                              :room-full (reset! pending-input nil)
+                              :room-full (do
+                                           (reset! pending-input nil)
+                                           (close-rejected-socket! socket))
                               nil))))))
                   (catch :default _
                     (set-state! (assoc @connection-state :status :error :url url)))))))
       (set! (.-onerror socket)
             (fn [_]
-              (when (identical? socket @connection)
+              (when (and (identical? socket @connection)
+                         (not= :full (:admission @connection-state)))
                 (set-state! (assoc @connection-state :status :error :url url)))))
       (set! (.-onclose socket)
             (fn [_]
               (when (identical? socket @connection)
                 (reset! connection nil)
                 (reset! pending-input nil)
-                (set-state! {:status :closed :url url})))))
+                (if (= :full (:admission @connection-state))
+                  (set-state! (assoc @connection-state :status :full :url url))
+                  (set-state! {:status :closed :url url}))))))
     (catch :default _
       (set-state! {:status :error}))))

@@ -58,10 +58,15 @@
           (is (= 2 (count (get-in (first messages) [:world :players])))))
         (let [last-two (mapv (fn [_] (connect! connections port)) (range 2))
               accepted (into first-two last-two)
+              before-rejection (:room @room-agent)
               {:keys [websocket events] :as rejected} (#'ws/connect! (host) port)]
           (swap! connections conj rejected)
           (#'ws/await-ready! events)
           (is (= {:type :room-full} (#'ws/await-admission! events)))
+          (#'ws/close-websocket! websocket events)
+          (await-room! room-agent)
+          (is (= before-rejection (:room @room-agent))
+              "rejection and close preserve every admitted player, input, color, and ID counter")
           (room/enqueue-room-message! room-agent {:type :tick})
           (await-room! room-agent)
           (let [messages (snapshots-at! accepted 2)]
@@ -72,7 +77,6 @@
             (is (= (get-in @room-agent [:room :world]) (:world (first messages)))))
           (is (nil? (.poll ^LinkedBlockingQueue events 100 TimeUnit/MILLISECONDS))
               "the rejected connection must receive no shared snapshots")
-          (#'ws/expect-reply! websocket events "{:type :ping}" {:type :pong})
           (dotimes [_ 20] (room/enqueue-room-message! room-agent {:type :tick}))
           (await-room! room-agent)
           (snapshots-at! accepted 22)
@@ -156,3 +160,55 @@
     (is (= [:channel-a :channel-b] (mapv first @sent)))
     (is (identical? (second (first @sent)) (second (second @sent))))
     (is (= message (protocol/decode (second (first @sent)))))))
+
+(deftest a-fresh-connection-is-admitted-once-a-slot-is-available
+  (let [captured (atom nil)
+        instance (with-redefs [ticker/start! (fn [room-agent]
+                                               (reset! captured room-agent)
+                                               nil)]
+                   (server/start! {:host (host) :port 0}))
+        room-agent @captured
+        port (http/server-port instance)
+        connections (atom [])]
+    (try
+      (let [accepted (mapv (fn [_] (connect! connections port)) (range 4))
+            {:keys [websocket events] :as rejected} (#'ws/connect! (host) port)]
+        (swap! connections conj rejected)
+        (#'ws/await-ready! events)
+        (is (= {:type :room-full} (#'ws/await-admission! events)))
+        (#'ws/close-websocket! websocket events)
+        (await-room! room-agent)
+        (is (= 5 (get-in @room-agent [:room :next-player-number])))
+        (let [{:keys [websocket events]} (first accepted)]
+          (#'ws/close-websocket! websocket events))
+        ;; Checkpoint 39 owns leave handling; arrange a consistent free-slot fixture.
+        (let [before (:room @room-agent)
+              token (first (keep (fn [[token member]]
+                                   (when (= :player-1 (:player-id member)) token))
+                                 (:members before)))
+              available (-> before
+                            (update :members dissoc token)
+                            (update :inputs-by-player dissoc :player-1)
+                            (update-in [:world :players] dissoc :player-1))]
+          (send room-agent (fn [_] {:room available :effects []}))
+          (await-room! room-agent)
+          (let [retried (connect! connections port)
+                after (:room @room-agent)]
+            (is (= {:type :identity :player-id :player-5 :color :cyan}
+                   (:identity retried)))
+            (is (= 4 (count (:members after))
+                   (count (get-in after [:world :players]))
+                   (count (:inputs-by-player after))))
+            (is (= 6 (:next-player-number after)))
+            (is (= (room/make-spawn-player :cyan)
+                   (get-in after [:world :players :player-5])))
+            (is (= protocol/neutral-input
+                   (get-in after [:inputs-by-player :player-5])))
+            (is (= (get-in available [:world :players])
+                   (dissoc (get-in after [:world :players]) :player-5))
+                "the new connection must not reset any existing character")
+            (is (= (:inputs-by-player available)
+                   (dissoc (:inputs-by-player after) :player-5))))))
+      (finally
+        (doseq [{:keys [websocket]} @connections] (#'ws/abort-websocket! websocket))
+        (server/stop! instance)))))

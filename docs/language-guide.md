@@ -249,3 +249,9 @@ watch pasa ese valor a una cola acotada (`ArrayBlockingQueue`); un worker lo
 codifica una vez. No vuelve a leer la sala para reconstruir el mensaje.
 ClojureScript valida claves, tipos y números finitos antes de reemplazar el
 mundo visible. Un átomo separado conserva el mundo offline para desconexiones.
+
+### Estados terminales de transporte
+
+La admisión `:full` tiene prioridad al presentar el estado y al filtrar los
+callbacks. Cerrar un socket rechazado no convierte el rechazo en un cierre
+genérico. `start!` llama a `stop!` para descartar datos de la sesión anterior.

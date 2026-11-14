@@ -15,6 +15,7 @@
 (def ^:private listener-state (atom {}))
 (def ^:private arena-canvas (atom nil))
 (def ^:private percentage-list (atom nil))
+(def ^:private connection-status (atom nil))
 
 (defn- fixture-element [tag-name]
   (let [element #js {:tagName tag-name
@@ -236,19 +237,23 @@
         old-input-canvas @client/input-canvas
         old-transport-state @transport/connection-state
         old-arena-canvas @arena-canvas
+        old-connection-status @connection-status
         canvas (fixture-canvas)
         percentages (fixture-element "ul")
+        status (fixture-element "p")
         app #js {:textContent ""}
         document #js {:getElementById
                       (fn [id]
                         (case id
                           "arena" @arena-canvas
                           "status" app
+                          "connection-status" @connection-status
                           "players" @percentage-list
                           nil))
                       :createElement fixture-element}]
     (reset! arena-canvas canvas)
     (reset! percentage-list percentages)
+    (reset! connection-status status)
     (reset! raf-state initial-raf-state)
     (reset! client/world game/initial-world)
     (reset! client/frame-id nil)
@@ -275,6 +280,7 @@
         (reset! client/input-canvas old-input-canvas)
         (reset! transport/connection-state old-transport-state)
         (reset! arena-canvas old-arena-canvas)
+        (reset! connection-status old-connection-status)
         (reset! percentage-list nil)
         (reset! raf-state initial-raf-state)
         (reset! listener-state {})
@@ -648,4 +654,39 @@
            (get-in before [:players :player-1 :x])))
     (is (= :error (:status @transport/connection-state)))
     (is (= 1 (count (:pending @raf-state))))))
+
+(deftest full-room-rejection-keeps-local-play-and-animation-running
+  (let [{:keys [socket]} (start-networked-session! (grounded-world))
+        stepped-inputs (atom [])]
+    (open-client-socket! socket)
+    (dispatch-key! "keydown" "KeyD")
+    (is (empty? (sent-inputs socket))
+        "input captured before admission remains buffered only until rejection")
+
+    (with-redefs [game/step (fn [world inputs-by-player _dt]
+                             (swap! stepped-inputs conj
+                                    (get inputs-by-player client/local-player-id))
+                             (update world :local-steps (fnil inc 0)))
+                  client/draw-world (fn [_canvas _world])
+                  client/render-players! (fn [_players])]
+      (deliver-frame! 0)
+      ((.-onmessage socket) #js {:data "{:type :room-full}"})
+      (is (= 2 (.-readyState socket)))
+      (is (= 1 (aget socket "closeCount")))
+      (is (false? (transport/connected?)))
+      (is (= :full (:admission @transport/connection-state)))
+
+      ((.-onclose socket) #js {})
+      (is (nil? @transport/connection))
+      (is (= "La sala está llena; el juego continúa en modo local."
+             (.-textContent @connection-status)))
+      (deliver-frame! 25)
+      (is (= [{:horizontal 1 :jump? false :drop? false :attack? false}]
+             @stepped-inputs)
+          "local physics continues to receive current input while the room is full")
+      (is (= 1 (get-in @client/world [:local-steps])))
+      (is (= 1 (count (:pending @raf-state)))
+          "the animation loop remains scheduled during local fallback")
+      (is (empty? (sent-inputs socket))
+          "rejected input is never replayed to the closing socket"))))
 

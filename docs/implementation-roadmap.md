@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**45 of 70 checkpoints complete.** Checkpoints 01–45 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**46 of 70 checkpoints complete.** Checkpoints 01–46 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -623,7 +623,7 @@ Checkpoints **39–49**. Add HTTP/WebSocket, exact EDN messages, connection-owne
 
 ### 46 — Show a persistent full-room rejection
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** For a fifth connection, preserve authoritative capacity
   rejection and show a Spanish explanation. Clear identity/snapshot/input, close the
   unaccepted socket, and protect the terminal state from late callbacks while local

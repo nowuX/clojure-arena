@@ -446,13 +446,18 @@
           (is (= 5 (count full)))
           (is (every? #(= {:type :room-full} %) full))
           (is (every? protocol/server-message? full)))
-        (testing "admitted and full sockets remain usable, and pings never allocate"
+        (testing "accepted sockets remain usable while rejected clients close normally"
           (doseq [[{:keys [websocket events]} admission]
                   (map vector connections admissions)]
             (is (contains? #{:identity :room-full} (:type admission)))
-            (dotimes [_ 2]
-              (expect-reply! websocket events "{:type :ping}" {:type :pong}))
-            (assert-no-event! events "ping must not cause another identity or a close")))
+            (if (= :identity (:type admission))
+              (do
+                (dotimes [_ 2]
+                  (expect-reply! websocket events "{:type :ping}" {:type :pong}))
+                (assert-no-event! events "ping must not cause another identity or a close"))
+              (do
+                (close-websocket! websocket events)
+                (assert-no-event! events "rejection must not produce an identity or snapshot")))))
         (testing "wire clients cannot invoke reserved room operations or forge identities"
           (let [index (first (keep-indexed (fn [index admission]
                                              (when (= :identity (:type admission))
