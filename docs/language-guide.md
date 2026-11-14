@@ -50,11 +50,11 @@ un reader conditional para seleccionar la biblioteca de cada entorno:
 
 ### Átomos y eventos
 
-`defonce` conserva referencias entre recargas de desarrollo; `atom` contiene una referencia mutable del cliente; `@world` la lee y `swap!` guarda el resultado de aplicar una función al valor actual. `reset!` reemplaza el contenido completo de un átomo. `pressed-keys` representa teclas mantenidas en un conjunto (`#{}`); `conj`, `disj` y `contains?` agregan, quitan y consultan sus elementos. `pending-jump` y `pending-drop` conservan pulsos independientes de W y S hasta un tick. `read-inputs` lee el estado sin consumirlo; `consume-inputs!` lee y limpia ambos pulsos.
+`defonce` conserva referencias entre recargas de desarrollo; `atom` contiene una referencia mutable del cliente; `@world` la lee y `swap!` guarda el resultado de aplicar una función al valor actual. `reset!` reemplaza el contenido completo de un átomo. `pressed-keys` representa teclas mantenidas en un conjunto (`#{}`); `conj`, `disj` y `contains?` agregan, quitan y consultan sus elementos. `pending-jump`, `pending-drop` y `pending-attack` conservan pulsos independientes de W, S y clic hasta un tick. `read-inputs` lee el estado sin consumirlo; `consume-inputs!` lee y limpia los tres pulsos.
 
 Un evento W o S nuevo y no repetido marca su pulso. Soltar la tecla quita su estado mantenido, pero no borra el pulso capturado. `handle-blur!` limpia las teclas y ambos pulsos; `stop!` también lo hace mediante esa función. Así, un toque rápido puede llegar al siguiente tick y un pulso no se repite en los ticks siguientes.
 
-`js/window`, `.addEventListener`, `.-code` y `(.preventDefault event)` son interoperabilidad con JavaScript. `frame` usa `requestAnimationFrame`; `advance-world!` ejecuta ticks de 25 ms. Después, `draw-world` llama a las funciones que pintan el fondo, la plataforma y el jugador. Dibujar no avanza la simulación. El estado visible de inicio es `Arena lista.`.
+`js/window`, `.addEventListener`, `.-code` y `(.preventDefault event)` son interoperabilidad con JavaScript. `frame` usa `requestAnimationFrame`; `advance-world!` ejecuta ticks de 25 ms. Después, `draw-world` llama a las funciones que pintan el fondo, las plataformas y los jugadores; `render-players!` actualiza el panel. Dibujar no avanza la simulación. El estado visible de inicio es `Arena lista.`.
 
 ## Recorrido de A/D y W
 
@@ -185,3 +185,11 @@ la X recibida anterior para obtener la voluntaria, transforma ambas y vuelve
 a sumarlas. Un golpe actualiza las dos representaciones con `update`; no mueve
 la posición otra vez. `resolve-contact` proyecta los dos vectores sobre la
 misma normal. Un salto válido reemplaza Y y borra solo su componente recibida.
+
+### Recorrido local completo
+
+El cliente consume las acciones, conserva la dirección y las coloca bajo su ID.
+`step` avanza todos los personajes y consulta objetivos sobre ese resultado
+común. `apply-melee-hits` devuelve porcentaje, impulso y secuencias resueltas
+juntos. El átomo del cliente guarda el mundo nuevo; dibujo y panel leen el
+mismo valor. Las funciones compartidas no leen átomos ni el reloj del navegador.

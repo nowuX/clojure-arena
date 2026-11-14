@@ -579,3 +579,103 @@
       (fire-frame! 25)
       (doseq [[drawn displayed] (partition 2 @seen)]
         (is (identical? drawn displayed))))))
+
+(deftest local-combat-and-jumps-agree-across-render-cadences
+  (let [consume client/consume-inputs!
+        step game/step
+        settled (nth (iterate #(game/step % {} 0.025) game/initial-world) 40)
+        simulate
+        (fn [timestamps]
+          (let [tick (atom 0) seen (atom [])]
+            (client/stop!)
+            (reset! client/world settled)
+            (with-redefs
+              [client/consume-inputs!
+               (fn []
+                 (case (swap! tick inc)
+                   1 (do (key-event! "keydown" "KeyA")
+                         (key-event! "keydown" "KeyW")
+                         (pointer-event! @canvas-target 0))
+                   2 (key-event! "keyup" "KeyW")
+                   10 (key-event! "keyup" "KeyA")
+                   12 (key-event! "keydown" "KeyW")
+                   13 (key-event! "keyup" "KeyW")
+                   20 (key-event! "keydown" "KeyD")
+                   21 (pointer-event! @canvas-target 0)
+                   22 (key-event! "keyup" "KeyD")
+                   25 (key-event! "keydown" "KeyS")
+                   26 (key-event! "keyup" "KeyS")
+                   nil)
+                 (consume))
+               game/step
+               (fn [world inputs dt]
+                 (let [next-world (step world inputs dt)]
+                   (swap! seen conj next-world)
+                   next-world))]
+              (client/init)
+              (doseq [timestamp timestamps] (fire-frame! timestamp))
+              (is (= 40 @tick))
+              @seen)))
+        fast (simulate (range 0 1001 10))
+        slow (simulate (range 0 1001 100))
+        first-world (first fast)]
+    (is (= fast slow))
+    (is (= :left (get-in first-world [:players :player-1 :facing])))
+    (is (= 1 (get-in first-world [:players :player-1 :air-jumps-left])))
+    (is (= 10 (get-in first-world [:players :player-4 :accumulated-percentage])))
+    (is (< (abs (+ 184 (get-in first-world [:players :player-4 :knockback-vx]))) 1e-8))
+    (is (= 0 (get-in fast [11 :players :player-1 :air-jumps-left])))))
+
+(deftest simultaneous-direction-jump-drop-and-click-use-one-frame-world
+  (let [ledge {:id :ledge :type :semisolid :x 100 :y 200 :width 200 :height 8}
+        a (assoc (game/make-player "#22d3ee" 150 184) :spawn-locked? false)
+        b (assoc (game/make-player "#e11d48" 190 184) :spawn-locked? false)
+        panel (panel-node)
+        status #js {}
+        doc #js {:getElementById (fn [id] (case id "arena" @canvas-target "players" panel "status" status nil))
+                 :createElement (fn [_] (panel-node))}
+        drawn (atom nil)]
+    (reset! client/world {:platforms [ledge] :players {:player-1 a :player-2 b}})
+    (with-redefs [js/document doc
+                  client/draw-world (fn [_ snapshot] (reset! drawn snapshot))
+                  client/render-players! render-panel]
+      (client/init)
+      (fire-frame! 0)
+      (doseq [code ["KeyD" "KeyW" "KeyS"]] (key-event! "keydown" code))
+      (pointer-event! @canvas-target 0)
+      (fire-frame! 25)
+      (let [snapshot @drawn
+            attacker (get-in snapshot [:players :player-1])
+            target-player (get-in snapshot [:players :player-2])
+            rows @(.-children panel)]
+        (is (identical? snapshot @client/world))
+        (is (= :ledge (:drop-through-platform-id attacker)))
+        (is (= 1 (:air-jumps-left attacker)) "drop wins over the simultaneous jump")
+        (is (> (:y attacker) 184))
+        (is (= :right (:facing attacker)))
+        (is (= 1 (:melee-resolved-strike-id attacker)))
+        (is (= 10 (:accumulated-percentage target-player)))
+        (is (= 184 (:y target-player)) "the new impulse does not move position twice")
+        (is (= "10 %" (.-textContent (nth @(.-children (second rows)) 2))))))))
+
+(deftest locked-clicks-and-early-clicks-do-not-replay-after-readiness
+  (let [floor {:id :floor :type :solid :x 0 :y 200 :width 300 :height 8}
+        a (game/make-player "#22d3ee" 100 184)
+        b (game/make-player "#e11d48" 140 184)]
+    (reset! client/world {:platforms [floor] :players {:player-1 a :player-2 b}})
+    (client/init)
+    (fire-frame! 0)
+    (pointer-event! @canvas-target 0)
+    (fire-frame! 25)
+    (fire-frame! 50)
+    (is (= 0 (get-in @client/world [:players :player-1 :melee-strike-id])))
+    (is (false? (get-in @client/world [:players :player-1 :spawn-locked?])))
+    (pointer-event! @canvas-target 0)
+    (fire-frame! 75)
+    (is (= 1 (get-in @client/world [:players :player-1 :melee-strike-id])))
+    (is (= 10 (get-in @client/world [:players :player-2 :accumulated-percentage])))
+    (pointer-event! @canvas-target 0)
+    (fire-frame! 100)
+    (doseq [timestamp (range 125 501 25)] (fire-frame! timestamp))
+    (is (= 1 (get-in @client/world [:players :player-1 :melee-strike-id])))
+    (is (false? (:attack? (client/read-inputs))))))

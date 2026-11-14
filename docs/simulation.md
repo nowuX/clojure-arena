@@ -10,12 +10,19 @@ side, and underside movement passes through.
 The main platform entry and first player are:
 
 ```clojure
-{:platforms [{:id :main :type :solid :x 170 :y 280 :width 460 :height 16 :color "#9c9c9c"}]
- :players {:player-1 {:x 400 :y 160 :vx 0 :vy 0 :radius 16
-          :spawn-locked? true :air-jumps-left 1 :drop-through-platform-id nil :color "#22d3ee" :facing :right}}}
+{:platforms [{:id :main :type :solid :x 170 :y 280
+              :width 460 :height 16 :color "#9c9c9c"}]
+ :players {:player-1 {:x 400 :y 160 :vx 0 :vy 0
+                      :knockback-vx 0 :knockback-vy 0 :radius 16
+                      :spawn-locked? true :air-jumps-left 1
+                      :drop-through-platform-id nil
+                      :color "#22d3ee" :facing :right
+                      :melee-cooldown-left 0 :melee-strike-id 0
+                      :melee-resolved-strike-id 0 :melee-target-ids #{}
+                      :accumulated-percentage 0}}}
 ```
 
-The background is `#101010`; the platform is neutral gray and only the player body is colored. Gravity is `980` units/s² downward. Horizontal intention targets ±220 units/s at up to 880 units/s². Neutral input applies `horizontal-friction` at 1100 units/s² toward zero, without reversing velocity. At the client's 25 ms tick those changes are at most 22 and 27.5 units/s respectively. A locked spawn forces horizontal intention to zero while gravity and collision continue. From rest, ten held-direction ticks reach 220; from 220, neutral braking stops in eight ticks and travels another 19.25 units in free space.
+The background is `#101010`; the platform is neutral gray and only player bodies and identity swatches are colored. Gravity is `980` units/s² downward. Horizontal intention targets ±220 units/s at up to 880 units/s². Neutral input applies `horizontal-friction` at 1100 units/s² toward zero, without reversing velocity. At the client's 25 ms tick those changes are at most 22 and 27.5 units/s respectively. A locked spawn forces horizontal intention to zero while gravity and collision continue. From rest, ten held-direction ticks reach 220; from 220, neutral braking stops in eight ticks and travels another 19.25 units in free space.
 
 `step` receives a world, an inputs-by-player map, and `dt` in seconds. For
 example, `{:player-1 {:horizontal 1 :jump? true}}` controls only that ID. It
@@ -95,7 +102,7 @@ of color. `draw-world` draws each value from `:players` without changing it.
 `step` advances all four records independently. The browser wraps each consumed
 input in `{local-player-id inputs}`, where `local-player-id` is `:player-1`.
 The other three records receive neutral input and still fall, land, and brake.
-Physics reads no other player record, so map iteration order cannot change the
+Locomotion reads no other player record, so map iteration order cannot change the
 result. Locks, air jumps, and drop exceptions remain local to each record.
 
 ## Remembered facing
@@ -110,7 +117,7 @@ effect only if still held on the following tick.
 
 `draw-player` draws a neutral `#f2f2f2` dot of radius 3 at half the body radius
 left or right of its center. It reads facing rather than inferring it from vx.
-The only colored graphics remain the four player bodies.
+Only player bodies and their identity swatches use hue.
 
 ## Primary-pointer intention
 
@@ -118,7 +125,8 @@ The arena canvas alone listens for `pointerdown` with button 0. A press stores
 `:attack?` in `pending-attack`; reads preserve it and the next fixed tick consumes
 it alongside W/S. Multiple presses before a tick coalesce. A held pointer does
 not repeat. Blur, stop, and restart discard pending attacks; replacing the canvas
-removes its old listener. Capturing this intention has no hit effect yet.
+removes its old listener. The next tick may accept it through `step-melee`; target selection, percentage,
+and received impulses remain simulation decisions.
 
 After every player finishes movement, `step` selects targets for new accepted
 strikes from that shared result and calls `apply-melee-hits` once. Percentage

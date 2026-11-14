@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**37 of 70 checkpoints complete.** Checkpoints 01–37 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**38 of 70 checkpoints complete.** Checkpoints 01–38 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -514,7 +514,7 @@ Checkpoints **31–38**. Accept input, select targets, resolve percentage once, 
 
 ### 38 — Verify local platforms, independence, and combat
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Consolidate scene/jump/drop/facing/melee/knockback integration
   and explain the final local data flow. Keep disconnected fixtures separate from future
   network identities. Extend existing guides rather than adding delivery logs.

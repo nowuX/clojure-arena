@@ -84,3 +84,12 @@ received motion from resurfacing on the next tick and preserves the sum of
 received and voluntary shares at rounded corners. Rising through semisolids
 still works; a supported top landing clears inward vertical received motion,
 unlocks spawn, and restores the air jump. None of this changes remembered facing.
+
+## Local integration boundary
+
+The four colored records are local fixtures. Only cyan `:player-1` receives
+browser A/D/W/S/click input. The same scene supports movement, ground and air
+jumps, drop-through, facing, cooldowns, targeting, accumulation, and knockback.
+There are no remote sessions, automatic opponents, HP, stocks, or respawn yet.
+See the [architecture](architecture.md) for the complete tick and the
+[verification guide](simulation-verification.md) for reproducible checks.

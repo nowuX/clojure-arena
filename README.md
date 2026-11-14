@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–37 complete (37/70). Local melee selects targets after movement, adds percentage exactly once, and applies grouped final-percentage impulses to total and retained velocity. Received X decays independently of A/D; jumps and platform contacts preserve coherent motion. The player panel uses the same frame world as Canvas.
+Checkpoints 01–38 complete (38/70). The local fighting loop combines four independent players, platform movement, ground/air jumps, drop-through, facing, primary-click melee, 0.25-second cooldowns, exactly-once percentage hits, and retained physical knockback. Only cyan player-1 receives local controls; the neutral panel displays every identity and percentage.
 Future mechanics remain specified in the roadmap.
 
 ## Run

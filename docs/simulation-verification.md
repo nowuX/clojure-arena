@@ -11,7 +11,9 @@ just setup
 just test
 ```
 
-`just test` compiles the Shadow test target and runs `.shadow-cljs/test.js`. Use deterministic fixtures for acceleration/friction, spawn lock, support, jump eligibility and allowance, jump/drop action consumption, frame-cadence equivalence, focus/cleanup, and face/corner contacts. Client fixtures use `EventTarget` and controlled animation-frame callbacks; they do not verify native focus handling or Canvas pixels.
+`just test` compiles the Shadow test target and runs `.shadow-cljs/test.js`. Use deterministic fixtures for acceleration/friction, spawn lock, support, jump eligibility and allowance, jump/drop action consumption, frame-cadence equivalence, focus/cleanup, face/corner contacts, pointer lifecycle,
+strike cooldowns, post-movement targeting, exactly-once hit effects, and retained
+knockback integration. Client fixtures use `EventTarget` and controlled animation-frame callbacks; they do not verify native focus handling or Canvas pixels.
 
 To check the release compiler path with isolated output:
 
@@ -31,7 +33,7 @@ Start locally with `just dev` and open `http://127.0.0.1:8081/` on the service h
 - Walk off either platform edge and confirm falling resumes. A fresh W press after leaving an edge can use the single air jump. Reload to restore the initial scene after falling out of view.
 - Release W, then make a fresh W press while grounded. Confirm a ground jump. While airborne, make another fresh W press and confirm one air jump. A third fresh press must not launch; it must not be saved for later.
 - Land on the platform and confirm a fresh W press can launch again. This checks that supported landing restores the air-jump allowance.
-- While holding a direction or with a W/S request pending, move focus away from the page. Confirm blur clears both held directions and both pending actions. Repeat startup/stop through the development workflow and check for duplicate input response or animation loops.
+- While holding a direction or with a W/S/click request pending, move focus away from the page. Confirm blur clears held directions and all pending actions. Repeat startup/stop through the development workflow and check for duplicate input response or animation loops.
 
 A browser can verify event ordering, focus behavior, native `requestAnimationFrame`, and visible Canvas output. Node doubles cannot establish those behaviors. Use deterministic automated fixtures for side, underside, and corner-contact constructions that are not practical to reproduce through this local play loop.
 
@@ -61,7 +63,7 @@ A browser can verify event ordering, focus behavior, native `requestAnimationFra
 
 ## Player record checks
 
-All four bodies fall and unlock after landing. A/D, W, and S control only cyan
+All four bodies fall and unlock after landing. A/D, W, S, and primary click control only cyan
 `:player-1`; the other fixtures receive neutral input. Their jumps, locks, and
 drop exceptions remain independent. These fixtures are local records, not
 network connections.
@@ -83,3 +85,29 @@ reach only `:player-1` and never create it if it is absent.
   tests additionally drive multiple players with opposite intentions and
   change velocity independently. A recording Canvas checks dot placement and
   neutral color; native pixels remain a manual check.
+
+## Local combat checks
+
+- Allow all four bodies to land. Cyan is the only controlled player. Tap A to
+  face green, then primary-click inside the arena while their centers are within
+  60 px. Green gains 10 percentage points and launches left/up. The panel row
+  matches its ID/color and keeps the percentage after landing.
+- Holding the pointer does not repeat. Click again only after 0.25 simulation
+  seconds. An early click is discarded; a fresh click is needed after readiness.
+  Reposition and repeat to see increasing launch strength and values above 100.
+- A click outside the canvas or with a secondary button has no effect. A click
+  during initial locked fall cannot be saved until landing. Click then blur
+  before the next tick: the pending request is discarded.
+- Jump and click together while unlocked. On a supported semisolid, S/W/click
+  together drops instead of jumping while independently requesting melee.
+- Walk or jump toward the crimson/amber semisolids, face a nearby body and hit.
+  Watch its trajectory through one-way surfaces and later landing. Reload
+  restores the local scene if a fixture leaves the view; stocks/respawn are not
+  part of this milestone.
+
+Automated fixtures exercise clicks through `EventTarget`, actual `game/step`,
+and controlled RAF at different frame cadences. Recording DOM/Canvas doubles
+check the same-frame world and displayed values. Pure tests cover opposing
+simultaneous hits, wall/corner projection after real hits, rejected/valid jumps,
+and semisolid rise/landing/drop. These passes do not establish native pointer,
+focus, Canvas pixels, or cross-device behavior; those remain manual checks.
