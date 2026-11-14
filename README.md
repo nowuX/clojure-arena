@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–18 complete (18/70). A fresh W press launches an unlocked supported character at −420 units/s before gravity; airborne requests are discarded.
+Checkpoints 01–19 complete (19/70). One air-jump allowance is tracked and restored only by supported top landing; activation remains pending.
 Future mechanics remain specified in the roadmap.
 
 ## Run

@@ -35,3 +35,23 @@
     (is (near? 312 (get-in result [:player :y])))
     (is (zero? (get-in result [:player :vy])))
     (is (not (game/grounded? (:player result) platform)))))
+
+(deftest air-allowance-is-tracked-but-not-yet-activated
+  (let [first-jump (game/step ground-world {:jump? true} dt)
+        airborne-request (game/step first-jump {:jump? true} dt)]
+    (is (= 1 (get-in game/initial-world [:player :air-jumps-left])))
+    (is (= 1 (get-in first-jump [:player :air-jumps-left])))
+    (is (= 1 (get-in airborne-request [:player :air-jumps-left])))
+    (is (near? -371 (get-in airborne-request [:player :vy])))))
+
+(deftest only-supported-top-landing-restores-the-allowance
+  (let [falling (update ground-world :player assoc :y 250 :vy 1000 :air-jumps-left 0)
+        landed (game/step falling {} dt)
+        departed (game/step (assoc-in ground-world [:player :x] 630)
+                            {:horizontal 1} dt)]
+    (is (= 1 (get-in landed [:player :air-jumps-left])))
+    (is (= 1 (get-in departed [:player :air-jumps-left]))))
+  (doseq [[x y vx vy] [[150 288 1000 0] [400 330 0 -1000] [150 260 1000 400]]]
+    (let [player (assoc (:player ground-world) :x x :y y :vx vx :vy vy :air-jumps-left 0)
+          result (game/collide-platform player platform dt)]
+      (is (zero? (:air-jumps-left result))))))

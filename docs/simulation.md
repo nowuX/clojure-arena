@@ -35,3 +35,7 @@ The scene has one platform. W captures a fresh jump request, consumed by one tic
 The client turns `KeyD` and `KeyA` into `:horizontal` values `1`, `-1`, or `0`. With both keys held the result is zero, so neutral friction applies. A browser blur clears held keys; it does not directly edit the world. `client/advance-world!` calls `game/step` once for each accumulated 25 ms tick, and `client/draw-world` renders the resulting world.
 
 See [Architecture](architecture.md) for ownership and [Simulation verification](simulation-verification.md) for checks.
+
+The player tracks `:air-jumps-left`, initially one. Only supported top landing
+restores it. Ground launch and edge departure preserve it; side, underside,
+and rounded-corner contact do not refill it. Air activation is not applied yet.

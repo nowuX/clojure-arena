@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**18 of 70 checkpoints complete.** Checkpoints 01–18 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**19 of 70 checkpoints complete.** Checkpoints 01–19 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -283,7 +283,7 @@ Checkpoints **01–21**. Introduce rendering, immutable data, input, fixed time,
 
 ### 19 — Track air-jump availability
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Store one available air jump in player data. Initialize it to
   one and restore it only on a supported top landing. A ground jump or walking off an edge
   preserves it; activation follows next.

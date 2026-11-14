@@ -8,7 +8,7 @@
 
 (def initial-world
   {:platform {:x 170 :y 280 :width 460 :height 16 :color "#9c9c9c"}
-   :player {:x 400 :y 160 :vx 0 :vy 0 :radius 16 :spawn-locked? true :color "#22d3ee"}})
+   :player {:x 400 :y 160 :vx 0 :vy 0 :radius 16 :spawn-locked? true :air-jumps-left 1 :color "#22d3ee"}})
 
 (defn move-player [player dt]
   (-> player
@@ -144,7 +144,7 @@
         (if contact
           (let [resolved (resolve-contact player contact)
                 landed (if (grounded? resolved platform)
-                         (assoc resolved :spawn-locked? false)
+                         (assoc resolved :spawn-locked? false :air-jumps-left 1)
                          resolved)]
             (recur landed
                    (- remaining-dt (* travel-dt (:time contact)))
