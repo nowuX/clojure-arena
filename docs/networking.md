@@ -23,4 +23,25 @@ obtain `tailscale ip -4`, bind `just server <TAILSCALE_IP> 8082`, and open
 
 The JVM runner discovers `.clj`/`.cljc` test namespaces, uses bounded HTTP waits
 and isolated temporary public roots, and shuts down agents on completion.
-Node client tests remain `just test`. No WebSocket gameplay exists yet.
+Node client tests remain `just test`. The WebSocket diagnostic contract below does not yet synchronize gameplay.
+
+## EDN WebSocket boundary
+
+`GET /ws` upgrades a WebSocket or returns 426. The server sends `{:type :ready}`;
+the client sends exact `{:type :ping}` and receives `{:type :pong}`. Decode
+exactly one EDN value using the EDN reader, with no evaluation. Errors are exact
+`{:type :error :code ...}` maps: `:invalid-edn` for decoding/multiple values,
+`:invalid-message` for malformed shapes or binary frames, `:unsupported-type`
+for unimplemented keyword message types. Internal join/tick/leave are not wire
+commands. A rejected message does not poison the next valid frame.
+
+`transport/websocket-url` derives `/ws` from the page origin, changing HTTP to
+WS and HTTPS to WSS. An HTTP(S) `server` query parameter selects another origin.
+For example, serve assets with `just dev <TAILSCALE_IP>` and open
+`http://<TAILSCALE_IP>:8081/?server=http://<TAILSCALE_IP>:8082` while
+`just server <TAILSCALE_IP> 8082` runs separately. Plain `:8081/` targets the
+watcher, which has no gameplay WebSocket; use the query or the server's :8082 page.
+
+`init` starts transport; `stop!` detaches callbacks and closes its owned socket.
+Callbacks check their socket identity. Failure keeps the local fighting sandbox
+playable. No automatic reconnect or shared simulation exists at this stage.

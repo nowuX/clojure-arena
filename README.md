@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–39 complete (39/70). The local fighting loop is served by a pinned Clojure/http-kit/Ring HTTP entry point with explicit host and port, public assets, content types, 404 responses and GET /health. Browser compilation and HTTP delivery remain separate processes; gameplay is still local.
+Checkpoints 01–40 complete (40/70). The Clojure server serves assets and exchanges validated single-value EDN over /ws with ready/ping/pong and typed errors. The browser derives its endpoint from origin or an HTTP(S) server query and retains playable local fallback; shared gameplay is not active yet.
 Future mechanics remain specified in the roadmap.
 
 ## Run

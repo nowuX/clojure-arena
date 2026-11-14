@@ -1,5 +1,6 @@
 (ns clojure-arena.client
-  (:require [clojure-arena.game :as game]))
+  (:require [clojure-arena.game :as game]
+            [clojure-arena.transport :as transport]))
 
 (def local-player-id :player-1)
 (def tick-ms 25)
@@ -135,6 +136,7 @@
             (js/requestAnimationFrame (partial frame canvas timestamp remainder)))))
 
 (defn stop! []
+  (transport/stop!)
   (when-let [canvas @input-canvas]
     (.removeEventListener canvas "pointerdown" handle-pointer-down!))
   (reset! input-canvas nil)
@@ -158,4 +160,6 @@
     (reset! input-canvas canvas)
     (draw-world canvas world-snapshot)
     (render-players! world-snapshot)
-    (reset! frame-id (js/requestAnimationFrame (partial frame canvas nil 0)))))
+    (reset! frame-id (js/requestAnimationFrame (partial frame canvas nil 0))))
+  (when-let [location (.-location js/window)]
+    (transport/start! (.-href location))))

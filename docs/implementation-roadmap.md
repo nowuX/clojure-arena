@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**39 of 70 checkpoints complete.** Checkpoints 01–39 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**40 of 70 checkpoints complete.** Checkpoints 01–40 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -543,7 +543,7 @@ Checkpoints **39–49**. Add HTTP/WebSocket, exact EDN messages, connection-owne
 
 ### 40 — Exchange validated EDN over WebSocket
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Upgrade /ws, send ready, accept an exact diagnostic ping, and
   reply pong. Decode exactly one EDN value without evaluating code; distinguish invalid
   EDN, invalid shape, and unsupported type. Derive client endpoint from origin or HTTP(S)

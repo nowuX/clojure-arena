@@ -1,11 +1,25 @@
 (ns clojure-arena.server
   (:require [clojure.string :as str]
+            [clojure-arena.protocol :as protocol]
             [org.httpkit.server :as http]
             [ring.middleware.content-type :refer [wrap-content-type]]
             [ring.middleware.file :refer [wrap-file]]
             [ring.middleware.head :refer [wrap-head]]))
 
 (def default-options {:host "127.0.0.1" :port 8082})
+
+(defn websocket-response [request]
+  (if (:websocket? request)
+    (http/as-channel request
+                     {:on-open (fn [channel]
+                                 (http/send! channel (pr-str {:type :ready})))
+                      :on-receive (fn [channel message]
+                                    (http/send! channel
+                                                (pr-str (protocol/reply-to-message message))))})
+    {:status 426
+     :headers {"Content-Type" "text/plain; charset=utf-8"
+               "Upgrade" "websocket"}
+     :body "WebSocket connection required\n"}))
 
 (defn routes [{:keys [request-method uri]}]
   (if (and (= :get request-method) (= "/health" uri))
@@ -17,10 +31,14 @@
      :body "Not found\n"}))
 
 (defn make-handler [public-dir]
-  (-> routes
-      (wrap-file public-dir)
-      wrap-content-type
-      wrap-head))
+  (let [static-handler (-> routes
+                           (wrap-file public-dir)
+                           wrap-content-type
+                           wrap-head)]
+    (fn [request]
+      (if (and (= :get (:request-method request)) (= "/ws" (:uri request)))
+        (websocket-response request)
+        (static-handler request)))))
 
 (defn parse-options [args]
   (let [[host port] args

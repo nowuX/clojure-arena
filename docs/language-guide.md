@@ -202,3 +202,11 @@ mismo valor. Las funciones compartidas no leen átomos ni el reloj del navegador
 representa solicitudes y respuestas con mapas; los middlewares componen el
 handler. `start!` y `stop!` son la frontera con efectos de http-kit: sirven
 archivos y administran un socket, sin modificar la simulación pura.
+
+### EDN y transporte del navegador
+
+EDN representa datos de Clojure sin ejecutar código. `decode` lee un valor y
+comprueba el fin del texto; `try`/`catch` distingue los errores del protocolo.
+`server-message?` valida mapas exactos antes de aceptarlos. En ClojureScript,
+`js/URL` obtiene el endpoint y `js/WebSocket` administra eventos. `identical?`
+comprueba que un callback todavía pertenezca al socket actual.
