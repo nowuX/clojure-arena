@@ -193,3 +193,12 @@ El cliente consume las acciones, conserva la dirección y las coloca bajo su ID.
 común. `apply-melee-hits` devuelve porcentaje, impulso y secuencias resueltas
 juntos. El átomo del cliente guarda el mundo nuevo; dibujo y panel leen el
 mismo valor. Las funciones compartidas no leen átomos ni el reloj del navegador.
+
+## Clojure del servidor JVM
+
+`deps.edn` declara dependencias con versiones fijas y aliases de ejecución.
+`clojure -M:server` llama a `-main`; `just server` evita repetir el comando.
+`parse-options` usa `parse-long` y `ex-info` para validar argumentos. Ring
+representa solicitudes y respuestas con mapas; los middlewares componen el
+handler. `start!` y `stop!` son la frontera con efectos de http-kit: sirven
+archivos y administran un socket, sin modificar la simulación pura.

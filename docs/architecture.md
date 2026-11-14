@@ -109,3 +109,20 @@ without choosing a new side.
 The simulation has no browser reads, clocks, atoms, or I/O. A future room owner
 can call the same `step` API with connection-owned inputs without changing
 these local mechanics. See [Local combat](combat.md) for the field contracts.
+
+## HTTP boundary
+
+```mermaid
+flowchart LR
+    Source[ClojureScript source] -->|just build / just dev| Assets[public assets]
+    JVM[server.clj: start! / stop!] --> Handler[make-handler]
+    Request[HTTP request] --> Handler
+    Handler -->|GET /health| Health[readiness response]
+    Handler -->|existing file| Assets
+    Handler -->|missing route/file| Missing[404]
+    Assets --> Browser[Browser loads HTML and JS]
+```
+
+The Clojure HTTP process owns file delivery and readiness; Shadow owns compilation.
+The local browser still owns the simulation. `server/start!` returns its own
+http-kit handle, and `stop!` settles that handle without touching other services.

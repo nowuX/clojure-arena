@@ -26,3 +26,10 @@ in a native browser to verify startup and appearance.
 `just test` compiles and runs the ClojureScript tests in Node. Browser fixtures
 use EventTarget and controlled RAF callbacks; they do not verify native focus,
 Canvas pixels, or cross-device access.
+
+## JVM HTTP server
+
+Compile browser files with `just build`, then serve them with
+`just server 127.0.0.1 8082` and open http://127.0.0.1:8082/.
+`just test-server` runs JVM regressions, including isolated real HTTP checks.
+The HTTP process does not replace Shadow or produce JavaScript itself.

@@ -6,7 +6,7 @@ three stocks and knockback percentages, without HP.
 
 ## Current scope
 
-Checkpoints 01–38 complete (38/70). The local fighting loop combines four independent players, platform movement, ground/air jumps, drop-through, facing, primary-click melee, 0.25-second cooldowns, exactly-once percentage hits, and retained physical knockback. Only cyan player-1 receives local controls; the neutral panel displays every identity and percentage.
+Checkpoints 01–39 complete (39/70). The local fighting loop is served by a pinned Clojure/http-kit/Ring HTTP entry point with explicit host and port, public assets, content types, 404 responses and GET /health. Browser compilation and HTTP delivery remain separate processes; gameplay is still local.
 Future mechanics remain specified in the roadmap.
 
 ## Run
@@ -22,12 +22,17 @@ Open http://127.0.0.1:8081/. Use `just dev <TAILSCALE_IP>` to serve on
 another interface. `just build` compiles an optimized browser bundle.
 `just test` runs the Node simulation and browser-boundary tests.
 
+To serve built assets with Clojure, run `just build`, then
+`just server <HOST> 8082` and open `http://<HOST>:8082/`.
+`just test-server` runs shared simulation and JVM server tests.
+
 ## Guides
 
 - [Implementation roadmap](docs/implementation-roadmap.md)
 - [Game specification](docs/game-specification.md)
 - [Design system](docs/design-system.md)
 - [Development](docs/development.md)
+- [Networking](docs/networking.md)
 - [Simulation](docs/simulation.md)
 - [Local combat](docs/combat.md)
 - [Architecture](docs/architecture.md)

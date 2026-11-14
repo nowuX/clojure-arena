@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**38 of 70 checkpoints complete.** Checkpoints 01–38 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
+**39 of 70 checkpoints complete.** Checkpoints 01–39 are complete; the remaining checkpoints are pending. The target is a browser platform fighter with a local sandbox and one
 shared authoritative room for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
 and [working instructions](../AGENTS.md) before implementing checkpoint 01.
@@ -530,7 +530,7 @@ Checkpoints **39–49**. Add HTTP/WebSocket, exact EDN messages, connection-owne
 
 ### 39 — Boot the Clojure HTTP server
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Pin Clojure/http-kit/Ring dependencies and add a JVM entry point
   with explicit host/port. Serve existing public assets, content types, missing-file 404s,
   and GET /health. Add working server/test-server just recipes and the architecture

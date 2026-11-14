@@ -18,3 +18,11 @@ build config="{}":
 test:
     pnpm exec shadow-cljs compile test
     node .shadow-cljs/test.js
+
+# Serve existing browser assets with the Clojure HTTP server.
+server host="127.0.0.1" port="8082":
+    clojure -M:server {{ quote(host) }} {{ quote(port) }}
+
+# Run shared simulation and JVM HTTP/server regressions.
+test-server:
+    clojure -M:test-server
