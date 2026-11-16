@@ -52,7 +52,7 @@ the behavior described by its checkpoint; later features are intentionally absen
 | test/ and just test | 09 | Shared simulation and client regressions in Node |
 | docs/development.md | 01 | Working commands, prerequisites, build/reload boundaries |
 | docs/simulation.md and docs/simulation-verification.md | 15 | Implemented rules/data flow and local checks |
-| docs/language-guide.md | 15 onward | Spanish Clojure/shared section and ClojureScript section |
+| docs/language-guide.md | 15 onward | Spanish language manual: shared Clojure concepts, browser, server, and tests |
 | docs/architecture.md | 15 onward | Current ownership, principal functions; server/concurrency diagram from 39 |
 | deps.edn, server.clj, and just server/test-server | 39 | JVM HTTP/WebSocket entry point and real-boundary checks |
 | protocol.cljc, transport.cljs | 40 | Shared EDN contract and client transport lifecycle |

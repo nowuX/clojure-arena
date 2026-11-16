@@ -40,7 +40,22 @@ an automated pass does not establish those results.
 - [Game specification and deferred abilities](docs/game-specification.md)
 - [Simulation](docs/simulation.md), [combat](docs/combat.md) and [matches](docs/matches.md)
 - [Networking](docs/networking.md) and [architecture](docs/architecture.md)
-- [Language guide in Spanish](docs/language-guide.md)
+- [Language manual in Spanish](docs/language-guide.md)
 - [Local verification](docs/simulation-verification.md) and [multiplayer verification](docs/multiplayer-verification.md)
 - [Monochrome design system](docs/design-system.md)
 - [Completed implementation roadmap](docs/implementation-roadmap.md)
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
+## Legal
+
+Clojure Arena is an original, independent project. It is not affiliated with,
+endorsed by or connected to Nintendo or any other publisher, and it ships no
+third-party characters, artwork, music or other assets: every visual is
+monochrome geometry drawn at runtime by the included code. All trademarks
+remain the property of their owners and, where mentioned, are used only for
+identification. See [NOTICE](NOTICE) for the full statement. The software is
+provided "as is", without warranty of any kind, and the author accepts no
+liability arising from its use.

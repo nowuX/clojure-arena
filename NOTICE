@@ -1,0 +1,68 @@
+Clojure Arena — legal notice
+============================
+
+Copyright (c) 2026 Nowu. Licensed under the MIT License; see LICENSE.
+
+1. Original work
+
+Clojure Arena is an independent, non-commercial hobby project. Its source code,
+server and client behaviour, rules, arena layout, monochrome visual design,
+player bodies and user interface text were written for this project. The
+repository contains no third-party artwork, sprites, character models, music,
+sound effects, fonts, level data or other assets: every visual element is
+geometry generated at runtime by the included code.
+
+2. No affiliation
+
+This project is not affiliated with, sponsored by, endorsed by, authorized by
+or connected to Nintendo Co., Ltd., its subsidiaries or affiliates, or any
+other video game publisher, developer or rights holder. Nothing in this
+repository is an official product or a derivative of a commercial title.
+
+3. No third-party names, characters or marks in the product
+
+The game, its code, its interface and its documentation do not use the names,
+logos, characters, stages, items, music or other protected elements of any
+existing video game. Player identities are generated local IDs and colors.
+
+Platform fighters are an established genre. Rules and mechanics such as
+gravity, jumping, platforms, stocks, percentages and respawns are common to
+many games and are generally treated as ideas or methods rather than as
+protected expression. Similarity in genre mechanics is not a claim of
+derivation from any specific title. Where a term is generic to the genre, it is
+used descriptively.
+
+All trademarks, service marks, trade names and copyrights referenced anywhere
+in this repository remain the property of their respective owners and, if
+mentioned, are used only for identification or comparison. "Super Smash Bros."
+and all related names, characters and logos are trademarks or registered
+trademarks of Nintendo. Their mention here exists solely to state that this
+project is unrelated to and does not reproduce them.
+
+4. No warranty, no liability
+
+The software is provided "as is", without warranty of any kind, express or
+implied, including but not limited to the warranties of merchantability,
+fitness for a particular purpose, title and non-infringement. To the maximum
+extent permitted by applicable law, the author accepts no liability for any
+claim, damage, loss or other liability arising from the use of, inability to
+use, or reliance on this software, or from any perceived resemblance between
+this project and any other work.
+
+5. Third-party dependencies
+
+Runtime and build dependencies (Clojure, ClojureScript, http-kit, Ring,
+shadow-cljs and their transitive dependencies) are distributed under their own
+licenses and are not covered by this notice or by the MIT License above.
+
+6. Requests
+
+If you hold rights to material you believe appears in this repository, open an
+issue or contact the copyright holder. Verified concerns will be addressed,
+including removal of the disputed material.
+
+This notice is a good-faith statement of the project's scope and origin. It is
+not legal advice, and it does not by itself determine the legal position of the
+project in every jurisdiction. If this project is ever distributed commercially
+or monetized, obtain advice from a qualified lawyer in the relevant
+jurisdiction.
