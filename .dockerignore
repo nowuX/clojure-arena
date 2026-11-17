@@ -1,0 +1,9 @@
+.git
+node_modules
+.pnpm-store
+.shadow-cljs
+.cpcache
+public/js
+public/js-release
+docs
+test
