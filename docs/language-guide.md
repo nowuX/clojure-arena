@@ -1,14 +1,12 @@
 # Manual de lenguaje: Clojure y ClojureScript
 
-Este documento enseña el **lenguaje** que usa Clojure Arena, no la arquitectura
-del juego. Al terminarlo, una persona que nunca haya escrito Clojure debe poder
-abrir cualquier archivo de `src/` o `test/` y entender qué hace cada forma.
+Este documento enseña el **lenguaje** Clojure y ClojureScript desde cero. No
+describe la arquitectura de ningún programa concreto ni depende de código
+externo: cada ejemplo es autocontenido y se puede probar tal cual.
 
-Cada concepto aparece una sola vez, con el nombre que recibe en la comunidad,
-un ejemplo mínimo y una referencia al código real donde se usa. Las reglas del
-juego están en [Simulación](simulation.md), [Combate](combat.md) y
-[Partidas](matches.md); el recorrido de componentes en
-[Arquitectura](architecture.md).
+El objetivo es que alguien que nunca haya escrito Clojure pueda leer código
+Clojure o ClojureScript y entender qué hace cada forma, sin necesidad de conocer
+antes el proyecto donde aparece.
 
 ## Cómo leer este manual
 
@@ -21,29 +19,18 @@ juego están en [Simulación](simulation.md), [Combate](combat.md) y
   sobre Java 21. ClojureScript usa números de JavaScript: donde un ejemplo JVM
   devuelve una razón exacta, ClojureScript devuelve un decimal. Los fragmentos
   de navegador describen propiedades del entorno y no se ejecutaron aquí.
-- Los ejemplos que llaman a `game/`, `match/`, `protocol/` o `room/` necesitan
-  un REPL de Clojure desde la raíz del proyecto:
-
-```sh
-clojure -M
-```
-
-```clojure
-(require '[clojure-arena.game :as game])
-```
-
-- Los ejemplos con `js/`, Canvas o eventos solo funcionan en el navegador. No se
-  pegan en un REPL de la JVM ni en una consola de JavaScript.
+- Todos los ejemplos de la JVM se pueden pegar en un REPL (`clojure`) sin cargar
+  ningún namespace. Los de la sección 2 necesitan un navegador y un compilador
+  de ClojureScript.
 - `.clj` contiene código para la JVM, `.cljs` para JavaScript y `.cljc` para
-  ambos. ClojureScript no se ejecuta en ese REPL: se compila con `just dev`,
-  `just test` o `just build`.
+  ambos. El mismo `.cljc` se compila dos veces, una por destino.
 
 1. [El lenguaje compartido](#1-el-lenguaje-compartido)
 2. [ClojureScript y el navegador](#2-clojurescript-y-el-navegador)
 3. [Clojure en el servidor](#3-clojure-en-el-servidor)
 4. [Pruebas](#4-pruebas)
-5. [Qué concepto ver en cada archivo](#5-qué-concepto-ver-en-cada-archivo)
-6. [Cómo leer una forma desconocida](#6-cómo-leer-una-forma-desconocida)
+5. [Cómo leer una forma desconocida](#5-cómo-leer-una-forma-desconocida)
+6. [Formas fuera de esta guía](#6-formas-fuera-de-esta-guía)
 
 ## 1. El lenguaje compartido
 
@@ -64,36 +51,31 @@ comentario hasta el final de la línea.
 
 En la JVM, dividir dos enteros produce una **razón** exacta; con un decimal
 produce un número de coma flotante. ClojureScript no tiene razones y devuelve
-`0.025` en ambos casos. El juego usa `1e-9` como tolerancia: comparar decimales
-con `=` casi nunca es fiable.
-
-Referencia: [constantes de física](../src/clojure_arena/game.cljc#L3) y
-[`step`](../src/clojure_arena/game.cljc#L452).
+`0.025` en ambos casos. Por eso los cálculos con decimales necesitan una
+tolerancia: comparar dos resultados con `=` casi nunca es fiable. El valor
+`1e-9` es una tolerancia habitual, porque es mayor que el error de redondeo y
+mucho menor que cualquier diferencia significativa.
 
 ### 1.2. Namespaces y archivos
 
 `ns` declara el espacio de nombres del archivo. `:require` carga otros
-namespaces, `:as` crea un alias y `:refer` trae nombres sueltos. `:import` trae
+namespaces, `:as` crea un alias, `:refer` trae nombres sueltos y `:import` trae
 clases de Java.
 
 ```clojure
-(ns clojure-arena.client
-  (:require [clojure-arena.game :as game]
-            [clojure-arena.protocol :as protocol]))
+(ns ejemplo.app
+  (:require [clojure.string :as str]
+            [clojure.set :refer [union]])
+  (:import [java.util.concurrent ArrayBlockingQueue]))
 ```
 
-El guion del namespace corresponde a un guion bajo en la ruta:
-`clojure-arena.game` vive en `src/clojure_arena/game.cljc`. Con el alias, `game/step`
-designa `step` dentro de ese namespace; sin alias habría que escribir el nombre
-completo.
+El guion del namespace corresponde a un guion bajo en la ruta: `ejemplo.app`
+vive en `src/ejemplo/app.clj`. Con el alias, `str/join` designa `join` dentro de
+ese namespace; sin alias habría que escribir el nombre completo.
 
-`:refer` se usa cuando se llaman pocas funciones y no se quiere prefijo, como
-los middlewares de Ring en el servidor. La comilla de `'[clojure-arena.game :as game]`
-en un `require` de REPL entrega el vector como dato en vez de evaluarlo.
-
-Referencias: [`client.cljs`](../src/clojure_arena/client.cljs#L1),
-[`:refer` en el servidor](../src/clojure_arena/server.clj#L9) y
-[`:import` de http-kit](../src/clojure_arena/server.clj#L12).
+`:refer` se usa cuando se llaman pocas funciones y no se quiere prefijo. La
+comilla de `'[ejemplo.app :as app]` en un `require` de REPL entrega el vector
+como dato en vez de evaluarlo.
 
 ### 1.3. Definir nombres y funciones
 
@@ -110,25 +92,34 @@ cuerpo es el resultado. `let` da nombres locales a valores intermedios.
 (gravity-change 0.025) ; => 24.5
 ```
 
-Tres variantes que aparecen en el código:
+Tres variantes habituales:
 
-- `defn-` declara una función privada del namespace:
-  [`remaining-seconds`](../src/clojure_arena/game.cljc#L65).
-- `^:private` añade la misma metadata a un `def` o `defonce`:
-  [`offline-world`](../src/clojure_arena/client.cljs#L10).
+- `defn-` declara una función privada del namespace.
+- `^:private` añade la misma metadata a un `def` o `defonce`.
 - Un texto justo después del nombre es la **docstring**, la documentación de la
-  función: [`outside-arena?`](../src/clojure_arena/game.cljc#L44).
+  función:
+
+```clojure
+(defn outside-bounds?
+  "Devuelve true si la posición queda fuera de los límites indicados."
+  [x y bounds]
+  (or (< x (:left bounds)) (> x (:right bounds))
+      (< y (:top bounds)) (> y (:bottom bounds))))
+```
 
 Los sufijos son convenciones, no reglas del compilador: `?` en un predicado que
-devuelve verdadero o falso (`active-player?`) y `!` en algo con efectos externos
-(`send-input!`). `defonce` define solo si el nombre aún no existe; el cliente lo
-usa para conservar los átomos cuando el desarrollo recarga el código
-([`world`](../src/clojure_arena/client.cljs#L9)).
+devuelve verdadero o falso (`active?`) y `!` en algo con efectos externos
+(`send-input!`). `defonce` define solo si el nombre aún no existe; se usa para
+conservar estado cuando el entorno recarga el código durante el desarrollo.
 
 Dentro de un `let` se puede reutilizar un nombre: cada enlace nuevo oculta el
-anterior y las expresiones siguientes ven el último. `step-melee` vuelve a
-enlazar `remaining` y `player` sobre sus propios valores
-([`step-melee`](../src/clojure_arena/game.cljc#L376)).
+anterior y las expresiones siguientes ven el último.
+
+```clojure
+(let [speed 10
+      speed (* speed 2)]
+  speed) ; => 20
+```
 
 ### 1.4. Valores, colecciones y claves
 
@@ -147,15 +138,12 @@ enlazar `remaining` y `player` sobre sus propios valores
 (keys {:x 1 :y 2}) ; => (:x :y)
 ```
 
-El orden de impresión de un mapa o un conjunto no es un orden de juego: no se
-usa para decidir nada. Cuando el programa necesita un orden estable lo pide con
-`sort-by`.
-
-Referencias: [`make-player`](../src/clojure_arena/game.cljc#L19) y
-[`neutral-input`](../src/clojure_arena/protocol.cljc#L9).
+El orden de impresión de un mapa o un conjunto no es un orden lógico ni de
+presentación: no se usa para decidir nada. Cuando el programa necesita un orden
+estable lo pide con `sort-by`.
 
 Los predicados de tipo comprueban la clase del valor y se usan para validar datos
-que llegan de la red:
+que llegan de fuera:
 
 ```clojure
 (map? {})         ; => true
@@ -168,8 +156,8 @@ que llegan de la red:
 (keyword? :x)     ; => true
 ```
 
-[`snapshot-message?`](../src/clojure_arena/protocol.cljc#L205) combina estos
-predicados con `every?` para rechazar un mundo con la forma equivocada.
+Un valor también puede comprobarse con `instance?` y el nombre de su clase
+(`(instance? String "a") ; => true`), útil al recibir objetos de Java.
 
 ### 1.5. Verdad, `nil` y ausencia
 
@@ -185,10 +173,8 @@ vacías son verdaderos.
 ```
 
 `some?` pregunta "¿no es `nil`?"; `nil?` pregunta lo contrario; `boolean` fuerza
-el resultado a `true` o `false`. `boolean` aparece en
-[`outside-arena?`](../src/clojure_arena/game.cljc#L44) para que una condición
-compuesta devuelva un booleano limpio, y `some?` en
-[`contender?`](../src/clojure_arena/match.cljc#L17).
+el resultado a `true` o `false`. Esto importa al traducir a otros lenguajes: un
+`if` de Clojure no equivale a comparar con cero ni con cadena vacía.
 
 ### 1.6. Consultar datos
 
@@ -206,8 +192,9 @@ el índice.
 ```
 
 Un valor `nil` presente no activa el valor por defecto de `get`:
-`(get {:vy nil} :vy 0)` devuelve `nil`. Por eso la física suele escribir
-`(:knockback-vx player 0)` cuando el campo puede faltar.
+`(get {:score nil} :score 0)` devuelve `nil`. Por eso conviene escribir
+`(:score player 0)` cuando el campo puede faltar; esa forma de keyword con valor
+por defecto es equivalente a `(get player :score 0)`.
 
 Un mapa también es una función de sus claves, y un conjunto de sus elementos:
 
@@ -216,11 +203,11 @@ Un mapa también es una función de sus claves, y un conjunto de sus elementos:
 (#{:solid :semisolid} :solid)                    ; => :solid
 ```
 
-Esa segunda forma permite escribir `(remove assigned-colors protocol/player-colors)`
-para quedarse con los colores libres
-([`join-room`](../src/clojure_arena/room.clj#L25)).
+Esa segunda forma permite filtrar una colección con otra:
+`(remove assigned-colors all-colors)` se queda con los elementos de
+`all-colors` que no están en `assigned-colors`.
 
-### 1.7. Inmutabilidad: cómo avanza el mundo
+### 1.7. Inmutabilidad: cómo avanza un estado
 
 `assoc` devuelve una colección con una clave reemplazada, `update` calcula su
 nuevo valor con una función, y `assoc-in`/`update-in` hacen lo mismo sobre rutas
@@ -237,19 +224,16 @@ anidadas. `dissoc` retira una clave, `select-keys` conserva solo las indicadas y
 ; => {:players {:player-1 {:x 410}}}
 
 (select-keys {:x 400 :y 160 :vx 0} [:x :y]) ; => {:x 400 :y 160}
-(merge {:stocks 3} {:stocks 2 :color "#22d3ee"}) ; => {:stocks 2 :color "#22d3ee"}
+(merge {:lives 3} {:lives 2 :color "#22d3ee"}) ; => {:lives 2 :color "#22d3ee"}
 ```
 
 Ninguna de estas operaciones cambia el valor original: devuelven otro valor. Ese
-es el mecanismo con el que `game/step` produce el mundo siguiente
-([`move-player`](../src/clojure_arena/game.cljc#L100)) y con el que la sala
-actualiza `:world` sin tocar la sala recibida
-([`tick-room`](../src/clojure_arena/room.clj#L73)).
+es el mecanismo con el que una función pura produce el estado siguiente sin
+modificar el anterior.
 
 `update` y `update-in` aceptan argumentos extra para la función
-(`(update-in {:n 1} [:n] + 10) ; => {:n 11}`), lo que se usa para fusionar una
-entrada nueva sobre la anterior
-([`apply-room-message`](../src/clojure_arena/room.clj#L89)).
+(`(update-in {:n 1} [:n] + 10) ; => {:n 11}`), lo que sirve para combinar un
+valor nuevo con el anterior sin consultarlo antes.
 
 ### 1.8. Operar sobre colecciones
 
@@ -266,13 +250,15 @@ vacuidad; `seq` devuelve `nil` para una colección vacía.
 (seq [])                                 ; => nil
 ```
 
-`(seq (:members next-room))` sirve como condición "hay alguien conectado"
-([`tick-room`](../src/clojure_arena/room.clj#L73)), porque una colección vacía
-sería verdadera pero `nil` es falso.
+`(seq coll)` sirve como condición "hay algo", porque una colección vacía sería
+verdadera pero `nil` es falso.
 
-`into` con `map` y una función que devuelve parejas construye un mapa nuevo,
-como la lista de contendientes al empezar la partida
-([`start-match`](../src/clojure_arena/match.cljc#L98)).
+`into` con `map` y una función que devuelve parejas construye un mapa nuevo:
+
+```clojure
+(into {} (map (fn [id] [id {:lives 3}]) [:player-1 :player-2]))
+; => {:player-1 {:lives 3} :player-2 {:lives 3}}
+```
 
 ### 1.9. Destructuración
 
@@ -290,11 +276,15 @@ separa posiciones.
   (= player {:x 400 :y 160})) ; => true
 ```
 
-Se usa en parámetros de función: [`resolve-contact`](../src/clojure_arena/game.cljc#L256)
-recibe la posición y la normal del contacto ya separadas, y
-[`step-player`](../src/clojure_arena/game.cljc#L388) extrae las cuatro acciones
-con `:or`. Un enlace que empieza por `_` es un enlace normal que el autor marca
-como no usado: `(fn [event] ...)` y `(fn [_event] ...)` reciben lo mismo.
+Se usa sobre todo en parámetros de función, donde evita una línea de consultas:
+
+```clojure
+(defn platform? [{:keys [type width]}]
+  (and (= :solid type) (pos? width)))
+```
+
+Un enlace que empieza por `_` es un enlace normal que el autor marca como no
+usado: `(fn [event] ...)` y `(fn [_event] ...)` reciben lo mismo.
 
 ### 1.10. Condiciones
 
@@ -324,19 +314,31 @@ como no usado: `(fn [event] ...)` y `(fn [_event] ...)` reciben lo mismo.
 ```
 
 `case` compara con constantes en tiempo de compilación y **lanza una excepción**
-si no coincide y no hay rama final. Por eso [`match/step`](../src/clojure_arena/match.cljc#L164)
-termina con `world` como resultado por defecto: una fase desconocida conserva el
-mundo. `cond` sin coincidencia devuelve `nil`, que es lo que usa
-[`result-for`](../src/clojure_arena/match.cljc#L56) para distinguir "aún no hay
+si no coincide y no hay rama final. Por eso es habitual cerrar un `case` de
+fases con un resultado por defecto que conserva el estado recibido:
+
+```clojure
+(defn settle [phase state]
+  (case phase
+    :running state
+    (:finished :abandoned) (assoc state :closed? true)
+    state))
+```
+
+`cond` sin coincidencia devuelve `nil`, lo que permite distinguir "aún no hay
 resultado" de un resultado real.
 
-`and` y `or` se usan como condición y como valor:
-[`merge-pending-input`](../src/clojure_arena/protocol.cljc#L27) conserva una
-acción pendiente con `or` aunque el mensaje nuevo traiga `false`.
+`and` y `or` se usan como condición y como valor. `or` conserva una acción
+pendiente aunque el mensaje nuevo traiga `false`, porque `false` es falso para
+`or`:
+
+```clojure
+(or false true)  ; => true
+(or nil 0)       ; => 0
+```
 
 `do` agrupa varias expresiones donde la forma admite una sola, por ejemplo en una
-rama de `if` que dibuja con varios pasos
-([`draw-platform`](../src/clojure_arena/client.cljs#L113)).
+rama de `if` que ejecuta varios pasos.
 
 ### 1.11. Números y comparaciones
 
@@ -354,15 +356,15 @@ rama de `if` que dibuja con varios pasos
 
 `<` y `<=` aceptan varios operandos, así que `(<= 0 0.5 1)` comprueba un
 intervalo completo. `=` compara valores y distingue tipos; `==` compara solo
-números y considera iguales `184` y `184.0`; `not=` es la negación de `=` y se
-usa para descartar el propio atacante
-([`melee-target-ids`](../src/clojure_arena/game.cljc#L356)). Las clasificaciones
-usan `==` para detectar un empate real entre enteros y decimales
-([`result-for`](../src/clojure_arena/match.cljc#L56)).
-
+números y considera iguales `184` y `184.0`; `not=` es la negación de `=`.
 `zero?`, `pos?` y `neg?` responden por el signo y se leen mejor que una
-comparación. En física también aparece `abs` para tolerancias
-([`grounded?`](../src/clojure_arena/game.cljc#L130)).
+comparación; `abs` se usa para tolerancias.
+
+Para comparar decimales calculados se usa una diferencia menor que un umbral:
+
+```clojure
+(< (abs (- 0.30000000000000004 0.3)) 1e-9) ; => true
+```
 
 ### 1.12. Funciones como valores
 
@@ -384,9 +386,8 @@ la abreviatura con `%` como único argumento y `%1`, `%2` para varios.
 - `juxt` aplica varias funciones al mismo dato y devuelve un vector.
 - `identity` devuelve su argumento; combinada con `keep`, descarta los `nil`.
 
-Referencias: [`partial` al arrancar el publicador](../src/clojure_arena/server.clj#L144),
-[`comp` y `juxt` al clasificar](../src/clojure_arena/match.cljc#L49) y
-[`#()` en un filtro](../src/clojure_arena/game.cljc#L137).
+`comp` y `juxt` son la base de los criterios de orden compuestos:
+`(juxt :lives :percentage)` devuelve una pareja que `sort-by` compara en orden.
 
 ### 1.13. Recorrer y acumular colecciones
 
@@ -407,20 +408,18 @@ Referencias: [`partial` al arrancar el publicador](../src/clojure_arena/server.c
 (mapv :id (sort-by :time [{:id :later :time 0.8} {:id :first :time 0.2}]))
 ; => [:first :later]
 (reduce + 0 [10 10 10])                                        ; => 30
-(reduce-kv (fn [total _id p] (+ total (:accumulated-percentage p)))
+(reduce-kv (fn [total _id p] (+ total (:percentage p)))
            0
-           {:player-1 {:accumulated-percentage 20}
-            :player-2 {:accumulated-percentage 30}})            ; => 50
+           {:player-1 {:percentage 20}
+            :player-2 {:percentage 30}})                       ; => 50
 (frequencies [:right :left :right])                            ; => {:right 2 :left 1}
 (update {} :hits (fnil inc 0))                                 ; => {:hits 1}
 ```
 
-`reduce` sobre un mapa recorre **parejas** `[clave valor]`, como en
-[`apply-melee-hits`](../src/clojure_arena/game.cljc#L417);
-`reduce-kv` recibe los tres valores sueltos, como en
-[`step`](../src/clojure_arena/game.cljc#L452). `fnil` se usa para acumular sobre
-una clave que puede no existir: `(update hits target-id (fnil conj []) ...)`
-crea el vector vacío la primera vez.
+`reduce` sobre un mapa recorre **parejas** `[clave valor]`; `reduce-kv` recibe
+los tres valores sueltos. `fnil` se usa para acumular sobre una clave que puede
+no existir: `(update hits target (fnil conj []) item)` crea el vector vacío la
+primera vez.
 
 Las secuencias de `map` y `filter` son **perezosas**: se calculan a medida que se
 consumen y se imprimen entre paréntesis. `mapv` y `filterv` construyen un vector
@@ -442,11 +441,21 @@ es verdadera. Son macros: reescriben el código antes de ejecutarlo.
   false (assoc :close-reason "x")) ; => {:status :closed :close-code 1000}
 ```
 
-`->` describe bien una transición de estado y por eso aparece en casi todas las
-funciones de `game.cljc` y `match.cljc`. `->>` encaja cuando la colección va al
-final, como en [`ranked-standings`](../src/clojure_arena/match.cljc#L49).
-`cond->` construye el estado de cierre del socket añadiendo datos opcionales
-([`onclose`](../src/clojure_arena/transport.cljs#L213)).
+`->` describe bien una transición de estado: cada paso recibe el resultado
+anterior como primer argumento. `->>` encaja cuando la colección va al final,
+porque así se leen las operaciones de secuencia en orden:
+
+```clojure
+(->> {:player-2 {:lives 1} :player-1 {:lives 3}}
+     (map (fn [[id entry]] (assoc entry :id id)))
+     (sort-by (comp - :lives))
+     (map :id)
+     vec)
+; => [:player-1 :player-2]
+```
+
+`cond->` construye un valor con datos opcionales; cada condición se evalúa una
+vez, en orden.
 
 ### 1.15. Repetición con `loop` y `recur`
 
@@ -463,31 +472,36 @@ no se acumulan marcos de pila.
 (take 3 (iterate inc 0)) ; => (0 1 2)
 ```
 
-[`collide-platforms`](../src/clojure_arena/game.cljc#L293) repite con cuatro
-valores: jugador, tiempo restante, contactos disponibles e IDs de salida. El
-cliente repite el tiempo acumulado en pasos de 25 ms
-([`advance-world!`](../src/clojure_arena/client.cljs#L321)).
+`iterate` devuelve una secuencia perezosa de aplicaciones repetidas y `nth` toma
+una posición, así que `(nth (iterate f x) 40)` calcula cuarenta pasos sin
+escribirlos. Es la forma habitual de avanzar una simulación en las pruebas.
 
 ### 1.16. Arities y funciones puras
 
 Una función puede tener varias **arities**: distintas cantidades de argumentos.
-El cálculo de impulso usa dos para la configuración normal y tres para recibir
-una explícita.
+Una arity puede delegar en otra para no duplicar el cuerpo.
 
 ```clojure
-(game/melee-knockback-impulse [:right] 10)                                    ; => {:dvx 184.0 :dvy -138.0}
-(game/melee-knockback-impulse [:left] 50 {:base-impulse 100 :percentage-scale 2}) ; => {:dvx -160.0 :dvy -120.0}
+(defn salute
+  ([name] (salute "Hola" name))
+  ([greeting name] (str greeting ", " name)))
+
+(salute "Ada")            ; => "Hola, Ada"
+(salute "Buenas" "Ada")   ; => "Buenas, Ada"
 ```
 
 Una función **pura** depende solo de sus argumentos y no produce efectos. Eso
-permite probarla sin servidor y repetir el mismo cálculo. `game/step` recibe
-mundo, entradas y `dt`, y devuelve el mundo siguiente sin guardarlo ni dibujarlo
-([`step`](../src/clojure_arena/game.cljc#L452)). El reloj, los sockets y el DOM
-quedan en las capas con efectos.
+permite probarla sin servidor y repetir el mismo cálculo:
 
-Otras funciones con varias arities: [`deliver-effects!`](../src/clojure_arena/server.clj#L28),
-[`websocket-response`](../src/clojure_arena/server.clj#L39) y
-[`make-driver`](../src/clojure_arena/heartbeat.clj#L17).
+```clojure
+(defn apply-gravity [vy dt]
+  (+ vy (* 980 dt)))
+
+(apply-gravity 0 0.025) ; => 24.5
+```
+
+El reloj, los sockets y el DOM quedan en las capas con efectos; la lógica pura
+recibe valores y devuelve valores.
 
 ### 1.17. Átomos
 
@@ -510,16 +524,19 @@ devuelve si lo consiguió.
 ```
 
 La función que recibe `swap!` puede ejecutarse de nuevo si hay una actualización
-concurrente, así que no debe tener efectos externos. El cliente guarda con
-`swap!` el resultado de `game/step`, que es puro
-([`advance-world!`](../src/clojure_arena/client.cljs#L321)); el planificador
-reserva un tick pendiente con `compare-and-set!`
-([`make-driver`](../src/clojure_arena/ticker.clj#L8)).
+concurrente, así que no debe tener efectos externos. `compare-and-set!` permite
+reservar un recurso: solo el primer hilo que cambia `false` a `true` continúa.
 
 `add-watch` instala un observador que recibe clave, referencia, valor anterior y
-valor nuevo **después** de instalar la actualización. El cliente lo usa para
-copiar el snapshot recibido al mundo que dibuja
-([`add-watch`](../src/clojure_arena/client.cljs#L30)).
+valor nuevo **después** de instalar la actualización:
+
+```clojure
+(def changes (atom []))
+(def state (atom 0))
+(add-watch state ::log (fn [_ _ old new] (swap! changes conj [old new])))
+(swap! state inc)
+@changes ; => [[0 1]]
+```
 
 ### 1.18. Agentes
 
@@ -528,25 +545,21 @@ recibe el valor anterior y devuelve el siguiente; las acciones de un mismo agent
 se ejecutan una a una, en orden. Quien envía no espera.
 
 ```clojure
-(let [room-agent (room/make-room (fn [effects] nil))]
-  (room/enqueue-room-message! room-agent {:type :join :connection-token :demo})
-  (await-for 1000 room-agent)
-  (get-in @room-agent [:room :members :demo]))
-; => {:player-id :player-1 :color :cyan}
+(def counter (agent 0))
+(send counter inc)
+(await-for 1000 counter) ; => true
+@counter                 ; => 1
 ```
 
-Aquí `await-for` espera como máximo un segundo a que se vacíe la cola; `@` lee
-el estado instalado sin esperar. `agent-error` informa de un fallo y
+`await-for` espera como máximo un tiempo a que se vacíe la cola; `@` lee el
+estado instalado sin esperar. `agent-error` informa de un fallo y
 `shutdown-agents` cierra los hilos del ejecutor al terminar un proceso o unas
-pruebas ([`server_test.clj`](../test/clojure_arena/server_test.clj#L211)).
-
-La sala devuelve `{:room ... :effects ...}` y su observador entrega los efectos
-ya confirmados ([`make-room`](../src/clojure_arena/room.clj#L123)). Así una misma
-acción encola el cambio de estado y la respuesta que hay que enviar, sin que la
-transición pura toque sockets.
+pruebas.
 
 Diferencia práctica: un átomo aplica `swap!` de inmediato en el hilo que llama;
-un agente procesa en su propio hilo y serializa las escrituras.
+un agente procesa en su propio hilo y serializa las escrituras. Por eso un agente
+sirve para dueño único de un estado con mensajes, y un átomo para un valor
+compartido de lectura rápida.
 
 ### 1.19. Excepciones
 
@@ -561,17 +574,32 @@ limpieza siempre.
     (:code (ex-data error)))) ; => :invalid-message
 ```
 
-`finally` aparece donde hay que restaurar algo aunque falle el cuerpo: las
-propiedades del contexto de Canvas ([`draw-player`](../src/clojure_arena/client.cljs#L138))
-y el apagado del servidor ([`stop!`](../src/clojure_arena/server.clj#L167)).
+`finally` aparece donde hay que liberar algo aunque falle el cuerpo:
 
-`binding` cambia una variable dinámica durante un bloque; el servidor imprime
-errores en la salida de error con `(binding [*out* *err*] ...)`
-([`broadcast-world!`](../src/clojure_arena/server.clj#L17)).
+```clojure
+(defn with-open-file [path use!]
+  (let [file (java.io.FileReader. path)]
+    (try
+      (use! file)
+      (finally
+        (.close file)))))
+```
+
+La misma estructura restaura una propiedad temporal del contexto de dibujo en
+ClojureScript: se lee antes del `try`, se modifica dentro y se devuelve a su
+valor anterior en el `finally`.
+
+`ex-message` lee el texto de una excepción y `ex-cause` la anterior de una
+cadena. `binding` cambia una variable dinámica durante un bloque; el ejemplo más
+común redirige la salida de error:
+
+```clojure
+(binding [*out* *err*]
+  (println "Diagnóstico"))
+```
 
 En ClojureScript, `catch` puede usar `:default` como comodín:
-`(catch :default _ ...)`. El protocolo comparte el `try` y elige el tipo con un
-condicional de lectura ([`read-client-message`](../src/clojure_arena/protocol.cljc#L241)).
+`(catch :default _ ...)`, porque no hay clases de excepción de la JVM.
 
 ### 1.20. Texto, keywords y expresiones regulares
 
@@ -590,19 +618,16 @@ condicional de lectura ([`read-client-message`](../src/clojure_arena/protocol.cl
 
 `name` devuelve el texto de una keyword sin su calificador y `namespace` el
 calificador, o `nil` si no lo tiene. `re-matches` exige que **toda** la cadena
-coincida: no basta con que contenga el patrón. El validador de IDs exige además
-que no haya calificador ([`player-id?`](../src/clojure_arena/protocol.cljc#L45)).
+coincida: no basta con que contenga el patrón. Un patrón admite grupos,
+alternancias y cuantificadores como en cualquier motor de expresiones regulares.
 
-`parse-long` devuelve `nil` si el texto no es un entero; el servidor lo usa para
-detectar un puerto inválido ([`parse-options`](../src/clojure_arena/server.clj#L126)).
+`parse-long` devuelve `nil` si el texto no es un entero, así que sirve para
+detectar un dato inválido sin lanzar una excepción.
 
 `str` concatena y convierte; `pr-str` obtiene la representación con sintaxis de
-datos, con comillas incluidas, y es lo que se envía por el socket.
-
-Como `(str nil)` es `""`, un texto opcional se compone con
-`(str base (when condición extra))`. El estado de conexión usa ese patrón para
-añadir servidor, código de cierre e identidad solo cuando existen
-([`set-state!`](../src/clojure_arena/transport.cljs#L39)).
+datos, con comillas incluidas, y es lo que se envía por un socket. Como
+`(str nil)` es `""`, un texto opcional se compone con
+`(str base (when condición extra))`.
 
 ### 1.21. Interoperabilidad con la JVM
 
@@ -616,26 +641,56 @@ corto de una clase.
 (System/nanoTime)             ; tiempo monotónico en nanosegundos
 ```
 
-- `(Object.)` identifica una conexión: cada llamada crea un objeto distinto, y
-  solo `identical?` los reconoce
-  ([`websocket-response`](../src/clojure_arena/server.clj#L44)).
-- `reify` implementa una interfaz Java sin crear una clase con nombre; el
-  planificador lo usa para su `ThreadFactory`
-  ([`start!`](../src/clojure_arena/ticker.clj#L31)).
-- `doto` encadena llamadas sobre el mismo objeto y devuelve el objeto
-  (`(doto (Thread. runnable "clojure-arena-ticker") (.setDaemon true))`).
-- `(Clase/CAMPO)` accede a una constante estática: `TimeUnit/MILLISECONDS`.
-- Las **type hints** (`^Runnable`, `^bytes`, `^AsyncChannel`) eligen la
-  sobrecarga correcta de un método y evitan reflexión
-  ([`scheduleWithFixedDelay`](../src/clojure_arena/ticker.clj#L42),
-  [`Arrays/equals`](../src/clojure_arena/heartbeat.clj#L40)).
+- `(Object.)` identifica algo: cada llamada crea un objeto distinto, y solo
+  `identical?` los reconoce como el mismo.
+- `reify` implementa una interfaz Java sin crear una clase con nombre:
+
+```clojure
+(reify Runnable
+  (run [_] (println "trabajo")))
+```
+
+- `doto` encadena llamadas sobre el mismo objeto y devuelve el objeto:
+
+```clojure
+(doto (Thread. #(println "hola") "ejemplo")
+  (.setDaemon true)
+  (.start))
+```
+
+- Las **type hints** (`^Runnable`, `^bytes`, `^String`) eligen la sobrecarga
+  correcta de un método y evitan reflexión:
+
+```clojure
+(import '[java.util.concurrent Executors])
+(let [executor (Executors/newSingleThreadExecutor)]
+  (.execute executor ^Runnable (fn [] (println "tarea")))
+  (.shutdown executor))
+```
+
 - `locking` usa el monitor de un objeto para que un bloque no se ejecute a la
-  vez desde dos hilos ([`make-driver`](../src/clojure_arena/ticker.clj#L8)).
+  vez desde dos hilos:
+
+```clojure
+(let [gate (Object.)
+      state (atom 0)]
+  (locking gate
+    (swap! state inc))
+  @state) ; => 1
+```
+
+- `(Clase/CAMPO)` accede a una constante estática: `TimeUnit/MILLISECONDS`.
 
 Un array de Java es mutable y `=` no compara su contenido:
-`(Arrays/equals ^bytes a ^bytes b)` sí, y `^bytes` selecciona esa sobrecarga.
-`ByteBuffer/allocate` y `.putLong` construyen el desafío de 8 bytes del
-heartbeat ([`pulse!`](../src/clojure_arena/heartbeat.clj#L59)).
+
+```clojure
+(Arrays/equals ^bytes (byte-array [1 2]) ^bytes (byte-array [1 2])) ; => true
+(= (byte-array [1]) (byte-array [1]))                              ; => false
+(alength ^bytes (byte-array [1 2 3]))                              ; => 3
+```
+
+`ByteBuffer/allocate` y `.putLong` construyen paquetes binarios cuando hay que
+enviar bytes por un canal.
 
 ### 1.22. Hilos, planificadores y colas
 
@@ -655,30 +710,28 @@ esperar, `.poll` retira sin esperar y `.take` espera hasta que haya un elemento.
    (.poll queue)])          ; => nil
 ```
 
-El publicador usa capacidad uno: reemplaza el snapshot pendiente por el más
-reciente mientras otro hilo envía
-([`publish!`](../src/clojure_arena/publication.clj#L36)). El hilo del temporizador
-nunca modifica el mundo: solo envía una acción al agente
-([`make-driver`](../src/clojure_arena/ticker.clj#L8)).
+Una cola de capacidad uno sirve para conservar solo el último valor pendiente:
+`.offer` sobre una cola llena devuelve `false` sin bloquear, y el productor puede
+descartar el anterior antes de reintentar.
 
-Los hilos creados son daemon, para no impedir el cierre del proceso, y cada
-`stop!` espera con plazo y lanza `ex-info` si no termina
-([`ticker/stop!`](../src/clojure_arena/ticker.clj#L50)).
+Los hilos creados suelen marcarse como daemon para no impedir el cierre del
+proceso, y cada parada espera con plazo y lanza `ex-info` si no termina.
 
 ### 1.23. Metadatos y keywords cualificadas
 
-`with-meta` asocia datos a un valor sin cambiar el valor; `meta` los lee. El
-manejador HTTP guarda ahí su agente, sus conexiones y su publicador
-([`make-handler`](../src/clojure_arena/server.clj#L104)).
+`with-meta` asocia datos a un valor sin cambiar el valor; `meta` los lee.
 
 ```clojure
 (meta (with-meta (fn [x] x) {:role :handler})) ; => {:role :handler}
 ```
 
+Un manejador HTTP puede guardar ahí sus dependencias en vez de usar variables
+globales.
+
 `::` delante de un nombre produce una keyword cualificada con el namespace
-actual: `::room-agent` en `clojure-arena.server` es
-`:clojure-arena.server/room-agent`. Así las claves internas no chocan con las
-del juego, que son datos serializables.
+actual: en `ejemplo.app`, `::room-agent` es `:ejemplo.app/room-agent`. Así las
+claves internas no chocan con las de datos externos, que deben ser
+serializables.
 
 ### 1.24. EDN: datos sin código
 
@@ -687,21 +740,25 @@ lector EDN reconstruye valores **sin evaluar nada**; por eso los mensajes de red
 se leen así y no con `eval`.
 
 ```clojure
-(pr-str {:type :ping})                 ; => "{:type :ping}"
-(protocol/decode "{:type :ping}")      ; => {:type :ping}
-(protocol/reply-to-message "{:type :ping}") ; => {:type :pong}
+(require '[clojure.edn :as edn])
+(pr-str {:type :ping})        ; => "{:type :ping}"
+(edn/read-string "{:type :ping}") ; => {:type :ping}
 ```
 
-`decode` abre un lector sobre el texto, pide un valor con
-`(edn/read {:eof eof} reader)` y comprueba que el siguiente valor sea el marcador
-de fin; si sobra texto lanza `(ex-info "Expected one EDN value" {})`
-([`decode`](../src/clojure_arena/protocol.cljc#L231)).
+`read-string` de `clojure.edn` lee un único valor. Para comprobar que no sobra
+texto se usa el lector con un marcador de fin:
+
+```clojure
+(let [eof (Object.)
+      reader (java.io.PushbackReader.
+              (java.io.StringReader. "{:a 1} {:b 2}"))]
+  [(edn/read {:eof eof} reader)
+   (edn/read {:eof eof} reader)]) ; => [{:a 1} {:b 2}]
+```
 
 El marcador `eof` es un objeto nuevo y `identical?` compara **identidad**, no
 contenido: como ningún valor leído puede ser ese mismo objeto, el lector
 reconoce el fin de entrada aunque el mensaje sea `nil`.
-`identical?` también decide si un callback pertenece al socket o al contenedor
-DOM actual ([`start!`](../src/clojure_arena/transport.cljs#L128)).
 
 ### 1.25. Condicionales de lectura
 
@@ -714,27 +771,29 @@ En un `.cljc`, `#?` elige una forma al leer el archivo: `:clj` para la JVM y
      :cljs (js/Math.sqrt value)))
 ```
 
-`Math/sqrt` es de Java y `js/Math.sqrt` de JavaScript. El mismo mecanismo elige
-el lector EDN, la validación de enteros y el `catch`
-([`protocol.cljc`](../src/clojure_arena/protocol.cljc#L3),
-[`safe-nonnegative-integer?`](../src/clojure_arena/protocol.cljc#L33),
-[`read-client-message`](../src/clojure_arena/protocol.cljc#L263)) y los
-namespaces de prueba ([`game_test.cljc`](../test/clojure_arena/game_test.cljc#L5)).
+`Math/sqrt` es de Java y `js/Math.sqrt` de JavaScript. El mismo mecanismo sirve
+para elegir un lector EDN, una validación de enteros o el `catch` de un `.cljc`.
 
-### 1.26. Configuración del proyecto
+### 1.26. Configuración y arranque
 
-`deps.edn` declara rutas y dependencias con versiones fijas, y `:aliases` define
-formas de ejecución. `:main-opts` con `-m` llama a la función `-main` de un
-namespace.
+EDN también describe la configuración de las herramientas de Clojure. `deps.edn`
+declara rutas y dependencias con versiones fijas, y `:aliases` define formas de
+ejecución:
 
 ```edn
-{:server {:main-opts ["-m" "clojure-arena.server"]}}
+{:paths ["src"]
+ :deps {org.clojure/clojure {:mvn/version "1.12.5"}}
+ :aliases {:dev {:extra-paths ["dev"]}}}
 ```
 
-Así `clojure -M:server` arranca el servidor, que es lo que hace `just server`.
-Las recetas de `justfile` solo agrupan comandos externos; no son lenguaje. La
-configuración del compilador de ClojureScript y los comandos están en
-[Desarrollo](development.md).
+`:main-opts` con `-m` llama a la función `-main` de un namespace:
+
+```edn
+{:aliases {:server {:main-opts ["-m" "ejemplo.server"]}}}
+```
+
+Así `clojure -M:server` arranca el programa con ese alias. Las recetas de un
+`justfile` o un `Makefile` solo agrupan comandos externos; no son lenguaje.
 
 ## 2. ClojureScript y el navegador
 
@@ -748,35 +807,29 @@ método y `set!` asigna una propiedad.
 
 ```clojure
 (let [element (.getElementById js/document "status")]
-  (set! (.-textContent element) "Arena lista."))
+  (set! (.-textContent element) "Listo."))
 ```
 
 `js/Math.ceil`, `js/Number.isInteger` y `js/Math.floor` llaman a funciones
-globales. `format-clock` las combina con `.padStart` para escribir `mm:ss`
-([`format-clock`](../src/clojure_arena/client.cljs#L262)). `.-repeat` indica
-repetición automática de una tecla y `.-code` el código físico de la tecla
-([`handle-key-down!`](../src/clojure_arena/client.cljs#L65)). `.-data` contiene
-el texto recibido por el socket
-([`onmessage`](../src/clojure_arena/transport.cljs#L149)).
+globales. Una propiedad calculada se lee con `aget`/`aset` o con `goog.object`,
+no con `.-`.
 
 ### 2.2. Constructores y objetos nativos
 
 `(js/URL. texto)` y `(js/WebSocket. url)` construyen objetos del navegador con
 `new`. Un `URL` expone `.-origin`, `.-host`, `.-protocol` y `.-searchParams`, y
-`.get` de `searchParams` lee un parámetro de la dirección
-([`websocket-url`](../src/clojure_arena/transport.cljs#L14)). `#js {...}`
-construye un objeto o array de JavaScript, sin conversión a mapa persistente; los
-objetos anidados necesitan su propio `#js`.
+`.get` de `searchParams` lee un parámetro de la dirección.
+
+`#js {...}` construye un objeto o array de JavaScript, sin conversión a mapa
+persistente; los objetos anidados necesitan su propio `#js`.
 
 ```clojure
-(let [socket #js {:url url :readyState 0 :sent #js [] :closeCount 0}]
+(let [socket #js {:url "ws://localhost/ws" :readyState 0 :sent #js []}]
   (.-readyState socket)) ; => 0
 ```
 
-`#js` se usa en las pruebas para simular sockets, elementos y documentos
-([`connection_diagnostics_test.cljs`](../test/clojure_arena/connection_diagnostics_test.cljs#L12)).
-Un objeto JavaScript es mutable; un mapa de Clojure no. Por eso los dobles de
-prueba guardan contadores en átomos dentro del objeto.
+Un objeto JavaScript es mutable; un mapa de Clojure no. Si un objeto nativo
+necesita un contador mutable, se guarda un átomo dentro del objeto.
 
 ### 2.3. DOM
 
@@ -785,12 +838,17 @@ prueba guardan contadores en átomos dentro del objeto.
 efectos y devuelve `nil`; admite `:when` para filtrar.
 
 ```clojure
-(doseq [platform platforms] (draw-platform canvas platform))
+(doseq [platform platforms :when (= :solid (:type platform))]
+  (.appendChild panel (make-row platform)))
 ```
 
-El panel crea una fila por jugador y la reutiliza
-([`render-players!`](../src/clojure_arena/client.cljs#L241)). `set-text!` escribe
-solo si el texto cambia, para no tocar el DOM sin necesidad.
+Escribir solo cuando el valor cambia evita repintados innecesarios:
+
+```clojure
+(defn set-text! [element text]
+  (when (not= (.-textContent element) text)
+    (set! (.-textContent element) text)))
+```
 
 ### 2.4. Canvas
 
@@ -803,9 +861,8 @@ restaura las que se modifican temporalmente.
   (.fillRect context 0 0 (.-width canvas) (.-height canvas)))
 ```
 
-`.beginPath`, `.arc` y `.fill` dibujan círculos; `.strokeRect` los bordes de las
-plataformas semisólidas ([`draw-platform`](../src/clojure_arena/client.cljs#L113)).
-Dibujar no avanza la simulación: solo lee el mundo recibido.
+`.beginPath`, `.arc` y `.fill` dibujan círculos; `.strokeRect` dibuja el borde
+de un rectángulo. Dibujar no modifica el estado: solo lo lee.
 
 ### 2.5. Eventos y callbacks
 
@@ -819,9 +876,8 @@ función para quitar el listener.
 ```
 
 El objeto de evento es el argumento: `.-button` vale `0` para el botón principal
-del puntero ([`handle-pointer-down!`](../src/clojure_arena/client.cljs#L88)).
-Perder el foco limpia teclas y pulsos pendientes
-([`handle-blur!`](../src/clojure_arena/client.cljs#L95)).
+del puntero y `.-code` contiene el código físico de la tecla. Perder el foco
+suele limpiar teclas y pulsos pendientes.
 
 ### 2.6. Animación y `partial`
 
@@ -830,35 +886,35 @@ devuelve un identificador que permite cancelarla. `partial` fija argumentos por
 la izquierda; el navegador añade el timestamp restante.
 
 ```clojure
-(js/requestAnimationFrame (partial frame canvas nil 0))
+(js/requestAnimationFrame (partial draw canvas))
 ```
 
-[`frame`](../src/clojure_arena/client.cljs#L336) se reprograma a sí mismo
-guardando el nuevo identificador en un átomo; `js/cancelAnimationFrame` cancela
-el pendiente al detener el cliente ([`stop!`](../src/clojure_arena/client.cljs#L348)).
+Una función de animación se reprograma a sí misma guardando el nuevo
+identificador en un átomo; `js/cancelAnimationFrame` cancela el pendiente al
+detener la aplicación.
 
 ### 2.7. Recarga de código y `defonce`
 
-`defonce` inicializa un átomo solo la primera vez, así que recargar el código del
-cliente no borra el mundo ni los listeners registrados. Los hooks de Shadow CLJS
-llaman a `stop!` antes de reemplazar el código y a `init` después, y así no se
-acumulan listeners ni animaciones ([`shadow-cljs.edn`](../shadow-cljs.edn)).
-
-`init` empieza llamando a `stop!` ([`init`](../src/clojure_arena/client.cljs#L364)):
-arrancar dos veces debe dejar un solo cliente activo.
+`defonce` inicializa un átomo solo la primera vez, así que recargar el código de
+la aplicación no borra el estado ni los listeners registrados. Los hooks del
+compilador llaman a una función de parada antes de reemplazar el código y a la
+de arranque después, y así no se acumulan listeners ni animaciones.
 
 ### 2.8. `deref` y tipos de referencia
 
 `@` sobre una promesa de JavaScript no funciona; solo `deref` y `@` leen
-referencias de Clojure (átomos, agentes, futuros). HTTP de http-kit devuelve una
-promesa al cerrar y el servidor espera con `@stopped`
-([`stop!`](../src/clojure_arena/server.clj#L167)). En ClojureScript, una promesa
-de JavaScript se maneja con `.then` o `async`/`await`, que este código no usa.
+referencias de Clojure (átomos, agentes, futuros). Una promesa de JavaScript se
+maneja con `.then` o `async`/`await`, que no forman parte de este lenguaje base.
+
+```clojure
+(.then (js/fetch "/health")
+       (fn [response] (.-status response)))
+```
 
 ## 3. Clojure en el servidor
 
-El servidor usa la JVM, `http-kit` y Ring. No añade sintaxis nueva: añade
-bibliotecas cuyos datos son mapas.
+Clojure en la JVM suele combinarse con `http-kit` y Ring. No añade sintaxis
+nueva: añade bibliotecas cuyos datos son mapas.
 
 ### 3.1. Ring: peticiones y respuestas como mapas
 
@@ -871,12 +927,19 @@ es un mapa con `:status`, `:headers` y `:body`.
  :body "ok\n"}
 ```
 
-`routes` recibe la petición ya desestructurada en sus parámetros
-([`routes`](../src/clojure_arena/server.clj#L95)). Un **middleware** recibe un
-manejador y devuelve otro que añade una responsabilidad; `->` los compone:
-`wrap-file` sirve archivos de `public/`, `wrap-content-type` asigna el tipo y
-`wrap-head` adapta las peticiones HEAD
-([`make-handler`](../src/clojure_arena/server.clj#L104)).
+Un **middleware** recibe un manejador y devuelve otro que añade una
+responsabilidad; `->` los compone:
+
+```clojure
+(def handler
+  (-> routes
+      (wrap-file "public")
+      wrap-content-type
+      wrap-head))
+```
+
+Así `wrap-file` sirve archivos, `wrap-content-type` asigna el tipo y `wrap-head`
+adapta las peticiones HEAD sin tocar la lógica de rutas.
 
 ### 3.2. http-kit: canales WebSocket
 
@@ -887,13 +950,13 @@ apertura, recepción y cierre. `http/send!` envía texto.
 (http/send! channel (pr-str message))
 ```
 
-Los callbacks son funciones normales; el canal es un objeto Java. `broadcast-world!`
-recorre los destinatarios con `doseq` y envía el mismo texto precalculado
-([`broadcast-world!`](../src/clojure_arena/server.clj#L17)).
+Los callbacks son funciones normales; el canal es un objeto Java. Recorrer los
+destinatarios con `doseq` y enviar el mismo texto precalculado evita serializar
+una vez por conexión.
 
 Una clase interna de Java se nombra con `$` en Clojure:
 `(Frame$PingFrame. payload)` construye el frame de ping que el heartbeat envía
-por el canal ([`make-handler`](../src/clojure_arena/server.clj#L104)).
+por el canal.
 
 ### 3.3. `-main`, argumentos y cierre
 
@@ -901,8 +964,8 @@ por el canal ([`make-handler`](../src/clojure_arena/server.clj#L104)).
 reúne todos. `(Thread. #(stop! server))` construye un hilo con una función y
 `(.addShutdownHook (Runtime/getRuntime) hilo)` lo registra para Ctrl+C.
 
-`server-join` mantiene el proceso vivo mientras el servidor escucha; `finally`
-garantiza la limpieza al salir ([`-main`](../src/clojure_arena/server.clj#L187)).
+Un `promise` o una espera bloqueante mantiene el proceso vivo mientras el
+servidor escucha; `finally` garantiza la limpieza al salir.
 
 ## 4. Pruebas
 
@@ -913,37 +976,53 @@ comprobaciones con una descripción. Si una expresión dentro de `is` falla, la
 prueba informa de la forma que falló. `is` acepta un texto como segundo argumento
 para explicar el caso cuando falla.
 
-En un archivo de prueba con `clojure.test` cargado:
-
 ```clojure
+(defn step-speed [player dt]
+  (update player :vy + (* 980 dt)))
+
 (deftest gravity-adds-vertical-speed
-  (testing "un tick aplica gravedad sin tocar el mundo original"
-    (is (= 24.5 (get-in (game/step game/initial-world {} 0.025)
-                        [:players :player-1 :vy])))
-    (is (= 0 (get-in game/initial-world [:players :player-1 :vy])))))
+  (testing "un tick suma velocidad sin modificar el valor original"
+    (is (= 24.5 (:vy (step-speed {:vy 0} 0.025))))
+    (is (= 0 (:vy {:vy 0})))))
 ```
 
 Los archivos `.cljc` eligen el framework con un condicional de lectura: la JVM
 usa `clojure.test` y ClojureScript `cljs.test`, que se importa con
-`:refer-macros` porque `deftest` e `is` son macros
-([`game_test.cljc`](../test/clojure_arena/game_test.cljc#L5)).
-`testing` se usa para nombrar el caso dentro de una prueba más larga
-([`protocol_test.cljc`](../test/clojure_arena/protocol_test.cljc#L68)).
+`:refer-macros` porque `deftest` e `is` son macros.
 
 ### 4.2. Fixtures y `with-redefs`
 
-`use-fixtures :each` envuelve cada prueba con una función que prepara y limpia
-el entorno ([`client_test.cljs`](../test/clojure_arena/client_test.cljs#L33)).
+`use-fixtures :each` envuelve cada prueba con una función que prepara y limpia el
+entorno:
+
+```clojure
+(def state (atom nil))
+
+(defn- fixture [test-fn]
+  (reset! state :fresh)
+  (try
+    (test-fn)
+    (finally (reset! state nil))))
+
+(use-fixtures :each fixture)
+```
+
 `with-redefs` sustituye una definición durante un bloque y la restaura al salir;
-así una prueba puede sustituir `game/step` por un doble
-([`network_client_test.cljs`](../test/clojure_arena/network_client_test.cljs#L483))
-sin cambiar el código de producción.
+así una prueba puede sustituir una función lenta o con efectos por un doble sin
+cambiar el código de producción:
+
+```clojure
+(defn fetch-remote [_] {:status :slow})
+
+(with-redefs [fetch-remote (fn [_] {:status :ok})]
+  (is (= :ok (:status (fetch-remote "x")))))
+```
 
 ### 4.3. Generar escenarios
 
 Las pruebas construyen series de estados con `iterate`, `take`, `nth` y
 `take-while`, y combinan `dotimes` y `while` para repeticiones con contador. Así
-se observa una trayectoria de 40 ticks sin escribir 40 pasos.
+se observa una trayectoria de 40 pasos sin escribirlos uno a uno.
 
 ```clojure
 (let [counter (atom 0)]
@@ -951,14 +1030,10 @@ se observa una trayectoria de 40 ticks sin escribir 40 pasos.
   @counter) ; => 3
 ```
 
-Un caso real repite `client/init` cuatro veces y comprueba que solo queda un
-listener registrado ([`client_test.cljs`](../test/clojure_arena/client_test.cljs#L93)).
-
 `dotimes` repite un cuerpo un número fijo de veces; `while` repite mientras una
-condición sea verdadera ([`server_session_test.clj`](../test/clojure_arena/server_session_test.clj#L43)).
-`iterate` devuelve una secuencia perezosa de aplicaciones repetidas y `nth`
-toma una posición. Los helpers de prueba reutilizan `game/step` con unas pocas
-entradas ([`fixtures.cljc`](../test/clojure_arena/fixtures.cljc#L14)).
+condición sea verdadera. `iterate` devuelve una secuencia perezosa de
+aplicaciones repetidas y `nth` toma una posición, lo que permite describir una
+trayectoria con una sola expresión.
 
 Otras utilidades que aparecen en las pruebas, con resultados comprobados:
 
@@ -970,33 +1045,22 @@ Otras utilidades que aparecen en las pruebas, con resultados comprobados:
 (update-vals {:a 1} inc)    ; => {:a 2}
 ```
 
-`zipmap` cruza dos secuencias en un mapa; `repeat` genera valores infinitos que
+`zipmap` cruza dos secuencias en un mapa; `repeat` genera valores repetidos que
 hay que limitar o consumir con `zipmap`/`take`. `update-vals` transforma los
 valores de un mapa conservando sus claves.
 
-Para esperar trabajo asíncrono de un agente, las pruebas usan `await-for` y
-comprueban `agent-error` ([`room_test.clj`](../test/clojure_arena/room_test.clj#L21)).
-Las pruebas de concurrencia lanzan `future` y leen su resultado con
-`(deref futuro 4000 ::timeout)`, que devuelve el marcador si no termina a tiempo
-([`room_match_regression_test.clj`](../test/clojure_arena/room_match_regression_test.clj#L53)).
+Para esperar trabajo asíncrono de un agente, una prueba usa `await-for` y
+comprueba `agent-error`. Para concurrencia se lanzan `future` y se lee su
+resultado con `(deref futuro 4000 ::timeout)`, que devuelve el marcador si no
+termina a tiempo:
 
-## 5. Qué concepto ver en cada archivo
+```clojure
+(defn- await-agent! [agent]
+  (is (await-for 4000 agent) "las acciones encoladas deben terminar")
+  (is (nil? (agent-error agent)) "el agente debe seguir sano"))
+```
 
-| Archivo | Conceptos que ilustra |
-| --- | --- |
-| [`game.cljc`](../src/clojure_arena/game.cljc) | mapas inmutables, `cond`, `case`, `loop`/`recur`, destructuración, `->`, `#?`, `juxt`, `fnil` |
-| [`match.cljc`](../src/clojure_arena/match.cljc) | `case` por fase, `->>`, `into` con `map`, `juxt`, `==`, `cond` sin `:else` |
-| [`protocol.cljc`](../src/clojure_arena/protocol.cljc) | validación con `every?`, igualdad de conjuntos, `re-matches`, `#?`, EDN, `try`/`catch` |
-| [`room.clj`](../src/clojure_arena/room.clj) | `cond`, `contains?`, `remove` con conjunto, `into`, agentes y `add-watch` |
-| [`server.clj`](../src/clojure_arena/server.clj) | mapas de Ring, middleware, `doseq`, `locking`, metadata, `try`/`finally` |
-| [`ticker.clj`](../src/clojure_arena/ticker.clj) | `reify`, `doto`, type hints, planificador, `compare-and-set!` |
-| [`publication.clj`](../src/clojure_arena/publication.clj) | cola acotada, `.take`/`.offer`/`.poll`, hilo consumidor |
-| [`heartbeat.clj`](../src/clojure_arena/heartbeat.clj) | `reduce-kv` con acumulador compuesto, `ByteBuffer`, arrays y `^bytes` |
-| [`client.cljs`](../src/clojure_arena/client.cljs) | `defonce`, átomos, eventos, Canvas, DOM, `partial`, `js/` |
-| [`transport.cljs`](../src/clojure_arena/transport.cljs) | `js/URL`, `js/WebSocket`, callbacks, `cond->`, `identical?`, mensajes |
-| [`fixtures.cljc`](../test/clojure_arena/fixtures.cljc) y `*_test.clj*` | `deftest`, `is`, `testing`, fixtures, `with-redefs`, `iterate` |
-
-## 6. Cómo leer una forma desconocida
+## 5. Cómo leer una forma desconocida
 
 1. Mira el primer elemento: si es una función, es una llamada; si es `def`,
    `defn`, `let`, `if` o similar, es una forma especial o una macro y tiene
@@ -1010,13 +1074,15 @@ Las pruebas de concurrencia lanzan `future` y leen su resultado con
    una API de Java. El resto del código devuelve valores nuevos.
 6. Copia la forma a un REPL con datos pequeños y observa el resultado.
 
-## Formas que este código no usa
+## 6. Formas fuera de esta guía
 
-Para que no parezcan lagunas: aquí no hay `defrecord`, `defprotocol`, `deftype`,
-`defmulti`/`defmethod`, referencias STM (`ref`, `dosync`), `core.async`,
-transductores ni macros propias. Si aparecen al leer otros proyectos, son
-extensiones del lenguaje, no requisitos para entender este.
+Este manual cubre el lenguaje que aparece en código de aplicación típico. No
+trata `defrecord`/`deftype`, `defprotocol`, `defmulti`/`defmethod`, referencias
+STM (`ref`, `dosync`, `alter`), `core.async`, transductores ni macros propias.
+Son parte del lenguaje y de su ecosistema, pero no son necesarias para leer el
+código que este manual describe; si aparecen, conviene consultar la referencia
+oficial de Clojure después de dominar estas bases.
 
-Al añadir código nuevo, incorpora cada concepto una sola vez a este manual, con
-un ejemplo breve y su referencia actual. Las reglas del juego y la arquitectura
-permanecen en sus documentos.
+Al ampliar esta guía, incorpora cada concepto una sola vez, con un ejemplo
+mínimo y verificado. Los ejemplos deben poder ejecutarse sin cargar el código de
+ningún proyecto concreto.
