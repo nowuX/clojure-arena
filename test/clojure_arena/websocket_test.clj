@@ -339,11 +339,8 @@
 
             (testing "waiting sockets retain direction while dropping action taps"
               (send-input-frame! first-websocket first-events room-agent
-                                 {:horizontal -1
-                                  :jump? true
-                                  :drop? false
-                                  :attack? false})
-              (is (= {:horizontal -1 :jump? false :drop? false :attack? false}
+                                 (assoc protocol/neutral-input :horizontal -1 :jump? true))
+              (is (= (assoc protocol/neutral-input :horizontal -1)
                      (get-in @room-agent [:room :inputs-by-player first-player])))
               (send-input-frame! first-websocket first-events room-agent
                                  protocol/neutral-input)
@@ -355,11 +352,8 @@
 
             (testing "a valid frame after errors is accepted for the other owner"
               (send-input-frame! second-websocket second-events room-agent
-                                 {:horizontal 1
-                                  :jump? false
-                                  :drop? true
-                                  :attack? true})
-              (is (= {:horizontal 1 :jump? false :drop? false :attack? false}
+                                 (assoc protocol/neutral-input :horizontal 1 :drop? true :attack? true))
+              (is (= (assoc protocol/neutral-input :horizontal 1)
                      (get-in @room-agent [:room :inputs-by-player second-player])))
               (is (= protocol/neutral-input
                      (get-in @room-agent [:room :inputs-by-player first-player])))))))

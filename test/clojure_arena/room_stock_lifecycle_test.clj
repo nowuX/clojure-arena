@@ -11,7 +11,7 @@
         before (-> (match-helpers/active-room joined)
                    (assoc-in [:world :players :player-1 :x] 900)
                    (assoc-in [:inputs-by-player :player-1]
-                             {:horizontal 1 :jump? true :drop? true :attack? true}))
+                             (assoc protocol/neutral-input :horizontal 1 :jump? true :drop? true :attack? true)))
         result (room/apply-room-message before {:type :tick})
         after (:room result)
         next-result (room/apply-room-message after {:type :tick})
@@ -49,10 +49,7 @@
                             (assoc :x -200 :stocks 2 :lifecycle :respawning :respawn-seconds-left 3))
         prepared (-> (match-helpers/active-room joined)
                      (assoc-in [:world :players :player-1] inactive-player)
-                     (set-input :connection-a {:horizontal 1
-                                               :jump? true
-                                               :drop? true
-                                               :attack? true}))
+                     (set-input :connection-a (assoc protocol/neutral-input :horizontal 1 :jump? true :drop? true :attack? true)))
         first-result (tick-room prepared)
         after-first (:room first-result)
         first-player (get-in after-first [:world :players :player-1])
@@ -68,7 +65,7 @@
              (dissoc first-player :respawn-seconds-left)))
       (is (= 2 (:stocks first-player)))
       (is (= :respawning (:lifecycle first-player)))
-      (is (= {:horizontal 1 :jump? false :drop? false :attack? false}
+      (is (= (assoc protocol/neutral-input :horizontal 1)
              first-input))
       (is (= (dissoc first-player :respawn-seconds-left)
              (dissoc (get-in after-second [:world :players :player-1]) :respawn-seconds-left)))
@@ -98,7 +95,7 @@
   (let [joined (reduce join-room room/initial-room [:a :b])
         prepared (-> (match-helpers/active-room joined)
                      (assoc-in [:world :players :player-1 :x] 900)
-                     (set-input :a {:horizontal 1 :jump? true :drop? true :attack? true}))
+                     (set-input :a (assoc protocol/neutral-input :horizontal 1 :jump? true :drop? true :attack? true)))
         loss (tick-room prepared)
         states (take 121 (iterate #(tick-room (:room %)) loss))
         before-return (nth states 119)

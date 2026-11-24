@@ -13,10 +13,14 @@
 (defonce pending-jump (atom false))
 (defonce pending-drop (atom false))
 (defonce pending-attack (atom false))
+(defonce pending-abilities (atom #{}))
 (defonce input-canvas (atom nil))
 (def jump-key-code "KeyW")
 (def drop-key-code "KeyS")
 (def movement-key-codes #{"KeyA" "KeyD"})
+(def ability-key-actions
+  {"ShiftLeft" :dash? "ShiftRight" :dash?
+   "KeyQ" :antiknockback? "KeyE" :recover? "KeyR" :grenade? "KeyF" :nova?})
 
 (defonce ^:private reset-frame-time? (atom false))
 (defonce ^:private player-panel-cache (atom nil))
@@ -25,7 +29,8 @@
 (defn- clear-pending-actions! []
   (reset! pending-jump false)
   (reset! pending-drop false)
-  (reset! pending-attack false))
+  (reset! pending-attack false)
+  (reset! pending-abilities #{}))
 
 (add-watch transport/connection-state ::clear-local-actions-on-admission
            (fn [_ _ old-state new-state]
@@ -48,34 +53,61 @@
      (if (contains? @pressed-keys "KeyA") 1 0)))
 
 (defn read-inputs []
-  {:horizontal (horizontal-input) :jump? @pending-jump :drop? @pending-drop :attack? @pending-attack})
+  (merge protocol/neutral-input
+         {:horizontal (horizontal-input) :jump? @pending-jump :drop? @pending-drop :attack? @pending-attack}
+         (zipmap @pending-abilities (repeat true))))
 
 (defn consume-inputs! []
   (let [inputs (read-inputs)]
-    (reset! pending-jump false)
-    (reset! pending-drop false)
-    (reset! pending-attack false)
+    (clear-pending-actions!)
     inputs))
 
 (defn- control-key? [code]
   (or (contains? movement-key-codes code)
       (= code jump-key-code)
-      (= code drop-key-code)))
+      (= code drop-key-code)
+      (contains? ability-key-actions code)))
+
+(defn- browser-shortcut? [event]
+  (or (.-ctrlKey event) (.-metaKey event) (.-altKey event)))
+
+(defn- action-held? [action]
+  (some #(= action (ability-key-actions %)) @pressed-keys))
+
+(defn- handle-ability-key-down!
+  "Requests an ability once per fresh press; both Shift keys share one Dash lifetime."
+  [event code]
+  (when-not (browser-shortcut? event)
+    (.preventDefault event)
+    (when (and (not (.-repeat event))
+               (not (contains? @pressed-keys code)))
+      (let [action (ability-key-actions code)
+            fresh? (not (action-held? action))]
+        (swap! pressed-keys conj code)
+        (when fresh?
+          (when-not (transport/connected?) (swap! pending-abilities conj action))
+          (transport/send-input! (assoc protocol/neutral-input
+                                        :horizontal (horizontal-input) action true)))))))
 
 (defn handle-key-down! [event]
   (let [code (.-code event)]
-    (when (control-key? code)
-      (.preventDefault event)
-      (when (and (not (.-repeat event))
-                 (not (contains? @pressed-keys code)))
-        (cond
-          (and (not (transport/connected?)) (= code jump-key-code)) (reset! pending-jump true)
-          (and (not (transport/connected?)) (= code drop-key-code)) (reset! pending-drop true))
-        (swap! pressed-keys conj code)
-        (transport/send-input! {:horizontal (horizontal-input)
-                               :jump? (= code jump-key-code)
-                               :drop? (= code drop-key-code)
-                               :attack? false})))))
+    (cond
+      (contains? ability-key-actions code)
+      (handle-ability-key-down! event code)
+
+      (control-key? code)
+      (do
+        (.preventDefault event)
+        (when (and (not (.-repeat event))
+                   (not (contains? @pressed-keys code)))
+          (cond
+            (and (not (transport/connected?)) (= code jump-key-code)) (reset! pending-jump true)
+            (and (not (transport/connected?)) (= code drop-key-code)) (reset! pending-drop true))
+          (swap! pressed-keys conj code)
+          (transport/send-input! (assoc protocol/neutral-input
+                                        :horizontal (horizontal-input)
+                                        :jump? (= code jump-key-code)
+                                        :drop? (= code drop-key-code))))))))
 
 (defn handle-key-up! [event]
   (let [code (.-code event)]
@@ -94,9 +126,7 @@
 
 (defn handle-blur! [_event]
   (reset! pressed-keys #{})
-  (reset! pending-jump false)
-  (reset! pending-drop false)
-  (reset! pending-attack false)
+  (clear-pending-actions!)
   (transport/send-input! protocol/neutral-input))
 
 (defn- controlled-player-id []

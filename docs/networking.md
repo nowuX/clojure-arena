@@ -75,17 +75,21 @@ transitions and running gameplay share the same 40 Hz server scheduler.
 ## Connection-owned input
 
 The browser sends exactly `{:type :input :horizontal -1|0|1 :jump? boolean
-:drop? boolean :attack? boolean}` on fresh control events, without waiting for
-RAF. It never sends an identity or connection token. Before admission, the
+:drop? boolean :attack? boolean :dash? boolean :antiknockback? boolean
+:recover? boolean :grenade? boolean :nova? boolean}` on fresh control events,
+without waiting for RAF. The five ability flags are intentions from Shift
+(either key), Q, E, R and F; they carry no effect values, and the simulation
+does not act on them yet. It never sends an identity or connection token. Before admission, the
 transport coalesces the latest direction and ORs pending one-shot actions.
 Closing or replacing the socket clears this buffer.
 
 The server attaches its private connection token. `apply-room-message` resolves
 that member and merges only its input; it does not move the world. A neutral
-release preserves an already captured jump, drop or attack until simulation
-consumes it for an active running contender. Waiting, observer, respawning,
-eliminated and finished records discard new one-shot actions immediately. Keyboard repeat sends no extra action, and blur sends neutral
-movement immediately. Only disconnected fallback runs local physics.
+release preserves an already captured jump, drop, attack or ability intention
+until simulation consumes it for an active running contender. Waiting, observer, respawning,
+eliminated and finished records discard new one-shot actions immediately. Keyboard repeat sends no extra action; both Shift keys share one press, and
+Ctrl/Meta/Alt combinations stay browser shortcuts. Blur sends neutral movement
+immediately. Only disconnected fallback runs local physics.
 
 ## Authoritative clock
 

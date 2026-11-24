@@ -57,7 +57,7 @@
   (is (= {} (:inputs-by-player room/initial-room)))
   (is (= match/initial-match (get-in room/initial-room [:world :match])))
   (is (= protocol/neutral-input
-         {:horizontal 0 :jump? false :drop? false :attack? false})))
+         protocol/neutral-input)))
 
 (deftest first-four-joins-receive-free-colors-and-monotonic-identities-test
   (let [results (reduce (fn [acc connection-token]
@@ -210,12 +210,12 @@
 (deftest waiting-input-retains-direction-and-drops-actions-without-stepping-world-test
   (let [joined-a (:room (join-room room/initial-room :connection-a))
         joined-b (:room (join-room joined-a :connection-b))
-        input-a {:horizontal 1 :jump? true :drop? false :attack? false}
+        input-a (assoc protocol/neutral-input :horizontal 1 :jump? true)
         before-world (:world joined-b)
         result (room/apply-room-message
                 joined-b (input-message :connection-a input-a))]
     (is (= {:room (assoc-in joined-b [:inputs-by-player :player-1]
-                            {:horizontal 1 :jump? false :drop? false :attack? false})
+                            (assoc protocol/neutral-input :horizontal 1))
             :effects []}
            result))
     (is (= before-world (get-in result [:room :world]))
@@ -230,13 +230,13 @@
                    (update-in [:world :players :player-1]
                               assoc :lifecycle :active :stocks 3)
                    match-helpers/running-room)
-        tap {:horizontal -1 :jump? true :drop? false :attack? true}
+        tap (assoc protocol/neutral-input :horizontal -1 :jump? true :attack? true)
         tap-result (room/apply-room-message joined
                                            (input-message :connection-a tap))
         neutral-result (room/apply-room-message
                         (:room tap-result)
                         (input-message :connection-a protocol/neutral-input))]
-    (is (= {:horizontal 0 :jump? true :drop? false :attack? true}
+    (is (= (assoc protocol/neutral-input :jump? true :attack? true)
            (get-in neutral-result [:room :inputs-by-player :player-1]))
         "a neutral frame replaces direction while pending action flags stay set")
     (is (= [] (:effects tap-result)))
@@ -245,7 +245,7 @@
 
 (deftest rejected-and-unknown-player-inputs-preserve-the-exact-room-test
   (let [joined (:room (join-room room/initial-room :connection-a))
-        valid-input {:horizontal 1 :jump? true :drop? false :attack? false}
+        valid-input (assoc protocol/neutral-input :horizontal 1 :jump? true)
         messages [(input-message :unknown-connection valid-input)
                   (input-message :connection-a (assoc valid-input :horizontal 2))
                   (input-message :connection-a (assoc valid-input :jump? 1))
@@ -275,14 +275,8 @@
         start (CountDownLatch. 1)
         finished (CountDownLatch. (count submitters))
         failures (atom [])
-        inputs {:connection-a {:horizontal 1
-                               :jump? true
-                               :drop? false
-                               :attack? false}
-                :connection-b {:horizontal -1
-                               :jump? false
-                               :drop? true
-                               :attack? true}}
+        inputs {:connection-a (assoc protocol/neutral-input :horizontal 1 :jump? true)
+                :connection-b (assoc protocol/neutral-input :horizontal -1 :drop? true :attack? true)}
         threads (mapv (fn [connection-token]
                         (doto (Thread.
                                ^Runnable
@@ -318,8 +312,8 @@
             "concurrent input submitters should enqueue before the deadline")
         (is (empty? @failures) (pr-str @failures))
         (await-agent! room-agent)
-        (is (= {:player-1 {:horizontal 1 :jump? false :drop? false :attack? false}
-                :player-2 {:horizontal -1 :jump? false :drop? false :attack? false}}
+        (is (= {:player-1 (assoc protocol/neutral-input :horizontal 1)
+                :player-2 (assoc protocol/neutral-input :horizontal -1)}
                (get-in @room-agent [:room :inputs-by-player]))
             "concurrent waiting inputs should retain direction and clear one-shot actions")
         (is (= world-before (get-in @room-agent [:room :world]))
@@ -461,3 +455,31 @@
       (finally
         (.countDown start)
         (reset! room-ref nil)))))
+
+(deftest ability-intentions-are-kept-for-active-players-and-discarded-otherwise-test
+  (let [joined (-> (:room (join-room room/initial-room :connection-a))
+                   (update-in [:world :players :player-1] assoc :lifecycle :active :stocks 3)
+                   match-helpers/running-room)
+        requests (merge protocol/neutral-input
+                        (zipmap protocol/ability-action-keys (repeat true))
+                        {:horizontal 1})
+        pending-after (fn [room]
+                        (get-in (room/apply-room-message room (input-message :connection-a requests))
+                                [:room :inputs-by-player :player-1]))]
+    (is (= requests (pending-after joined))
+        "an active running contender keeps every requested intention until a tick")
+    (doseq [[label room] [["waiting lifecycle"
+                           (update-in joined [:world :players :player-1] assoc :lifecycle :waiting :stocks 0)]
+                          ["respawning lifecycle"
+                           (assoc-in joined [:world :players :player-1 :lifecycle] :respawning)]
+                          ["eliminated lifecycle"
+                           (update-in joined [:world :players :player-1] assoc :lifecycle :eliminated :stocks 0)]
+                          ["countdown phase" (assoc-in joined [:world :match :phase] :countdown)]
+                          ["finished phase" (assoc-in joined [:world :match :phase] :finished)]]]
+      (is (= (assoc protocol/neutral-input :horizontal 1) (pending-after room))
+          (str label " discards one-shot intentions but keeps direction")))
+    (let [accepted (:room (room/apply-room-message joined (input-message :connection-a requests)))
+          ticked (:room (room/apply-room-message accepted {:type :tick}))]
+      (is (= (assoc protocol/neutral-input :horizontal 1)
+             (get-in ticked [:inputs-by-player :player-1]))
+          "a tick consumes intentions exactly like jump, drop, and melee"))))

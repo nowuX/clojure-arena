@@ -92,7 +92,7 @@
         (:room (room/apply-room-message
                 with-observers
                 {:type :input :connection-token :connection-d
-                 :input {:horizontal 1 :jump? true :drop? true :attack? true}}))
+                 :input (assoc protocol/neutral-input :horizontal 1 :jump? true :drop? true :attack? true)}))
         ready-to-forfeit (set-player-state observer-d-input :player-1
                                            {:stocks 2 :accumulated-percentage 37})
         forfeited (leave ready-to-forfeit :connection-a)
@@ -115,7 +115,7 @@
       (is (= :waiting (get-in with-observers [:world :players :player-3 :lifecycle])))
       (is (= 0 (get-in with-observers [:world :players :player-4 :stocks])))
       (is (= :green (get-in with-observers [:members :connection-d :color])))
-      (is (= {:horizontal 1 :jump? false :drop? false :attack? false}
+      (is (= (assoc protocol/neutral-input :horizontal 1)
              (get-in observer-d-input [:inputs-by-player :player-4])))
       (is (protocol/snapshot-message?
            {:type :snapshot :tick 120 :world (:world observer-d-input)})))

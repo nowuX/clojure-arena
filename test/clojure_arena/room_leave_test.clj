@@ -50,9 +50,9 @@
 
 (deftest leave-removes-membership-player-and-input-in-one-pure-transition-test
   (let [joined (join-many [:connection-a :connection-b :connection-c])
-        input-a {:horizontal -1 :jump? false :drop? true :attack? false}
-        input-b {:horizontal 1 :jump? true :drop? false :attack? true}
-        input-c {:horizontal 0 :jump? false :drop? false :attack? true}
+        input-a (assoc protocol/neutral-input :horizontal -1 :drop? true)
+        input-b (assoc protocol/neutral-input :horizontal 1 :jump? true :attack? true)
+        input-c (assoc protocol/neutral-input :attack? true)
         prepared (-> joined
                      (assoc :tick 23)
                      (assoc :inputs-by-player
@@ -104,15 +104,14 @@
   (let [old-token :old-connection
         new-token :new-connection
         old-joined (:room (join-room room/initial-room old-token))
-        old-input {:horizontal 1 :jump? true :drop? false :attack? false}
+        old-input (assoc protocol/neutral-input :horizontal 1 :jump? true)
         old-active (:room (input-room old-joined old-token old-input))
         after-leave (:room (leave-room old-active old-token))
         repeated-leave (leave-room after-leave old-token)
         new-joined (join-room after-leave new-token)
         current-room (:room new-joined)
         stale-input (input-room current-room old-token
-                                {:horizontal -1 :jump? false
-                                 :drop? false :attack? true})
+                                (assoc protocol/neutral-input :horizontal -1 :attack? true))
         stale-leave (leave-room (:room stale-input) old-token)]
     (is (identical? after-leave (:room repeated-leave)))
     (is (= {:room after-leave :effects []} repeated-leave))

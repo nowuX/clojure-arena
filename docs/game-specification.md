@@ -1,7 +1,7 @@
 # Game specification
 
 This document defines the core target for completed checkpoints 01–70 and the
-planned abilities and recovery extension for pending checkpoints 71–87 in the
+abilities and recovery extension for checkpoints 71–87 in the
 [implementation roadmap](implementation-roadmap.md). Implementation progress is
 tracked in the roadmap. Pending checkpoints are not yet implemented and must not
 be built before their checkpoint arrives.
@@ -174,10 +174,10 @@ calculation, physics prediction, or snapshot interpolation is part of this route
 
 ## Abilities and recovery specification (planned, checkpoints 71–87)
 
-The following rules define the planned extension tracked in pending checkpoints
-71–87 of the [implementation roadmap](implementation-roadmap.md) (without
-renumbering checkpoints 01–70). They are not yet implemented until their
-respective checkpoints are delivered.
+The following rules define the extension tracked in checkpoints 71–87 of the
+[implementation roadmap](implementation-roadmap.md) (without renumbering
+checkpoints 01–70). Each rule is implemented only when its checkpoint is
+delivered; the roadmap records which ones are complete.
 
 The established ability defaults are dash speed 400 units/s, nominal dash
 immunity 180 ms and 2.5-second cooldown; Q duration 5 seconds and 10-second
@@ -486,7 +486,7 @@ losses; identical snapshots; and readable monochrome rendering.
 ## Scope boundary
 
 Checkpoints 01–70 of the roadmap cover the completed core local/shared game and
-presentation polish. Pending checkpoints 71–87 plan the abilities, ledge
+presentation polish. Checkpoints 71–87 plan the abilities, ledge
 recovery, ability HUD, attribution, and trial-balance extension. Do not
 implement pending checkpoints out of order or renumber 01–70. Character-specific
 stats, additional victory scoring, art assets, touch controls, and external

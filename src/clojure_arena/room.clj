@@ -62,7 +62,7 @@
     {:room room :effects []}))
 
 (defn- clear-input-actions [input]
-  (assoc input :jump? false :drop? false :attack? false))
+  (reduce #(assoc %1 %2 false) input protocol/action-keys))
 
 (defn- clear-pending-actions [inputs-by-player]
   (into {}

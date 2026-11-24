@@ -277,11 +277,10 @@
                  (count (:players world))
                  (count (get-in @room-agent [:room :inputs-by-player]))))
           (#'ws/send-text! websocket
-                          (pr-str {:type :input :horizontal -1
-                                   :jump? true :drop? true :attack? true}) true)
+                          (pr-str (assoc protocol/neutral-input :type :input :horizontal -1 :jump? true :drop? true :attack? true)) true)
           (#'ws/expect-reply! websocket events "{:type :ping}" {:type :pong})
           (await-room! room-agent)
-          (is (= {:horizontal -1 :jump? false :drop? false :attack? false}
+          (is (= (assoc protocol/neutral-input :horizontal -1)
                  (get-in @room-agent [:room :inputs-by-player :player-1])))
           (enqueue-ticks! room-agent 10)
           (let [later (snapshots-at! accepted 430)]

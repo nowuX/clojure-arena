@@ -338,20 +338,20 @@
     (dispatch-key! "keyup" "KeyA")
 
     (dispatch-key! "keydown" "KeyW")
-    (is (= {:horizontal 0 :jump? true :drop? false :attack? false}
+    (is (= (assoc protocol/neutral-input :jump? true)
            (last (sent-inputs socket)))
         "a jump reaches the transport before any animation frame runs")
     (dispatch-key! "keyup" "KeyW")
     (dispatch-key! "keydown" "KeyS")
     (dispatch-key! "keyup" "KeyS")
 
-    (is (= [{:horizontal 1 :jump? false :drop? false :attack? false}
-            {:horizontal 0 :jump? false :drop? false :attack? false}
-            {:horizontal -1 :jump? false :drop? false :attack? false}
+    (is (= [(assoc protocol/neutral-input :horizontal 1)
             protocol/neutral-input
-            {:horizontal 0 :jump? true :drop? false :attack? false}
+            (assoc protocol/neutral-input :horizontal -1)
             protocol/neutral-input
-            {:horizontal 0 :jump? false :drop? true :attack? false}
+            (assoc protocol/neutral-input :jump? true)
+            protocol/neutral-input
+            (assoc protocol/neutral-input :drop? true)
             protocol/neutral-input]
            (sent-inputs socket))
         "A/D states are independent, and a quick W/S tap sends its fresh press")
@@ -375,12 +375,12 @@
     (dispatch-key! "keyup" "KeyW")
     (dispatch-key! "keydown" "KeyW")
 
-    (is (= [{:horizontal 1 :jump? false :drop? false :attack? false}
+    (is (= [(assoc protocol/neutral-input :horizontal 1)
             protocol/neutral-input
-            {:horizontal 1 :jump? false :drop? false :attack? false}
-            {:horizontal 1 :jump? true :drop? false :attack? false}
-            {:horizontal 1 :jump? false :drop? false :attack? false}
-            {:horizontal 1 :jump? true :drop? false :attack? false}]
+            (assoc protocol/neutral-input :horizontal 1)
+            (assoc protocol/neutral-input :horizontal 1 :jump? true)
+            (assoc protocol/neutral-input :horizontal 1)
+            (assoc protocol/neutral-input :horizontal 1 :jump? true)]
            (sent-inputs socket))
         "keyboard repeat and duplicate downs while held are ignored; release permits a new press")))
 
@@ -392,13 +392,13 @@
     (dispatch-key! "keydown" "KeyD")
     (dispatch-key! "keydown" "KeyA")
 
-    (is (= [{:horizontal 0 :jump? true :drop? false :attack? false}
-            {:horizontal 0 :jump? false :drop? true :attack? false}
-            {:horizontal 1 :jump? false :drop? false :attack? false}
-            {:horizontal 0 :jump? false :drop? false :attack? false}]
+    (is (= [(assoc protocol/neutral-input :jump? true)
+            (assoc protocol/neutral-input :drop? true)
+            (assoc protocol/neutral-input :horizontal 1)
+            protocol/neutral-input]
            (sent-inputs socket))
         "fresh W/S presses send one pulse each, while later movement updates carry no pulse")
-    (is (= {:horizontal 0 :jump? false :drop? false :attack? false}
+    (is (= protocol/neutral-input
            (client/read-inputs))
         "network event snapshots do not queue actions for local simulation")))
 
@@ -413,7 +413,7 @@
     (is (empty? (sent-inputs socket))
         "non-canvas targets and non-primary buttons send nothing")
     (dispatch-pointer-down! @arena-canvas 0)
-    (is (= [{:horizontal 0 :jump? false :drop? false :attack? true}]
+    (is (= [(assoc protocol/neutral-input :attack? true)]
            (sent-inputs socket))
         "a primary pointerdown on the arena canvas sends immediately")
     (is (= protocol/neutral-input (client/read-inputs))
@@ -427,12 +427,12 @@
     (dispatch-key! "keydown" "KeyS")
     (dispatch-pointer-down! @arena-canvas 0)
 
-    (is (= {:horizontal 1 :jump? false :drop? false :attack? false}
+    (is (= (assoc protocol/neutral-input :horizontal 1)
            (client/read-inputs)))
-    (is (= [{:horizontal 1 :jump? false :drop? false :attack? false}
-            {:horizontal 1 :jump? true :drop? false :attack? false}
-            {:horizontal 1 :jump? false :drop? true :attack? false}
-            {:horizontal 1 :jump? false :drop? false :attack? true}]
+    (is (= [(assoc protocol/neutral-input :horizontal 1)
+            (assoc protocol/neutral-input :horizontal 1 :jump? true)
+            (assoc protocol/neutral-input :horizontal 1 :drop? true)
+            (assoc protocol/neutral-input :horizontal 1 :attack? true)]
            (sent-inputs socket))
         "jump, drop, and attack intents are sent before any local frame runs")
     (dispatch-blur!)
@@ -453,7 +453,7 @@
         "the connecting session does not send player input before identity")
     ((.-onmessage socket)
      #js {:data "{:type :identity :player-id :player-1 :color :cyan}"})
-    (is (= [{:horizontal 0 :jump? true :drop? false :attack? false}]
+    (is (= [(assoc protocol/neutral-input :jump? true)]
            (sent-inputs socket))
         "the transport keeps its captured one-time action while coalescing blur neutral")))
 
@@ -463,7 +463,7 @@
     (open-client-socket! socket)
     (dispatch-key! "keydown" "KeyW")
     (dispatch-pointer-down! @arena-canvas 0)
-    (is (= {:horizontal 0 :jump? true :drop? false :attack? true}
+    (is (= (assoc protocol/neutral-input :jump? true :attack? true)
            (client/read-inputs)))
     (is (empty? (sent-inputs socket))
         "the connecting session keeps its local fallback and waits for admission")
@@ -471,10 +471,10 @@
     ((.-onmessage socket)
      #js {:data "{:type :identity :player-id :player-1 :color :cyan}"})
     (is (transport/connected?))
-    (is (= [{:horizontal 0 :jump? true :drop? false :attack? true}]
+    (is (= [(assoc protocol/neutral-input :jump? true :attack? true)]
            (sent-inputs socket))
         "admission sends the buffered network intent")
-    (is (= {:horizontal 0 :jump? false :drop? false :attack? false}
+    (is (= protocol/neutral-input
            (client/read-inputs))
         "admission clears the local copy before any animation frame runs")
 
@@ -497,8 +497,8 @@
     (is (transport/connected?))
     (dispatch-key! "keydown" "KeyW")
     (dispatch-pointer-down! @arena-canvas 0)
-    (is (= [{:horizontal 0 :jump? true :drop? false :attack? false}
-            {:horizontal 0 :jump? false :drop? false :attack? true}]
+    (is (= [(assoc protocol/neutral-input :jump? true)
+            (assoc protocol/neutral-input :attack? true)]
            (sent-inputs socket))
         "accepted key and pointer input reaches the server immediately")
     (is (= protocol/neutral-input (client/read-inputs)))
@@ -560,7 +560,7 @@
         stepped-worlds (atom [])]
     (admit-as! socket :player-2 :crimson)
     (dispatch-key! "keydown" "KeyD")
-    (is (= [{:horizontal 1 :jump? false :drop? false :attack? false}]
+    (is (= [(assoc protocol/neutral-input :horizontal 1)]
            (sent-inputs socket))
         "the socket identity remains implicit in the exact player-input frame")
 
@@ -672,7 +672,7 @@
     (receive-snapshot! socket 10 network-world)
     (dispatch-key! "keydown" "KeyD")
     (dispatch-key! "keyup" "KeyD")
-    (is (= [{:horizontal 1 :jump? false :drop? false :attack? false}
+    (is (= [(assoc protocol/neutral-input :horizontal 1)
             protocol/neutral-input]
            (sent-inputs socket)))
 
@@ -705,7 +705,7 @@
       (set! (.-readyState socket) 1)
       (dispatch-key! "keydown" "KeyD")
       (dispatch-key! "keyup" "KeyD")
-      (is (= [{:horizontal 1 :jump? false :drop? false :attack? false}
+      (is (= [(assoc protocol/neutral-input :horizontal 1)
               protocol/neutral-input]
              (sent-inputs socket))
           "offline input after timeout is not sent back to the expired session")
@@ -754,7 +754,7 @@
         (is (empty? (sent-inputs second-socket))
             "a stopped session's last input is not replayed by reinitialization")
         (dispatch-key! "keydown" "KeyD")
-        (is (= [{:horizontal 1 :jump? false :drop? false :attack? false}]
+        (is (= [(assoc protocol/neutral-input :horizontal 1)]
                (sent-inputs second-socket)))
         (client/stop!)
         (is (empty? (active-listener-counts)))))))
@@ -800,7 +800,7 @@
       (is (= "Modo local. La sala está llena; el juego continúa en modo local. Servidor: ws://arena.example:8082/ws."
              (.-textContent @connection-status)))
       (deliver-frame! 25)
-      (is (= [{:horizontal 1 :jump? false :drop? false :attack? false}]
+      (is (= [(assoc protocol/neutral-input :horizontal 1)]
              @stepped-inputs)
           "local physics continues to receive current input while the room is full")
       (is (= 1 (get-in @client/world [:local-steps])))
@@ -847,3 +847,41 @@
       (is (= [waiting countdown finished] @drawn @panels))
       (is (= :time-limit (get-in @client/world [:match :result :reason])))
       (is (nil? (get-in @client/world [:match :result :winner-id]))))))
+
+(deftest ability-keys-send-exact-intentions-immediately-and-once-per-press
+  (let [{:keys [socket]} (start-networked-session! (match-helpers/running-world game/initial-world))]
+    (admit-client-socket! socket)
+    (dispatch-key! "keydown" "KeyD")
+    (dispatch-key! "keydown" "ShiftLeft")
+    (is (= (assoc protocol/neutral-input :horizontal 1 :dash? true)
+           (last (sent-inputs socket)))
+        "Shift reaches the transport with the held direction before any frame runs")
+    (let [sent-count (count (sent-inputs socket))]
+      (dispatch-key! "keydown" "ShiftLeft" true)
+      (dispatch-key! "keydown" "ShiftRight")
+      (is (= sent-count (count (sent-inputs socket)))
+          "autorepeat and the second Shift key send nothing new"))
+    (doseq [[code action] [["KeyQ" :antiknockback?] ["KeyE" :recover?]
+                           ["KeyR" :grenade?] ["KeyF" :nova?]]]
+      (dispatch-key! "keydown" code)
+      (is (= (assoc protocol/neutral-input :horizontal 1 action true)
+             (last (sent-inputs socket))))
+      (dispatch-key! "keyup" code))
+    (is (every? protocol/player-input? (sent-inputs socket)))
+    (is (= (assoc protocol/neutral-input :horizontal 1) (client/read-inputs))
+        "accepted intentions never enter the local simulation")))
+
+(deftest ability-intentions-coalesce-before-admission-and-survive-blur
+  (let [{:keys [socket]} (start-networked-session! (match-helpers/running-world game/initial-world))]
+    (open-client-socket! socket)
+    (dispatch-key! "keydown" "KeyR")
+    (dispatch-key! "keydown" "ShiftRight")
+    (dispatch-blur!)
+    (is (empty? (sent-inputs socket)))
+    ((.-onmessage socket)
+     #js {:data "{:type :identity :player-id :player-1 :color :cyan}"})
+    (is (= [(assoc protocol/neutral-input :grenade? true :dash? true)]
+           (sent-inputs socket))
+        "admission flushes one exact input with every captured intention")
+    (is (= protocol/neutral-input (client/read-inputs))
+        "admission clears local requests captured before the session was accepted")))

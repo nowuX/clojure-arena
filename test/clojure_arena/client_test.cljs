@@ -1,6 +1,7 @@
 (ns clojure-arena.client-test
   (:require [cljs.test :refer-macros [deftest is use-fixtures]]
             [clojure-arena.client :as client]
+            [clojure-arena.protocol :as protocol]
             [clojure-arena.game :as game]
             [clojure-arena.fixtures :as fixtures]))
 
@@ -102,7 +103,7 @@
   (client/init)
   (key-event! "keydown" "KeyD")
   (key-event! "keydown" "KeyD" true)
-  (is (= {:horizontal 1 :jump? false :drop? false :attack? false} (client/read-inputs)))
+  (is (= (assoc protocol/neutral-input :horizontal 1) (client/read-inputs)))
   (key-event! "keydown" "KeyA")
   (is (= 0 (client/horizontal-input)))
   (key-event! "keyup" "KeyD")
@@ -198,7 +199,7 @@
     (key-event! "keydown" "KeyW")
     (key-event! "keydown" "KeyD")
     (reset-input!)
-    (is (= {:horizontal 0 :jump? false :drop? false :attack? false} (client/read-inputs)))))
+    (is (= protocol/neutral-input (client/read-inputs)))))
 
 (deftest held-spawn-input-waits-for-landing-and-discards-old-w
   (reset! client/world fixtures/single-platform-world)
@@ -276,7 +277,7 @@
     (client/stop!)
     (is (empty? @callbacks))
     (is (every? empty? (vals @listeners)))
-    (is (= {:horizontal 0 :jump? false :drop? false :attack? false} (client/read-inputs))))
+    (is (= protocol/neutral-input (client/read-inputs))))
   (reset! client/world (update-in playable-world [:players :player-1] assoc :y 264 :vy 0))
   (client/init)
   (fire-frame! 0)
@@ -340,10 +341,10 @@
   (client/init)
   (doseq [code ["KeyW" "KeyS" "KeyA" "KeyD"]]
     (key-event! "keydown" code))
-  (is (= {:horizontal 0 :jump? true :drop? true :attack? false} (client/consume-inputs!)))
-  (is (= {:horizontal 0 :jump? false :drop? false :attack? false} (client/read-inputs)))
+  (is (= (assoc protocol/neutral-input :jump? true :drop? true) (client/consume-inputs!)))
+  (is (= protocol/neutral-input (client/read-inputs)))
   (key-event! "keyup" "KeyA")
-  (is (= {:horizontal 1 :jump? false :drop? false :attack? false} (client/consume-inputs!)))
+  (is (= (assoc protocol/neutral-input :horizontal 1) (client/consume-inputs!)))
   (is (= 1 (client/horizontal-input))))
 
 (deftest lifecycle-clears-s-w-and-directions-together
@@ -352,7 +353,7 @@
     (client/init)
     (doseq [code ["KeyW" "KeyS" "KeyD"]] (key-event! "keydown" code))
     (clear-input!)
-    (is (= {:horizontal 0 :jump? false :drop? false :attack? false} (client/read-inputs)))))
+    (is (= protocol/neutral-input (client/read-inputs)))))
 
 (deftest captured-drop-leaves-the-supporting-semisolid
   (let [platform (first (filter #(= :left (:id %)) (:platforms game/initial-world)))]
@@ -432,7 +433,7 @@
       (is (zero? (get-in players [id :vx])))
       (is (= 24.5 (get-in players [id :vy])))
       (is (= 1 (get-in players [id :air-jumps-left]))))
-  (is (= {:horizontal 1 :jump? false :drop? false :attack? false} (client/read-inputs)))))
+  (is (= (assoc protocol/neutral-input :horizontal 1) (client/read-inputs)))))
 
 (deftest local-controls-do-not-create-a-missing-player-1
   (reset! client/world (-> game/initial-world
@@ -540,9 +541,9 @@
   (client/init)
   (doseq [code ["KeyD" "KeyW" "KeyS"]] (key-event! "keydown" code))
   (pointer-event! @canvas-target 0)
-  (is (= {:horizontal 1 :jump? true :drop? true :attack? true}
+  (is (= (assoc protocol/neutral-input :horizontal 1 :jump? true :drop? true :attack? true)
          (client/consume-inputs!)))
-  (is (= {:horizontal 1 :jump? false :drop? false :attack? false}
+  (is (= (assoc protocol/neutral-input :horizontal 1)
          (client/read-inputs))))
 
 (defn panel-node []
@@ -741,3 +742,76 @@
     (client/draw-player canvas (assoc player :protection-seconds-left 0))
     (is (not-any? #(= :stroke (first %)) @calls))
     (is (= "Activo" (client/player-state-label (assoc player :protection-seconds-left 0))))))
+
+(defn- modified-key-event! [code modifier]
+  (let [event (js/Event. "keydown" #js {:cancelable true})]
+    (aset event "code" code)
+    (aset event "repeat" false)
+    (aset event modifier true)
+    (.dispatchEvent @target event)
+    event))
+
+(deftest short-ability-taps-survive-until-a-tick-and-clear-after-consumption
+  (client/init)
+  (doseq [[code action] [["ShiftLeft" :dash?] ["KeyQ" :antiknockback?] ["KeyE" :recover?]
+                         ["KeyR" :grenade?] ["KeyF" :nova?]]]
+    (key-event! "keydown" code)
+    (key-event! "keyup" code)
+    (is (= (assoc protocol/neutral-input action true) (client/read-inputs))
+        (str code " should stay requested after a short tap"))
+    (is (= (assoc protocol/neutral-input action true) (client/consume-inputs!)))
+    (is (= protocol/neutral-input (client/read-inputs)))))
+
+(deftest ability-keys-ignore-autorepeat-and-held-keys
+  (client/init)
+  (key-event! "keydown" "KeyQ")
+  (is (:antiknockback? (client/consume-inputs!)))
+  (key-event! "keydown" "KeyQ" true)
+  (key-event! "keydown" "KeyQ")
+  (is (false? (:antiknockback? (client/consume-inputs!))))
+  (key-event! "keyup" "KeyQ")
+  (key-event! "keydown" "KeyQ")
+  (is (:antiknockback? (client/consume-inputs!))))
+
+(deftest both-shift-keys-share-one-dash-lifetime
+  (client/init)
+  (key-event! "keydown" "ShiftLeft")
+  (is (:dash? (client/consume-inputs!)))
+  (key-event! "keydown" "ShiftRight")
+  (is (false? (:dash? (client/consume-inputs!))) "a second Shift while one is held is not fresh")
+  (key-event! "keyup" "ShiftLeft")
+  (key-event! "keydown" "ShiftLeft")
+  (is (false? (:dash? (client/consume-inputs!))) "the other Shift stayed held")
+  (key-event! "keyup" "ShiftLeft")
+  (key-event! "keyup" "ShiftRight")
+  (key-event! "keydown" "ShiftRight")
+  (is (:dash? (client/consume-inputs!)) "a press after releasing both Shift keys is fresh"))
+
+(deftest browser-shortcuts-keep-their-default-and-request-nothing
+  (client/init)
+  (doseq [[code modifier] [["KeyR" "ctrlKey"] ["KeyF" "metaKey"] ["KeyQ" "metaKey"] ["KeyE" "altKey"]]]
+    (let [event (modified-key-event! code modifier)]
+      (is (false? (.-defaultPrevented event)) (str modifier "+" code " stays a browser shortcut"))
+      (is (= protocol/neutral-input (client/read-inputs))))))
+
+(deftest blur-and-restart-discard-pending-ability-requests
+  (doseq [reset-input! [#(.dispatchEvent @target (js/Event. "blur"))
+                       client/stop! client/init]]
+    (client/init)
+    (key-event! "keydown" "KeyR")
+    (key-event! "keydown" "ShiftLeft")
+    (reset-input!)
+    (is (= protocol/neutral-input (client/read-inputs)))
+    (client/init)
+    (key-event! "keydown" "ShiftLeft")
+    (is (:dash? (client/read-inputs)) "a cleared held Shift accepts a fresh press after reset")))
+
+(deftest local-sandbox-ticks-receive-ability-flags-once
+  (let [seen (atom [])]
+    (with-redefs [game/step (fn [world inputs _] (swap! seen conj inputs) world)]
+      (client/init)
+      (fire-frame! 0)
+      (key-event! "keydown" "KeyF")
+      (key-event! "keyup" "KeyF")
+      (fire-frame! 100)
+      (is (= [true false false false] (mapv #(get-in % [:player-1 :nova?]) @seen))))))

@@ -123,7 +123,7 @@
             old-id (get-in old [:identity :player-id])
             old-color (get-in old [:identity :color])
             old-token (member-token (room-state room-agent) old-id)
-            old-input {:horizontal 1 :jump? true :drop? true :attack? true}
+            old-input (assoc protocol/neutral-input :horizontal 1 :jump? true :drop? true :attack? true)
             old-player-changes {:x 295 :y 264 :vx -135 :vy 65
                                 :knockback-vx 180 :knockback-vy -90
                                 :facing :left :spawn-locked? false :air-jumps-left 0
@@ -140,7 +140,7 @@
                 (update-in envelope [:room :world :players old-id]
                            merge old-player-changes)))
         (await-room! room-agent)
-        (is (= {:horizontal 1 :jump? false :drop? false :attack? false}
+        (is (= (assoc protocol/neutral-input :horizontal 1)
                (get-in (room-state room-agent) [:inputs-by-player old-id]))
             "a waiting session retains direction and drops one-shot actions")
         (is (= old-player-changes
@@ -248,8 +248,8 @@
               (#'ws/expect-reply! (:websocket old) (:events old)
                                   "{:type :ping}" {:type :pong})
               (send-input! room-agent old
-                           {:horizontal -1 :jump? false :drop? false :attack? true})
-              (is (= {:horizontal -1 :jump? false :drop? false :attack? false}
+                           (assoc protocol/neutral-input :horizontal -1 :attack? true))
+              (is (= (assoc protocol/neutral-input :horizontal -1)
                      (get-in (room-state room-agent) [:inputs-by-player old-id])))
               (is (= protocol/neutral-input
                      (get-in (room-state room-agent)
@@ -266,7 +266,7 @@
 
               ;; The old channel can still deliver a delayed frame before its close callback.
               (send-input! room-agent old
-                           {:horizontal 1 :jump? true :drop? true :attack? true})
+                           (assoc protocol/neutral-input :horizontal 1 :jump? true :drop? true :attack? true))
               (is (= protocol/neutral-input
                      (get-in (room-state room-agent)
                              [:inputs-by-player replacement-id])))
@@ -277,10 +277,7 @@
               (room/enqueue-room-message! room-agent
                                           {:type :input
                                            :connection-token old-token
-                                           :input {:horizontal -1
-                                                   :jump? false
-                                                   :drop? false
-                                                   :attack? true}})
+                                           :input (assoc protocol/neutral-input :horizontal -1 :attack? true)})
               (room/enqueue-room-message! room-agent
                                           {:type :leave :connection-token old-token})
               (await-room! room-agent)

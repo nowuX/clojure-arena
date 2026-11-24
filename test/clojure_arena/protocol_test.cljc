@@ -24,33 +24,28 @@
 
 (deftest player-input-validation-test
   (testing "neutral input has the exact documented shape"
-    (is (= {:horizontal 0
-            :jump? false
-            :drop? false
-            :attack? false}
+    (is (= {:horizontal 0 :jump? false :drop? false :attack? false
+            :dash? false :antiknockback? false :recover? false :grenade? false :nova? false}
            protocol/neutral-input)))
   (testing "horizontal input accepts only the three discrete directions"
     (doseq [horizontal [-1 0 1]]
-      (is (protocol/player-input? {:horizontal horizontal
-                                   :jump? false
-                                   :drop? false
-                                   :attack? false})
+      (is (protocol/player-input? (assoc protocol/neutral-input :horizontal horizontal))
           (str "expected valid horizontal value " horizontal)))
     (doseq [horizontal [nil -2 2 0.5 "1" :left]]
-      (is (not (protocol/player-input? {:horizontal horizontal
-                                        :jump? false
-                                        :drop? false
-                                        :attack? false}))
+      (is (not (protocol/player-input? (assoc protocol/neutral-input :horizontal horizontal)))
           (str "expected invalid horizontal value " (pr-str horizontal)))))
   (testing "all action fields must be booleans and the key set must be exact"
-    (doseq [key [:jump? :drop? :attack?]
+    (doseq [key protocol/action-keys
             value [false true]]
       (is (protocol/player-input? (assoc protocol/neutral-input key value))))
-    (doseq [key [:jump? :drop? :attack?]
+    (doseq [key protocol/action-keys
             value [nil 0 1 "true" :true]]
       (is (not (protocol/player-input? (assoc protocol/neutral-input key value)))
           (str "expected invalid " key " value " (pr-str value))))
     (doseq [input [(dissoc protocol/neutral-input :attack?)
+                   (dissoc protocol/neutral-input :dash?)
+                   (dissoc protocol/neutral-input :nova?)
+                   {:horizontal 0 :jump? false :drop? false :attack? false}
                    (assoc protocol/neutral-input :extra true)
                    (assoc protocol/neutral-input :player-id :player-1)
                    (assoc protocol/neutral-input :connection-token :forged)
@@ -95,10 +90,7 @@
             jump? [false true]
             drop? [false true]
             attack? [false true]]
-      (let [payload {:horizontal horizontal
-                     :jump? jump?
-                     :drop? drop?
-                     :attack? attack?}
+      (let [payload (assoc protocol/neutral-input :horizontal horizontal :jump? jump? :drop? drop? :attack? attack?)
             frame (pr-str (assoc payload :type :input))]
         (is (= {:input payload}
                (protocol/read-client-message frame))
@@ -121,11 +113,7 @@
       (is (= {:type :error :code :invalid-message}
              (protocol/reply-to-message text)))))
   (testing "malformed or forged input payloads are rejected"
-    (let [valid {:type :input
-                 :horizontal 1
-                 :jump? true
-                 :drop? false
-                 :attack? false}
+    (let [valid (assoc protocol/neutral-input :type :input :horizontal 1 :jump? true)
           forged [(assoc valid :player-id :player-99)
                   (assoc valid :connection-token :forged)
                   (assoc valid :position [999 999])
@@ -251,3 +239,34 @@
             (str "expected invalid snapshot: " (pr-str message)))
         (is (not (protocol/server-message? message))
             (str "expected invalid server snapshot: " (pr-str message)))))))
+
+(deftest ability-intentions-coalesce-like-other-one-shot-actions-test
+  (testing "pending ability flags survive later frames until a tick consumes them"
+    (let [dash (assoc protocol/neutral-input :horizontal 1 :dash? true)
+          grenade (assoc protocol/neutral-input :horizontal -1 :grenade? true)]
+      (is (= (assoc protocol/neutral-input :horizontal -1 :dash? true :grenade? true)
+             (-> protocol/neutral-input
+                 (protocol/merge-pending-input dash)
+                 (protocol/merge-pending-input grenade))))
+      (is (= (assoc protocol/neutral-input :dash? true :grenade? true)
+             (-> protocol/neutral-input
+                 (protocol/merge-pending-input dash)
+                 (protocol/merge-pending-input grenade)
+                 (protocol/merge-pending-input protocol/neutral-input)))
+          "a neutral release clears direction but keeps captured intentions")
+      (is (protocol/player-input?
+           (protocol/merge-pending-input protocol/neutral-input dash))
+          "merging preserves the exact input shape")))
+  (testing "the wire contract requires every ability flag and nothing more"
+    (doseq [action protocol/ability-action-keys]
+      (let [payload (assoc protocol/neutral-input action true)]
+        (is (= {:input payload}
+               (protocol/read-client-message (pr-str (assoc payload :type :input)))))))
+    (doseq [frame ["{:type :input :horizontal 0 :jump? false :drop? false :attack? false}"
+                   (pr-str (assoc (dissoc protocol/neutral-input :recover?) :type :input))
+                   (pr-str (assoc protocol/neutral-input :type :input :dash? 1))
+                   (pr-str (assoc protocol/neutral-input :type :input :dash-speed 400))
+                   (pr-str (assoc protocol/neutral-input :type :input :nova-charge 100))]]
+      (is (= {:reply {:type :error :code :invalid-message}}
+             (protocol/read-client-message frame))
+          (str "expected invalid-message for " frame)))))

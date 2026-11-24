@@ -2,8 +2,8 @@
 
 A browser platform fighter for two to four connected players, built with
 Clojure, ClojureScript and immutable shared simulation. The core route
-(checkpoints 01–70) is complete (70/87). The abilities and ledge-recovery
-extension (checkpoints 71–87) is planned and pending. Each checkpoint has one
+(checkpoints 01–70) and ability intention capture (71) are complete (71/87).
+Ability effects and ledge recovery (checkpoints 72–87) are planned and pending. Each checkpoint has one
 Conventional Commit.
 
 ## Play
@@ -30,8 +30,9 @@ respawns, two-second protection, a three-minute clock and automatic rematches.
 The server owns shared physics and results. Disconnected play uses a separate
 local sandbox; the connection status shows mode, endpoint and known errors.
 UI and platforms are monochrome; only player bodies and identity swatches use
-color. Abilities and ledge recovery are planned in checkpoints 71–87 and are
-not yet implemented.
+color. Shift, Q, E, R and F are captured and validated as ability intentions,
+but they have no gameplay effect yet; effects and ledge recovery are planned in
+checkpoints 72–87.
 
 ## Verify and inspect
 
@@ -46,7 +47,7 @@ an automated pass does not establish those results.
 - [Language manual in Spanish](docs/language-guide.md)
 - [Local verification](docs/simulation-verification.md) and [multiplayer verification](docs/multiplayer-verification.md)
 - [Monochrome design system](docs/design-system.md)
-- [Implementation roadmap (70/87 complete)](docs/implementation-roadmap.md)
+- [Implementation roadmap (71/87 complete)](docs/implementation-roadmap.md)
 
 ## License
 

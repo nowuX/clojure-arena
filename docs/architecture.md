@@ -13,7 +13,7 @@ for physics and hit rules, and [Matches](matches.md) for phase orchestration.
 flowchart TD
     Build[Shadow: compile public assets] --> HTTP[Ring / http-kit: HTTP assets and health]
     HTTP --> Browser[Browser: Canvas / DOM / RAF]
-    Browser --> Events[Fresh A D W S / primary click / blur]
+    Browser --> Events[Fresh A D W S / Shift Q E R F / primary click / blur]
     Events --> Transport[Transport: exact EDN input, no ID]
     Transport --> Socket[Socket boundary: attach private token]
     Socket -->|join / input / leave| Agent[One room agent: serialized pure transitions]

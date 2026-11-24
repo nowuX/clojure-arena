@@ -60,10 +60,10 @@
        room-agent
        [{:type :input
          :connection-token :old-session
-         :input {:horizontal 1 :jump? true :drop? false :attack? true}}
+         :input (assoc protocol/neutral-input :horizontal 1 :jump? true :attack? true)}
         {:type :input
          :connection-token :steady-session
-         :input {:horizontal -1 :jump? false :drop? true :attack? false}}
+         :input (assoc protocol/neutral-input :horizontal -1 :drop? true)}
         {:type :tick}
         {:type :leave :connection-token :old-session}
         {:type :join :connection-token :new-session}])
@@ -110,7 +110,7 @@
   (let [room-agent (room/make-room (fn [_] nil))
         commits (atom [])
         watch-key ::match-boundaries
-        input {:horizontal 1 :jump? true :drop? true :attack? true}
+        input (assoc protocol/neutral-input :horizontal 1 :jump? true :drop? true :attack? true)
         seed! (fn [path value]
                 (send room-agent (fn [envelope] (-> envelope (assoc :effects []) (assoc-in path value))))
                 (await-agent! room-agent))]

@@ -155,7 +155,7 @@
       (set! (.-send socket)
             (fn [_message]
               (throw (js/Error. "Synthetic input failure"))))
-      (transport/send-input! {:horizontal 1 :jump? true :drop? false :attack? false})
+      (transport/send-input! (assoc protocol/neutral-input :horizontal 1 :jump? true))
       (is (= {:kind :send-failed} (:error @transport/connection-state)))
       (is (= green-identity (:identity @transport/connection-state)))
       (is (true? (transport/connected?)))

@@ -62,24 +62,18 @@
                   (set-input (match-helpers/running-room
                               (prepare-waiting-players-for-physics-fixture joined-b))
                              :connection-a
-                             {:horizontal 1
-                              :jump? true
-                              :drop? false
-                              :attack? false})
+                             (assoc protocol/neutral-input :horizontal 1 :jump? true))
                   :connection-b
-                  {:horizontal -1
-                   :jump? false
-                   :drop? false
-                   :attack? true})
+                  (assoc protocol/neutral-input :horizontal -1 :attack? true))
         expected (nth (iterate manual-tick prepared) 12)
         actual (nth (iterate (comp :room tick-room) prepared) 12)]
     (is (= 0 (:tick room/initial-room)))
     (is (= 0.025 room/tick-seconds))
     (is (= expected actual))
     (is (= 12 (:tick actual)))
-    (is (= {:horizontal 1 :jump? false :drop? false :attack? false}
+    (is (= (assoc protocol/neutral-input :horizontal 1)
            (get-in actual [:inputs-by-player :player-1])))
-    (is (= {:horizontal -1 :jump? false :drop? false :attack? false}
+    (is (= (assoc protocol/neutral-input :horizontal -1)
            (get-in actual [:inputs-by-player :player-2])))))
 
 (deftest tick-steps-the-world-once-with-all-inputs-and-the-fixed-delta-test
@@ -87,10 +81,7 @@
                 (prepare-waiting-players-for-physics-fixture
                  (:room (join-room room/initial-room :connection-a))))
         prepared (set-input joined :connection-a
-                            {:horizontal 1
-                             :jump? true
-                             :drop? false
-                             :attack? false})
+                            (assoc protocol/neutral-input :horizontal 1 :jump? true))
         world (:world prepared)
         inputs (:inputs-by-player prepared)
         original-step game/step
@@ -134,18 +125,9 @@
         prepared (-> joined
                      (assoc-in [:world :players] initial-players)
                      match-helpers/running-room
-                     (set-input :jump {:horizontal 0
-                                       :jump? true
-                                       :drop? false
-                                       :attack? false})
-                     (set-input :drop {:horizontal 0
-                                       :jump? false
-                                       :drop? true
-                                       :attack? false})
-                     (set-input :attacker {:horizontal 0
-                                           :jump? false
-                                           :drop? false
-                                           :attack? true}))
+                     (set-input :jump (assoc protocol/neutral-input :jump? true))
+                     (set-input :drop (assoc protocol/neutral-input :drop? true))
+                     (set-input :attacker (assoc protocol/neutral-input :attack? true)))
         first-tick (:room (tick-room prepared))
         second-tick (:room (tick-room first-tick))]
     (testing "the first tick consumes the three pending actions"
@@ -155,11 +137,11 @@
       (is (= 1 (get-in first-tick [:world :players :player-3 :melee-strike-id])))
       (is (= 10 (get-in first-tick [:world :players :player-4
                                     :accumulated-percentage])))
-      (is (= {:horizontal 0 :jump? false :drop? false :attack? false}
+      (is (= protocol/neutral-input
              (get-in first-tick [:inputs-by-player :player-1])))
-      (is (= {:horizontal 0 :jump? false :drop? false :attack? false}
+      (is (= protocol/neutral-input
              (get-in first-tick [:inputs-by-player :player-2])))
-      (is (= {:horizontal 0 :jump? false :drop? false :attack? false}
+      (is (= protocol/neutral-input
              (get-in first-tick [:inputs-by-player :player-3]))))
     (testing "later ticks do not repeat those actions"
       (is (= 0 (get-in second-tick [:world :players :player-1 :air-jumps-left])))
@@ -177,10 +159,7 @@
         prepared (-> joined
                      (assoc-in [:world :players :player-1] active-player)
                      match-helpers/running-room
-                     (set-input :connection-a {:horizontal 1
-                                                :jump? false
-                                                :drop? false
-                                                :attack? false}))
+                     (set-input :connection-a (assoc protocol/neutral-input :horizontal 1)))
         final-room (nth (iterate (comp :room tick-room) prepared) 4)
         player (get-in final-room [:world :players :player-1])]
     (is (= 1 (get-in final-room [:inputs-by-player :player-1 :horizontal])))
@@ -201,10 +180,7 @@
         prepared (-> joined
                      (assoc-in [:world :players :player-1] landing-player)
                      match-helpers/running-room
-                     (set-input :connection-a {:horizontal 1
-                                                :jump? true
-                                                :drop? true
-                                                :attack? true}))
+                     (set-input :connection-a (assoc protocol/neutral-input :horizontal 1 :jump? true :drop? true :attack? true)))
         landed (:room (tick-room prepared))
         landed-player (get-in landed [:world :players :player-1])
         moved (:room (tick-room landed))]
@@ -215,7 +191,7 @@
         "the spawn lock should ignore held direction during the landing tick")
     (is (= 0 (:melee-strike-id landed-player)))
     (is (nil? (:drop-through-platform-id landed-player)))
-    (is (= {:horizontal 1 :jump? false :drop? false :attack? false}
+    (is (= (assoc protocol/neutral-input :horizontal 1)
            (get-in landed [:inputs-by-player :player-1])))
     (is (> (get-in moved [:world :players :player-1 :x]) spawn-x)
         "the retained horizontal direction should take effect after landing")))
@@ -232,10 +208,7 @@
         prepared (-> joined
                      (assoc-in [:world :players] players)
                      match-helpers/running-room
-                     (set-input :attacker {:horizontal 0
-                                           :jump? false
-                                           :drop? false
-                                           :attack? true}))
+                     (set-input :attacker (assoc protocol/neutral-input :attack? true)))
         original-world (:world prepared)
         platforms (:platforms original-world)
         result (tick-room prepared)
@@ -255,10 +228,7 @@
         prepared (-> joined
                      (assoc-in [:world :players :player-1] player)
                      match-helpers/running-room
-                     (set-input :connection-a {:horizontal 0
-                                                :jump? false
-                                                :drop? true
-                                                :attack? false}))
+                     (set-input :connection-a (assoc protocol/neutral-input :drop? true)))
         result (tick-room prepared)
         player-after (get-in result [:room :world :players :player-1])]
     (is (= :left (:drop-through-platform-id player-after)))
@@ -268,10 +238,7 @@
 
 (deftest same-agent-tick-input-and-join-actions-commit-in-enqueue-order-test
   (let [room-agent (room/make-room (fn [_] nil))
-        pending-input {:horizontal 1
-                       :jump? true
-                       :drop? false
-                       :attack? false}]
+        pending-input (assoc protocol/neutral-input :horizontal 1 :jump? true)]
     (try
       (room/enqueue-room-message! room-agent
                                   {:type :join :connection-token :connection-a})
@@ -288,7 +255,7 @@
             (is (= 1 (:tick room)))
             (is (= #{:connection-a :connection-b}
                    (set (keys (:members room)))))
-            (is (= {:horizontal 1 :jump? false :drop? false :attack? false}
+            (is (= (assoc protocol/neutral-input :horizontal 1)
                    (get-in room [:inputs-by-player :player-1]))
                 "waiting players retain direction and cannot queue action flags")
             (is (= protocol/neutral-input

@@ -2,9 +2,10 @@
 
 ## Status and scope
 
-**70 of 87 checkpoints complete.** Checkpoints 01–70 (core route, Milestones
-1–8) are complete; checkpoints 71–87 (abilities, ledge recovery, attribution,
-and their monochrome presentation) are planned and pending. The target is a
+**71 of 87 checkpoints complete.** Checkpoints 01–70 (core route, Milestones
+1–8) and 71 (ability intentions) are complete; checkpoints 72–87 (ability
+effects, ledge recovery, attribution, and their monochrome presentation) are
+planned and pending. The target is a
 browser platform fighter with a local sandbox and one shared authoritative room
 for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
@@ -972,7 +973,7 @@ topical guide update, as core checkpoints 34 and 56 did.
 
 ### 71 — Capture and validate ability intentions
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Capture fresh one-shot presses for Shift
   (`ShiftLeft`/`ShiftRight`), Q, E, R, and F in `client.cljs` without autorepeat or
   hold-repeat (releasing one Shift while the other stays held must not re-trigger); clear

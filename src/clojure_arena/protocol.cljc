@@ -6,7 +6,10 @@
 
 (def error-codes #{:invalid-edn :invalid-message :unsupported-type :connection-timeout})
 (def player-colors [:cyan :crimson :amber :green])
-(def neutral-input {:horizontal 0 :jump? false :drop? false :attack? false})
+(def ability-action-keys [:dash? :antiknockback? :recover? :grenade? :nova?])
+(def action-keys (into [:jump? :drop? :attack?] ability-action-keys))
+(def input-keys (set (cons :horizontal action-keys)))
+(def neutral-input (assoc (zipmap action-keys (repeat false)) :horizontal 0))
 (def safe-integer-maximum 9007199254740991)
 
 (def platform-fields #{:id :type :x :y :width :height :color})
@@ -20,15 +23,16 @@
 
 (defn player-input? [input]
   (and (map? input)
-       (= #{:horizontal :jump? :drop? :attack?} (set (keys input)))
+       (= input-keys (set (keys input)))
        (contains? #{-1 0 1} (:horizontal input))
-       (every? boolean? (map input [:jump? :drop? :attack?]))))
+       (every? boolean? (map input action-keys))))
 
-(defn merge-pending-input [pending input]
-  {:horizontal (:horizontal input)
-   :jump? (or (:jump? pending) (:jump? input))
-   :drop? (or (:drop? pending) (:drop? input))
-   :attack? (or (:attack? pending) (:attack? input))})
+(defn merge-pending-input
+  "Keeps the latest direction and every one-shot action still waiting for a tick."
+  [pending input]
+  (into {:horizontal (:horizontal input)}
+        (map (fn [action] [action (boolean (or (get pending action) (get input action)))]))
+        action-keys))
 
 (defn- safe-nonnegative-integer? [value]
   #?(:clj (and (integer? value)
