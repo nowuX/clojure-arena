@@ -365,7 +365,7 @@ identify it without introducing a colored status effect.
   charge per tick; +15 per credited elimination. Clamp the meter to [0, 100].
   Melee can contribute 5 charge per opponent hit; one grenade target gives 17.5.
 - Nova percentage/impulse effects grant no damage-based charge to either side;
-  a credited elimination can still grant +15. Healing, blocked hits, self-falls,
+  a credited elimination can still grant +15. Healing, immune misses, self-falls,
   forfeits, waiting, and time passing grant none. This prevents an explosion
   against several opponents from immediately funding another Nova.
 

@@ -66,7 +66,7 @@ the behavior described by its checkpoint; later features are intentionally absen
 | match.cljc | 57 | Pure participation, phases, results, and rematches |
 | combat.cljc | 76 | Pure multi-source hit resolution; radial explosion impulses from 78 |
 | projectile.cljc | 77 | Pure impulse-grenade spawn, flight, and lifecycle; swept contacts and detonation from 78 |
-| ledge.cljc | 82 | Pure swept main-platform ledge capture, hang timer, and two-stage climb |
+| ledge.cljc | 82 | Pure swept main-platform ledge capture and hang; two-stage climb from 83 |
 
 The table records when each implemented responsibility entered the route.
 Use the namespace `clojure-arena` and paths under `src/clojure_arena` and
@@ -86,10 +86,10 @@ only when they own an implemented responsibility.
 | 7 | 57–66 | Countdown, contenders, clock, results, and rematches |
 | 8 | 67–70 | Clear diagnostics, efficient panel, responsive monochrome UI, concise guides |
 | 9 | 71–75 | Ability input contract, Dash, match-scoped timers, Antiknockback, and percentage recovery |
-| 10 | 76–78 | Unified multi-source combat, piecewise trajectories, and Impulse grenade |
+| 10 | 76–78 | Unified multi-source combat, Impulse grenade, and swept piecewise contacts |
 | 11 | 79–81 | Elimination attribution, Nova charge meter, and radial Nova blast |
 | 12 | 82–83 | Swept main-platform ledge capture, hang, and two-stage climb |
-| 13 | 84–87 | Monochrome ability visuals, retained HUD updates, multiplayer verification, and guides |
+| 13 | 84–87 | Monochrome cue and HUD consolidation, multiplayer verification, and guides |
 
 ## Milestone 1 — A moving character on one platform
 
@@ -966,7 +966,9 @@ Checkpoints **67–70**. Improve the implemented game without adding mechanics o
 
 Checkpoints **71–75**. Extend the exact input/snapshot contract, add Shift, move
 its cooldown into match-scoped storage that survives respawns, then add Q and E
-without premature projectile or Nova state.
+without premature projectile or Nova state. From 72 onward, each mechanic ships
+with its minimal neutral Canvas cue, retained HUD field, `#controls` help, and
+topical guide update, as core checkpoints 34 and 56 did.
 
 ### 71 — Capture and validate ability intentions
 
@@ -977,7 +979,9 @@ without premature projectile or Nova state.
   requests on blur/stop/replacement/admission. Extend `protocol/neutral-input`,
   `player-input?`, `merge-pending-input`, and `room/clear-input-actions` with exact
   boolean flags (`:dash?`, `:antiknockback?`, `:recover?`, `:grenade?`, `:nova?`); discard
-  inactive one-shot ability flags in `room`. No gameplay effects yet.
+  inactive one-shot ability flags in `room`. The local sandbox input carries the same
+  flags. No gameplay effects yet. Update the input contract in `docs/networking.md` and
+  the event diagram in `docs/architecture.md`.
 - **Verify:** Short taps, both Shift keys, autorepeat, blur, pre-admission coalescing,
   strict EDN rejection of missing/extra keys, and inactive discard in
   waiting/respawning/eliminated/finished states. Existing local and shared gameplay
@@ -989,9 +993,10 @@ without premature projectile or Nova state.
 ### 72 — Add directional Dash with quantized immunity
 
 - **Status:** Pending.
-- **Implement / result:** Accept `Shift` for active unlocked players when Dash cooldown is
-  zero (`2.5` s / `100` ticks, not decremented on activation tick, advanced only by
-  running simulation ticks). Resolve at most one locomotion action per tick in the order
+- **Implement / result:** Accept `Shift` in the shared room and the local sandbox for
+  active unlocked players when Dash cooldown is zero (`2.5` s / `100` ticks, not
+  decremented on activation tick, advanced only by running simulation ticks; every sandbox
+  tick counts as running). Resolve at most one locomotion action per tick in the order
   supported `S` drop, eligible `W` jump, then dash; a rejected higher-priority request
   (midair `S`, exhausted `W`) does not block an eligible dash. Lock facing at activation
   and set voluntary horizontal speed to `400` units/s for `0.20` s (`8` ticks, `80` px at
@@ -1005,11 +1010,15 @@ without premature projectile or Nova state.
   shortening input lock or immunity; flat tops do not stop travel; later ticks resume
   gravity/contact with zero voluntary X. On tick 9 clamp only voluntary X to `220` before
   acceleration/friction, preserving received X. Ring-out clears active dash. Extend exact
-  `protocol/snapshot-message?` fields and bounds for dash state and its cooldown.
+  `protocol/snapshot-message?` fields and bounds for dash state and its cooldown. Draw a
+  neutral cue while dash immunity is active, show `Shift` readiness/remaining cooldown in
+  retained player rows, and add Shift to `#controls`. Update `docs/simulation.md` and
+  `docs/combat.md`.
 - **Verify:** Exact 80 px displacement, 8-tick/9th-tick immunity and movement boundary,
   solid wall stop keeping lock/immunity, no tunneling, air dash preserving air jump,
   `S`+`Shift` and `W`+`Shift` priority with eligible and rejected `S`/`W`, post-dash
-  voluntary clamp without erasing received X, ring-out cleanup, and snapshot bounds.
+  voluntary clamp without erasing received X, ring-out cleanup, sandbox dash, snapshot
+  bounds, and row writes only when the displayed Dash value changes.
 - **Explain:** Quantizing sub-tick immunity to the first 25 ms boundary at or after 180 ms
   avoids early expiry without adding a separate clock.
 - **Commit:** `feat(dash): add directional dash with quantized immunity`.
@@ -1021,11 +1030,13 @@ without premature projectile or Nova state.
   per-match storage keyed by player ID, which later ability cooldowns (74, 75, 77) join.
   Advance existing cooldowns during running `:active` and `:respawning` ticks, pause them
   in `:waiting`/`:countdown`/`:finished`, preserve them across `step-respawn`, and reset
-  them to zero on `start-match` and `reset-match` (never inherited by new connections).
-  Update exact `protocol/snapshot-message?` bounds.
+  them to zero on `start-match` and `reset-match` (never inherited by new connections). In
+  the local sandbox, cooldowns advance on every local tick and reset with the sandbox
+  world. Update exact `protocol/snapshot-message?` bounds and `docs/matches.md`.
 - **Verify:** The Dash cooldown decrements during the three-second respawn delay, survives
   respawn, pauses outside running ticks, resets on fresh matches, is not inherited by a
-  new connection, and snapshots reject negative/nonfinite/out-of-range values.
+  new connection, resets with the sandbox world, and snapshots reject
+  negative/nonfinite/out-of-range values.
 - **Explain:** Per-match cooldowns outlive an individual stock while still measuring
   processed running simulation time.
 - **Commit:** `feat(abilities): preserve match-scoped timers across respawns`.
@@ -1041,10 +1052,13 @@ without premature projectile or Nova state.
   Preserve existing received velocity, gravity, movement, contacts, and ring-outs.
   Spawn/dash immunity takes precedence over `Q`. Expire before hit evaluation at zero;
   ring-out clears active `Q` while its match-scoped cooldown continues. Extend exact
-  `protocol/snapshot-message?` fields and bounds for active `Q` and its cooldown.
+  `protocol/snapshot-message?` fields and bounds for active `Q` and its cooldown. Draw a
+  neutral dashed ring around a body with active `Q`, show `Q` remaining seconds and
+  cooldown in retained rows, and add Q to `#controls`. Update `docs/combat.md`.
 - **Verify:** Exact 200-tick expiry boundary, percentage gain with zero new impulse, prior
   received motion preserved, immunity precedence, coexistence with activation-tick
-  dash/attack, ring-out cleanup with continuing cooldown, and snapshot bounds.
+  dash/attack, ring-out cleanup with continuing cooldown, snapshot bounds, and line dash
+  reset after the ring.
 - **Explain:** Suppressing new impulses while retaining percentage growth and prior
   momentum creates a bounded defensive trade-off.
 - **Commit:** `feat(abilities): add antiknockback duration and impulse suppression`.
@@ -1057,21 +1071,24 @@ without premature projectile or Nova state.
   without spending cooldown. Coexists with `Q`, locomotion (including starting a dash),
   and one offensive action; rejected during an active dash. Does not restore stocks,
   change velocity, grant air jumps, grant or end protection, or reset cooldowns. Keep full
-  floating-point precision in simulation and `match/result-for` comparisons (display
-  rounding arrives at checkpoint 85). Extend exact `protocol/snapshot-message?` bounds for
-  the match-scoped `E` cooldown.
+  floating-point precision in simulation, snapshots, and `match/result-for` comparisons.
+  Format displayed percentages in player rows and `#match-standings` to at most one
+  decimal, omitting a trailing `.0`. Extend exact `protocol/snapshot-message?` bounds for
+  the match-scoped `E` cooldown, show `E` readiness/cooldown in retained rows, and add E
+  to `#controls`. Update `docs/combat.md`.
 - **Verify:** `80% -> 56%`, `20% -> 14%`, `0%` rejected without cooldown, same-tick hit
-  uses reduced `P`, prior knockback unchanged, and unrounded float tie comparison in
-  `match/result-for`.
+  uses reduced `P`, prior knockback unchanged, unrounded float tie comparison in
+  `match/result-for`, and labels such as `56 %`, `7 %`, and `17.5 %` (never
+  `7.000000000000001 %`).
 - **Explain:** Applying recovery before movement and damage ensures simultaneous hits
   scale from the healed percentage without rewriting past impulses.
 - **Commit:** `feat(abilities): add relative percentage recovery`.
 
 ## Milestone 10 — Unified combat and Impulse grenade
 
-Checkpoints **76–78**. Unify multi-source hit resolution, capture transient
-piecewise trajectories during platform collision, and implement the swept R
-projectile.
+Checkpoints **76–78**. Unify multi-source hit resolution, launch the R
+projectile, then capture transient piecewise trajectories so grenade contacts
+can be swept.
 
 ### 76 — Unify multi-source hit resolution
 
@@ -1083,7 +1100,7 @@ projectile.
   the target's final post-hit `P`, sum impulses by axis, and apply after movement. Enforce
   `immunity > Q` precedence and route melee through one offensive-selection step (at most
   one accepted offensive action per player per tick) that grenade (77) and Nova (81)
-  extend. Melee behavior is unchanged.
+  extend. Melee behavior is unchanged. Update `docs/combat.md` and `docs/architecture.md`.
 - **Verify:** All existing melee/knockback/protection/Q regressions pass; simultaneous
   multi-attacker hits are independent of player-map order; exact-once source consumption
   and replay safety.
@@ -1091,47 +1108,54 @@ projectile.
   simultaneous multi-source hits independent of player-map order.
 - **Commit:** `refactor(combat): unify multi-source hit resolution`.
 
-### 77 — Record piecewise trajectories and launch Impulse grenades
+### 77 — Launch Impulse grenades with flight and lifecycle
 
 - **Status:** Pending.
-- **Implement / result:** Return transient per-tick collision-resolved piecewise movement
-  segments from `collide-platforms` (not persisted in snapshots). Introduce pure
-  `projectile.cljc` for grenade spawn, ballistic flight, and lifecycle. Add `:projectiles`
-  and `:next-event-id` to world and exact `protocol/snapshot-message?` validation
-  (requiring empty `:projectiles` outside `:running`, including `:finished`). Accept `R`
-  (`13` s / `520`-tick cooldown, at most one live grenade per owner, `R > melee` offensive
+- **Implement / result:** Introduce pure `projectile.cljc` for grenade spawn, ballistic
+  flight, and lifecycle. Add `:projectiles` and `:next-event-id` to world and exact
+  `protocol/snapshot-message?` validation (requiring empty `:projectiles` outside
+  `:running`, including `:finished`). Accept `R` (`13` s / `520`-tick match-scoped
+  cooldown with snapshot bounds, at most one live grenade per owner, `R > melee` offensive
   priority, ends existing spawn protection before targeting that tick) to spawn a
   radius-`6` projectile at `(x + facing*22, y - 8)` with velocity `(facing*320, -260)`
   units/s, gravity `600` units/s², and `1.5` s (`60` flight ticks) max lifetime. A newly
-  spawned grenade neither moves nor ages on its creation tick. Remove without detonation
-  on strict whole-circle blast-bounds exit (radius `6`), owner stock loss, owner
-  departure, or match finish; ownership follows player ID, never reused color.
-- **Verify:** Spawn geometry/velocity, creation-tick stillness, one-live-grenade cap,
-  spawn-protection cancellation on cast, owner loss/forfeit/match-finish removal without
-  detonation, and strict snapshot schema validation.
-- **Explain:** Recording collision-resolved segments per tick prepares swept projectile
-  and ledge queries without adding transient geometry to network snapshots.
+  spawned grenade neither moves nor ages on its creation tick. Until 78 it passes through
+  platforms and players, and lifetime expiry removes it without detonation. Remove without
+  detonation on strict whole-circle blast-bounds exit (radius `6`), owner stock loss,
+  owner departure, or match finish; ownership follows player ID, never reused color. Draw
+  live grenades as neutral radius-`6` circles, show `R` readiness/cooldown in retained
+  rows, and add R to `#controls`. Update `docs/combat.md`, `docs/networking.md`, and
+  `docs/architecture.md`.
+- **Verify:** Spawn geometry/velocity, creation-tick stillness, ballistic positions,
+  60-tick expiry removal, one-live-grenade cap, spawn-protection cancellation on cast,
+  owner loss/forfeit/match-finish removal without detonation, and strict snapshot schema
+  validation.
+- **Explain:** Separating projectile lifecycle from contact sweeping keeps each grenade
+  step small and observable.
 - **Commit:** `feat(grenade): spawn impulse grenades with flight and lifecycle`.
 
 ### 78 — Sweep grenade contacts and detonate impulse blasts
 
 - **Status:** Pending.
-- **Implement / result:** Extend `projectile.cljc` to sweep pre-existing grenades over
-  `[0, dt]` against strict radius-`6` blast-bounds exit, solid surfaces, descending
-  semisolid tops/upper endpoints, active post-ring-out opponents' piecewise paths, and
-  lifetime expiry. Exact bounds-exit ties remove without detonation; otherwise detonate
-  once at earliest contact, breaking ties by stable event/platform/player IDs. Rising
-  traversal and semisolid sides/undersides remain passable; no bouncing, piercing,
-  cooking, or chain reactions. Protected opponents still trigger detonation physically
-  without taking hit effects; owners never trigger or suffer their own grenade. Detonate
-  through `combat.cljc`: inclusive `100` px center-to-center radius, no platform
-  occlusion, `+35` percentage points, trial impulse `K = (300 + 4P) * (1 - 0.4 * d /
-  100)`. Add the shared radial upward-bias direction `normalize(dx, dy - 0.35*d)` scaled
-  by `K`, with full-`K` `(0.8*facing-sign, -0.6)` fallback at `d = 0`.
+- **Implement / result:** Return transient per-tick collision-resolved piecewise movement
+  segments from `collide-platforms` (not persisted in snapshots). Extend `projectile.cljc`
+  to sweep pre-existing grenades over `[0, dt]` against strict radius-`6` blast-bounds
+  exit, solid surfaces, descending semisolid tops/upper endpoints, active post-ring-out
+  opponents' piecewise paths, and lifetime expiry, which now detonates. Exact bounds-exit
+  ties remove without detonation; otherwise detonate once at earliest contact, breaking
+  ties by stable event/platform/player IDs. Rising traversal and semisolid
+  sides/undersides remain passable; no bouncing, piercing, cooking, or chain reactions.
+  Protected opponents still trigger detonation physically without taking hit effects;
+  owners never trigger or suffer their own grenade. Detonate through `combat.cljc`:
+  inclusive `100` px center-to-center radius, no platform occlusion, `+35` percentage
+  points, trial impulse `K = (300 + 4P) * (1 - 0.4 * d / 100)`. Add the shared radial
+  upward-bias direction `normalize(dx, dy - 0.35*d)` scaled by `K`, with full-`K`
+  `(0.8*facing-sign, -0.6)` fallback at `d = 0`. Update `docs/combat.md` and
+  `docs/simulation.md`.
 - **Verify:** Moving-opponent swept hit without tunneling, bounds-exit tie precedence,
-  protected physical trigger with zero effect, radial vector angles, `d = 0` fallback
-  without division by zero, distance falloff at `d = 0` and `d = 100`, owner exclusion,
-  and simultaneous melee+grenade final-`P` scaling independent of order.
+  expiry detonation, protected physical trigger with zero effect, radial vector angles, `d
+  = 0` fallback without division by zero, distance falloff at `d = 0` and `d = 100`, owner
+  exclusion, and simultaneous melee+grenade final-`P` scaling independent of order.
 - **Explain:** Sweeping against piecewise opponent paths prevents fast grenades and moving
   targets from passing through each other between ticks.
 - **Commit:** `feat(grenade): sweep contacts and detonate impulse blasts`.
@@ -1145,22 +1169,25 @@ blast.
 ### 79 — Attribute ring-out eliminations and self-falls
 
 - **Status:** Pending.
-- **Implement / result:** Add running `:simulation-time` (processed running simulation
-  seconds, reset on match start). Record each player's latest tick in which eligible
-  opponent hits increased percentage (selecting the opponent adding the most percentage
-  that tick; exact tie chooses the smaller numeric `:player-N` suffix; `Q`-blocked hits
-  qualify; immune hits do not; `E`/`Q` preserve history; respawn clears it). On ring-out,
-  credit one elimination if the recorded tick is at most `8` processed seconds (`320`
-  ticks) old and its selected owner is still a nonforfeited contender (no fallback to an
-  older attacker); otherwise record a self-fall. Evaluate from the common pre-loss roster
-  before committing losses/credits together (simultaneous last-stock attackers may earn
-  credit; exiting players cannot gain credit from pending strikes; forfeits award
-  neither). Store `:eliminations` and `:self-falls` per contender and capture them in
-  final `:standings` without changing winner ranking (still stocks, unrounded percentage,
-  exact draw). Update `protocol/snapshot-message?`.
-- **Verify:** Exact 320-tick cutoff, simultaneous multi-attacker tie-breaking,
-  forfeited-attacker no-fallback rule, simultaneous final-stock eliminations, unchanged
-  victory ranking, and captured standings validation.
+- **Implement / result:** Count processed running ticks in an integer `:simulation-tick`
+  (reset on match start) so attribution age comparisons are exact. Record each player's
+  latest tick in which eligible opponent hits increased percentage (selecting the opponent
+  adding the most percentage that tick; exact tie chooses the smaller numeric `:player-N`
+  suffix; `Q`-blocked hits qualify; immune hits do not; `E`/`Q` preserve history; respawn
+  clears it). On ring-out, credit one elimination if the recorded tick is at most `320`
+  ticks (`8` processed seconds) old and its selected owner is still a nonforfeited
+  contender (no fallback to an older attacker); otherwise record a self-fall. Evaluate
+  from the common pre-loss roster before committing losses/credits together (simultaneous
+  last-stock attackers may earn credit; exiting players cannot gain credit from pending
+  strikes; forfeits award neither). Store `:eliminations` and `:self-falls` per contender
+  and capture them in final `:standings` without changing winner ranking (still stocks,
+  unrounded percentage, exact draw). Update `protocol/snapshot-message?`. Show
+  eliminations/self-falls in retained rows and `#match-standings`. Update
+  `docs/matches.md`.
+- **Verify:** Exact 320-tick cutoff (credit at 320, self-fall at 321), simultaneous
+  multi-attacker tie-breaking, forfeited-attacker no-fallback rule, simultaneous
+  final-stock eliminations, unchanged victory ranking, and captured standings validation
+  and display.
 - **Explain:** Recording attribution history separately from match ranking tracks
   eliminations cleanly without altering tiebreak rules.
 - **Commit:** `feat(match): attribute ring-out eliminations and self-falls`.
@@ -1173,11 +1200,13 @@ blast.
   reconnect) and validate bounds in `protocol/snapshot-message?`. Generate `+0.5` per
   percentage point actually dealt by melee/grenade (capped at `+20` per source event),
   `+0.2` per percentage point actually received from melee/grenade (capped at `+5` per
-  tick), and `+15` per credited elimination, clamped to `[0, 100]`. Grant zero charge from
-  `E` healing, immune misses, self-falls, forfeits, waiting, or time passing.
+  tick), and `+15` per credited elimination, clamped to `[0, 100]`. `Q`-blocked hits still
+  generate charge from their percentage gain. Grant zero charge from `E` healing, immune
+  misses, self-falls, forfeits, waiting, or time passing. Show a `0–100` Nova charge label
+  and neutral bar in retained rows. Update `docs/combat.md`.
 - **Verify:** Melee (`+5`/target), grenade (`+17.5`/target, multi-target `+20` event cap),
-  received damage `+5`/tick cap, `+15` elimination credit, clamp at `100`, respawn
-  persistence, and match reset.
+  received damage `+5`/tick cap, `Q`-blocked hit charge, `+15` elimination credit, clamp
+  at `100`, respawn persistence, and match reset.
 - **Explain:** Capping damage charge per event and per tick prevents multi-hit spikes from
   instantly refilling Nova.
 - **Commit:** `feat(nova): accumulate match-scoped nova charge`.
@@ -1196,7 +1225,9 @@ blast.
   ring-outs, detonate once at the active owner's center through `combat.cljc`: inclusive
   `125` px radius, `+65` percentage points, trial impulse `K = (400 + 4P) * (1 - 0.4 * d /
   125)`, owner excluded, no line-of-sight check, zero damage-based charge (later credited
-  eliminations still award `+15`).
+  eliminations still award `+15`). Draw an expanding neutral outline toward `125` px
+  during windup, show windup state in retained rows, and add F to `#controls`. Update
+  `docs/combat.md`.
 - **Verify:** Exact 100-charge gating, 10-tick windup boundary, hit resilience during
   windup, ring-out/forfeit/match-finish cancellation without refund or frozen live timer,
   distance falloff, zero Nova damage charge, and single resolution.
@@ -1222,11 +1253,16 @@ recovery on `:main` without enabling stalling.
   anchors at `(154, 296)` / `(646, 296)`. Clear motion, suspend gravity, enforce `1` s
   (`40` later ticks) max hang (expiry releases from the anchor with `vy = 0` and resumes
   gravity), grant no immunity/healing/air jump, and reject melee and new abilities while
-  hanging (existing timers and attribution history continue). Validate ledge state in
-  `protocol/snapshot-message?`.
+  hanging (existing timers and attribution history continue). A successful unblocked hit
+  releases the hang and applies its normal percentage/impulse; a `Q`-blocked impulse alone
+  does not release the anchor. `W`, `S`, and held-away input stay ignored while hanging
+  until 83. Validate ledge state in `protocol/snapshot-message?`. Draw a neutral hang
+  indicator and show ledge state in retained rows. Update `docs/simulation.md` and
+  `docs/architecture.md`.
 - **Verify:** Swept fast approach without skipping capture, holding away blocks grab,
   solid-blocked interior paths cannot grab, spawn lock cannot grab, single grab per
-  supported landing, 40-tick hang deadline, and action lock during hang.
+  supported landing, 40-tick hang deadline, action lock during hang, and unblocked hit
+  release vs `Q`-blocked retention.
 - **Explain:** Evaluating capture along collision-resolved segments keeps ledge grabs
   physically consistent with solid walls.
 - **Commit:** `feat(ledge): capture and hang on main platform ledges`.
@@ -1243,56 +1279,55 @@ recovery on `:main` without enabling stalling.
   the hang deadline expires mid-climb). Completion is a real supported top landing
   restoring air jump and grab availability. During climb, `S` or held away cancels before
   advancing that tick's climb step: release from current position without snapping back to
-  anchor, clear voluntary motion, and resume normal physics once. Unblocked hits release
-  hang/climb and apply normal percentage/impulse; `Q`-blocked impulse alone does not
-  release the anchor. Climbing rejects melee and new abilities like hanging and remains
-  vulnerable. Death/reset clears ledge state.
+  anchor, clear voluntary motion, and resume normal physics once. Unblocked hits also
+  release a climb; climbing rejects melee and new abilities like hanging and remains
+  vulnerable. Death/reset clears ledge state. Extend the ledge indicator and row state to
+  climbing, and describe ledge W/S in `#controls`. Update `docs/simulation.md`.
 - **Verify:** Two-stage climb clearance and blocked-climb fallback, climb completion
   restoring air jump and grab, mid-climb cancel without snap-back, `S` over `W` priority,
-  unblocked hit release vs `Q`-blocked retention, and no indefinite regrabbing.
+  hit release during climb, and no indefinite regrabbing.
 - **Explain:** Bounding hang time, climb clearance, and regrab eligibility provides
   recovery without allowing invulnerable stalling.
 - **Commit:** `feat(ledge): add two-stage climb and release rules`.
 
-## Milestone 13 — Monochrome ability presentation, verification, and guides
+## Milestone 13 — Monochrome consolidation, verification, and guides
 
-Checkpoints **84–87**. Render all new mechanics strictly within the monochrome
-design system, preserve DOM retention performance, verify end-to-end multiplayer
-behavior, and update guides.
+Checkpoints **84–87**. Consolidate the cues and HUD fields added by 72–83 within
+the monochrome design system, preserve DOM retention performance, verify
+end-to-end multiplayer behavior, and finish the guides.
 
-### 84 — Draw monochrome ability, projectile, and ledge cues
+### 84 — Harmonize monochrome ability, projectile, and ledge cues
 
 - **Status:** Pending.
-- **Implement / result:** Draw strictly grayscale (`#f2f2f2`/`#b3b3b3`/`#9c9c9c`) cues in
-  `client.cljs`, restoring all modified Canvas properties: neutral dashed ring for active
-  `Q`, neutral cue for active Dash/immunity, neutral radius-`6` circle for live grenades,
-  expanding neutral circle outline toward `125` px during Nova windup, and clear visual
-  indicator for ledge hang/climb alongside `Tú` and spawn protection. Keep color
-  restricted strictly to player bodies and small identity swatches.
+- **Implement / result:** Review every Canvas cue added in 72–83 as one set: use only the
+  neutral tokens (`#f2f2f2`/`#b3b3b3`/`#9c9c9c`), keep combined states readable (dash,
+  `Q`, spawn protection, Nova windup, ledge, and `Tú` on one body; overlapping players and
+  grenades), and restore all modified Canvas properties after each cue. Keep color
+  restricted to player bodies and small identity swatches. Update `docs/design-system.md`
+  with the cue vocabulary.
 - **Verify:** Canvas state restoration (including line dash reset to `[]`), monochrome
-  stroke/fill values, visibility in active/windup/ledge states, and absence of cues for
-  inactive or waiting players.
-- **Explain:** Purely neutral geometric cues communicate timers and areas without breaking
-  the player-only color contract.
-- **Commit:** `feat(render): draw monochrome ability, projectile, and ledge cues`.
+  stroke/fill values, combined-state draw order, and absence of cues for inactive or
+  waiting players.
+- **Explain:** Treating the cues as one neutral vocabulary keeps timers and areas legible
+  without breaking the player-only color contract.
+- **Commit:** `feat(render): harmonize monochrome ability, projectile, and ledge cues`.
 
-### 85 — Display ability timers, Nova charge, and eliminations in the retained HUD
+### 85 — Consolidate the retained ability HUD and responsive layout
 
 - **Status:** Pending.
-- **Implement / result:** Format displayed percentages to at most one decimal omitting
-  trailing `.0` while preserving full internal precision. Extend retained player rows in
-  `client.cljs` with compact neutral `Shift`/`Q`/`E`/`R` readiness and remaining
-  cooldowns, `Q` active remaining seconds, Dash/Nova windup/ledge state, `0–100` Nova
-  charge label/bar, and eliminations/self-falls; show eliminations/self-falls in
-  `#match-standings`. Preserve Checkpoint 68's DOM retention and zero-write behavior on
-  unchanged/movement-only frames, including waiting/inactive rows. Update `#controls` help
-  text and responsive styles in `public/index.html` without horizontal overflow.
-- **Verify:** Percentage formatting (`56 %`, `17.5 %`), DOM node/write counts across
-  movement-only frames and fractional timer ticks, waiting/eliminated row labels,
-  standings attribution columns, and monochrome responsive layout.
-- **Explain:** Extending the retained row cache keeps richer match telemetry fast without
-  mutating simulation values.
-- **Commit:** `feat(hud): display ability timers, nova charge, and eliminations`.
+- **Implement / result:** Review the retained-row fields added in 72–83 together
+  (`Shift`/`Q`/`E`/`R` readiness and cooldowns, `Q` remaining seconds, Dash/Nova
+  windup/ledge state, Nova charge bar, eliminations/self-falls) and the attribution
+  columns in `#match-standings`. Preserve Checkpoint 68's DOM retention and zero-write
+  behavior on unchanged/movement-only frames, including waiting/inactive rows. Finalize
+  the `#controls` help text and responsive styles in `public/index.html` without
+  horizontal overflow at phone width. Update `docs/design-system.md` for the HUD layout.
+- **Verify:** DOM node/write counts across movement-only frames and fractional timer ticks
+  with every field present, waiting/eliminated row labels, standings attribution columns,
+  and monochrome responsive layout.
+- **Explain:** Consolidating the retained row cache keeps richer match telemetry fast
+  without mutating simulation values.
+- **Commit:** `feat(hud): consolidate retained ability rows and responsive layout`.
 
 ### 86 — Verify multiplayer abilities, ledge recovery, and attribution
 
@@ -1315,15 +1350,15 @@ behavior, and update guides.
 ### 87 — Document abilities, ledge recovery, and trial-balance checks
 
 - **Status:** Pending.
-- **Implement / result:** Update `README.md`, `docs/combat.md`, `docs/simulation.md`,
-  `docs/matches.md`, `docs/networking.md`, `docs/architecture.md`,
-  `docs/simulation-verification.md`, `docs/multiplayer-verification.md`,
-  `docs/design-system.md`, and `docs/language-guide.md` (keeping the Spanish language
-  guide standalone with self-contained examples and no project code) to reflect the
-  complete 87-checkpoint implementation. Add the manual trial-balance checklist (time to
-  eliminate, useful recovery distance, `Q` uptime, successful `E` uses, grenade hit rate,
-  Nova frequency) clearly distinguishing automated evidence from 2- and 4-player
-  playtests.
+- **Implement / result:** Consolidate the topical guides updated in 71–85
+  (`docs/combat.md`, `docs/simulation.md`, `docs/matches.md`, `docs/networking.md`,
+  `docs/architecture.md`, `docs/design-system.md`) and update `README.md`,
+  `docs/simulation-verification.md`, `docs/multiplayer-verification.md`, and
+  `docs/language-guide.md` (keeping the Spanish language guide standalone with
+  self-contained examples and no project code) to reflect the complete 87-checkpoint
+  implementation. Add the manual trial-balance checklist (time to eliminate, useful
+  recovery distance, `Q` uptime, successful `E` uses, grenade hit rate, Nova frequency)
+  clearly distinguishing automated evidence from 2- and 4-player playtests.
 - **Verify:** Validate local links/anchors, recipe references against `justfile`,
   monochrome contract compliance, and final `just check`.
 - **Explain:** Keeping guides synchronized with implemented checkpoints ensures the
