@@ -231,6 +231,14 @@
          (update-in snapshot [:world :players player-id] assoc :dash-stopped? true)
          (update-in snapshot [:world :players player-id]
                     assoc :dash-ticks-left 3 :lifecycle :respawning :respawn-seconds-left 2)
+         (update-in snapshot [:world :players player-id] dissoc :antiknockback-buffered?)
+         (update-in snapshot [:world :players player-id] assoc :antiknockback-seconds-left 5.1)
+         (update-in snapshot [:world :players player-id] assoc :antiknockback-seconds-left -1)
+         (update-in snapshot [:world :players player-id] assoc :antiknockback-cooldown-left 10.5)
+         (update-in snapshot [:world :players player-id] assoc :antiknockback-cooldown-left nil)
+         (update-in snapshot [:world :players player-id] assoc :antiknockback-buffered? true)
+         (update-in snapshot [:world :players player-id]
+                    assoc :antiknockback-seconds-left 2 :lifecycle :respawning :respawn-seconds-left 2)
          (assoc-in snapshot [:world :players "player-1"]
                    (get-in snapshot [:world :players player-id]))]]
     (testing "the current game factory scene is a complete snapshot"
@@ -245,6 +253,11 @@
            (update-in snapshot [:world :players player-id]
                       assoc :dash-ticks-left 8 :dash-cooldown-left 2.5 :dash-stopped? true))
           "an active dash at its bounds, stopped by a wall, is a valid state")
+      (is (protocol/snapshot-message?
+           (update-in snapshot [:world :players player-id]
+                      assoc :antiknockback-seconds-left 5 :antiknockback-cooldown-left 10
+                      :dash-ticks-left 4 :antiknockback-buffered? true))
+          "an active Q at its bounds and a Q buffered during a dash are valid")
       (is (nil? (:drop-through-platform-id
                  (get-in snapshot [:world :players player-id])))
           "the valid nullable platform state remains present in factory players"))

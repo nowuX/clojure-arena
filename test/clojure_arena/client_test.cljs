@@ -832,3 +832,30 @@
     (is (= "Dash activo" (client/dash-label (assoc player :dash-ticks-left 3))))
     (is (= "Dash en 3 s" (client/dash-label (assoc player :dash-cooldown-left 2.4))))
     (is (= "Dash en 1 s" (client/dash-label (assoc player :dash-cooldown-left 0.025))))))
+
+
+(deftest antiknockback-label-shows-active-buffered-cooldown-and-ready-states
+  (let [player (game/make-player "#22d3ee" 0 0)]
+    (is (= "Q lista" (client/antiknockback-label player)))
+    (is (= "Q activa 5 s" (client/antiknockback-label (assoc player :antiknockback-seconds-left 4.2))))
+    (is (= "Q tras el Dash" (client/antiknockback-label (assoc player :dash-ticks-left 3
+                                                               :antiknockback-buffered? true))))
+    (is (= "Q en 7 s" (client/antiknockback-label (assoc player :antiknockback-cooldown-left 6.1))))))
+
+(deftest antiknockback-ring-restores-the-canvas-line-style
+  (let [dashes (atom [])
+        arcs (atom 0)
+        context #js {:strokeStyle "#000000" :lineWidth 1
+                     :getLineDash (fn [] #js [])
+                     :setLineDash (fn [pattern] (swap! dashes conj (vec pattern)))
+                     :beginPath (fn []) :stroke (fn [])
+                     :arc (fn [& _] (swap! arcs inc))}
+        canvas #js {:getContext (fn [_] context)}
+        player (assoc (game/make-player "#22d3ee" 100 100) :antiknockback-seconds-left 3)]
+    (client/draw-antiknockback-cue canvas (assoc player :antiknockback-seconds-left 0))
+    (is (zero? @arcs) "no ring without an active Q")
+    (client/draw-antiknockback-cue canvas player)
+    (is (= 1 @arcs))
+    (is (= [[4 4] []] @dashes) "the dash pattern is restored after the ring")
+    (is (= "#000000" (.-strokeStyle context)))
+    (is (= 1 (.-lineWidth context)))))

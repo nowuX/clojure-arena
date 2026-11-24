@@ -198,8 +198,8 @@ concrete defaults for a future implementation, not measured optimal balance.
   The server checks eligibility and owns every effect and countdown.
 - An accepted activation starts its full cooldown immediately. Do not decrement
   a new cooldown on that activation tick. Existing timers advance only through
-  processed running simulation time, including during respawn; pause them in
-  waiting/countdown/finished phases. Rejected requests consume no cooldown.
+  processed active simulation ticks and pause in waiting/countdown/finished
+  phases. Cooldowns belong to the physical body, so respawn resets them. Rejected requests consume no cooldown.
 - Normal gameplay still samples hits at 25 ms boundaries. The nominal 180 ms
   dash immunity therefore expires at the first boundary at or after 180 ms:
   200 ms after activation at 40 Hz, with no early rounding to 175 ms. Other
@@ -211,7 +211,8 @@ concrete defaults for a future implementation, not measured optimal balance.
 - Accept at most one requested offensive action per player per tick, choosing
   the highest eligible request: Nova, grenade, then melee. Ordinary jumps and
   attacks may coexist. An active dash, Nova windup, ledge hang, or ledge climb
-  rejects all new ability/melee requests; these restrictions do not stop already
+  rejects all new ability/melee requests, except that Q pressed during an active
+  dash is buffered (see Antiknockback); these restrictions do not stop already
   active Q/protection timers or an already launched grenade.
 - After movement and all ring-outs, resolve eligible melee hits and explosions
   from the same player snapshot. Each selected hit has a unique source event
@@ -249,8 +250,9 @@ concrete defaults for a future implementation, not measured optimal balance.
   normally, so total speed can differ from 400. Preserve vertical velocity,
   gravity, and the remaining air-jump allowance. Air dashing is allowed.
 - Ignore steering, jumps, drops, attacks, and new ability requests while the
-  dash is already active. No cancellation or action buffering. Accepted Q/E on
-  the activation tick may coexist because their effects precede locomotion.
+  dash is already active. No cancellation, and no action buffering except Q.
+  Accepted Q/E on the activation tick may coexist because their effects
+  precede locomotion.
 - Sweep ordinary solid contacts. A solid contact whose normal has a nonzero
   X component stops dash travel, resolves total/received motion, and consumes
   remaining movement for that tick. Keep the input lock and immunity until
@@ -273,6 +275,11 @@ attack during the dash itself.
 - **Active duration:** 5 seconds, or 200 ticks. **Cooldown:** 10 seconds, or
   400 ticks, from acceptance; this leaves 5 seconds without Q if reused as soon
   as possible. No stacking, refresh, or repeated activation while held.
+- A Q press during an already active dash is buffered rather than rejected. On
+  the first tick after the dash ends, before movement and damage, it activates
+  if Q is still eligible (active unlocked body, ready cooldown); otherwise it is
+  discarded. Ring-out clears a buffered request. Q pressed on the dash's own
+  activation tick is evaluated immediately and needs no buffer.
 - Every otherwise eligible melee/grenade/Nova hit still adds percentage.
   Suppress that hit's complete new impulse on both axes. Consume and attribute
   the hit normally; actual percentage gain may contribute Nova charge.
@@ -281,7 +288,7 @@ attack during the dash itself.
   normally. Q prevents new launching, not the consequences of earlier hits.
 - Q expires before hit eligibility is evaluated at zero. Incoming impulses
   apply immediately on that tick. Ring-out/respawn clears the active Q effect;
-  its per-match cooldown continues rather than resetting.
+  the respawned body starts with a ready Q cooldown.
 
 Keeping percentage gain makes prolonged Q use increase vulnerability after the
 protection expires. A neutral dashed outline and remaining-seconds label
@@ -424,12 +431,11 @@ immunity removes both contributions from otherwise geometrically valid hits.
 
 ### Cross-life resets, attribution, and presentation
 
-Power cooldowns and Nova charge are per-match values associated with a player
-ID, separate from its resettable physical body. Preserve charge across a stock
-loss; keep decrementing existing cooldowns during the running respawn delay.
-Loss clears active dash/Q/cast/ledge state and removes owned grenades. Respawn
-still resets core physical/melee state and grants its specified spawn lock and
-protection. A fresh match resets power cooldowns and charge to zero; a new
+Nova charge is a per-match value associated with a player ID, separate from
+its resettable physical body; power cooldowns belong to the body. Preserve
+charge across a stock loss. Loss clears active dash/Q/cast/ledge state and
+removes owned grenades. Respawn resets core physical/melee state and power
+cooldowns and grants its specified spawn lock and protection. A fresh match resets power cooldowns and charge to zero; a new
 connection never inherits either. On match finish, remove grenades and cancel
 pending Nova casts without refunds, then freeze the remaining character-effect
 and cooldown timers with the result. A canceled cast/projectile has no remaining

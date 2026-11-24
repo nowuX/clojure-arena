@@ -21,7 +21,9 @@
                      :drop-through-platform-id :melee-cooldown-left
                      :melee-strike-id :melee-resolved-strike-id
                      :melee-target-ids :accumulated-percentage :radius :color
-                     :dash-ticks-left :dash-cooldown-left :dash-stopped?})
+                     :dash-ticks-left :dash-cooldown-left :dash-stopped?
+                     :antiknockback-seconds-left :antiknockback-cooldown-left
+                     :antiknockback-buffered?})
 
 (defn player-input? [input]
   (and (map? input)
@@ -106,12 +108,25 @@
          (or (zero? ticks-left) (= :active (:lifecycle player)))
          (or (pos? ticks-left) (not (:dash-stopped? player))))))
 
+(defn- antiknockback-state? [player]
+  (let [seconds-left (:antiknockback-seconds-left player)
+        cooldown (:antiknockback-cooldown-left player)
+        buffered? (:antiknockback-buffered? player)]
+    (and (finite-number? seconds-left)
+         (<= 0 seconds-left game/antiknockback-duration)
+         (finite-number? cooldown)
+         (<= 0 cooldown game/antiknockback-cooldown)
+         (boolean? buffered?)
+         (or (zero? seconds-left) (= :active (:lifecycle player)))
+         (or (not buffered?) (pos? (:dash-ticks-left player 0))))))
+
 (defn- player? [player semisolid-platform-ids]
   (let [drop-through-id (:drop-through-platform-id player)]
     (and (map? player)
          (= player-fields (set (keys player)))
          (stock-state? player)
          (dash-state? player)
+         (antiknockback-state? player)
          (every? finite-number?
                  (map player [:x :y :spawn-x :spawn-y :vx :vy :knockback-vx :knockback-vy
                               :melee-cooldown-left :accumulated-percentage

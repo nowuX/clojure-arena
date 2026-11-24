@@ -197,6 +197,26 @@
           (set! (.-strokeStyle context) previous-stroke)
           (set! (.-lineWidth context) previous-width))))))
 
+(defn draw-antiknockback-cue
+  "Draws a neutral dashed ring while Q suppresses new impulses."
+  [canvas {:keys [x y radius] :as player}]
+  (when (game/antiknockback-active? player)
+    (let [context (.getContext canvas "2d")
+          previous-stroke (.-strokeStyle context)
+          previous-width (.-lineWidth context)
+          previous-dash (.getLineDash context)]
+      (try
+        (set! (.-strokeStyle context) "#f2f2f2")
+        (set! (.-lineWidth context) 2)
+        (.setLineDash context #js [4 4])
+        (.beginPath context)
+        (.arc context x y (+ radius 10) 0 (* 2 js/Math.PI))
+        (.stroke context)
+        (finally
+          (set! (.-strokeStyle context) previous-stroke)
+          (set! (.-lineWidth context) previous-width)
+          (.setLineDash context previous-dash))))))
+
 (defn- drawable-player? [match player-id player]
   (and (game/active-player? player)
        (or (nil? match)
@@ -230,6 +250,7 @@
             :when (drawable-player? match player-id player)]
       (draw-dash-cue canvas player)
       (draw-player canvas player)
+      (draw-antiknockback-cue canvas player)
       (when (= player-id controlled-id)
         (draw-controlled-player-label canvas player)))))
 
@@ -249,6 +270,15 @@
     (pos? (:dash-cooldown-left player 0))
     (str "Dash en " (js/Math.ceil (:dash-cooldown-left player)) " s")
     :else "Dash listo"))
+
+(defn antiknockback-label [player]
+  (cond
+    (game/antiknockback-active? player)
+    (str "Q activa " (js/Math.ceil (:antiknockback-seconds-left player)) " s")
+    (:antiknockback-buffered? player) "Q tras el Dash"
+    (pos? (:antiknockback-cooldown-left player 0))
+    (str "Q en " (js/Math.ceil (:antiknockback-cooldown-left player)) " s")
+    :else "Q lista"))
 
 (defn- panel-state-label [player-id player match]
   (case (:phase match)
@@ -270,18 +300,19 @@
         percentage (.createElement js/document "span")
         stocks (.createElement js/document "span")
         state (.createElement js/document "span")
-        dash (.createElement js/document "span")]
+        dash (.createElement js/document "span")
+        antiknockback (.createElement js/document "span")]
     (set! (.-className row) "player-row")
     (set! (.-className swatch) "player-swatch")
     (.setAttribute swatch "aria-hidden" "true")
     (set-text! label (name player-id))
-    (doseq [element [swatch label percentage stocks state dash]]
+    (doseq [element [swatch label percentage stocks state dash antiknockback]]
       (.appendChild row element))
     {:row row :swatch swatch :label label :percentage percentage
-     :stocks stocks :state state :dash dash}))
+     :stocks stocks :state state :dash dash :antiknockback antiknockback}))
 
 (defn- update-player-row! [entry player-id player match controlled-id]
-  (let [{:keys [row swatch percentage stocks state dash]} entry
+  (let [{:keys [row swatch percentage stocks state dash antiknockback]} entry
         color (:color player)
         controlled? (= player-id controlled-id)
         row-class (str "player-row" (when controlled? " player-row-local"))
@@ -298,6 +329,7 @@
                           (if (= 1 (:stocks player)) " oportunidad" " oportunidades")))
     (set-text! state (panel-state-label player-id player match))
     (set-text! dash (dash-label player))
+    (set-text! antiknockback (antiknockback-label player))
     (assoc entry :color color)))
 
 (defn render-players! [{:keys [players match]}]

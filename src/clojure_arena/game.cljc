@@ -20,6 +20,9 @@
 (def dash-ticks 8)
 (def dash-cooldown 2.5)
 
+(def antiknockback-duration 5)
+(def antiknockback-cooldown 10)
+
 (defn make-player [color x y]
   {:x x :y y :spawn-x x :spawn-y y
    :vx 0 :vy 0 :knockback-vx 0 :knockback-vy 0 :radius 16
@@ -30,7 +33,9 @@
    :accumulated-percentage 0
    :stocks initial-stocks :lifecycle :active
    :respawn-seconds-left 0 :protection-seconds-left 0
-   :dash-ticks-left 0 :dash-cooldown-left 0 :dash-stopped? false})
+   :dash-ticks-left 0 :dash-cooldown-left 0 :dash-stopped? false
+   :antiknockback-seconds-left 0 :antiknockback-cooldown-left 0
+   :antiknockback-buffered? false})
 
 (def local-player-fixtures
   {:player-1 (make-player "#22d3ee" 400 160)
@@ -66,6 +71,11 @@
   "True from the activation tick through the eighth dash tick, including hit evaluation."
   [player]
   (and (active-player? player) (pos? (:dash-ticks-left player 0))))
+
+(defn antiknockback-active?
+  "Q suppresses new hit impulses while still allowing percentage gains."
+  [player]
+  (and (active-player? player) (pos? (:antiknockback-seconds-left player 0))))
 
 (defn immune-player?
   "Spawn protection and an active dash both block percentage and impulse."
@@ -106,6 +116,7 @@
              :respawn-seconds-left (if (pos? stocks) respawn-delay 0)
              :protection-seconds-left 0
              :dash-ticks-left 0 :dash-stopped? false
+             :antiknockback-seconds-left 0 :antiknockback-buffered? false
              :vx 0 :vy 0 :knockback-vx 0 :knockback-vy 0
              :spawn-locked? true :air-jumps-left 1
              :drop-through-platform-id nil :melee-cooldown-left 0
@@ -425,6 +436,27 @@
            :dash-stopped? (and (pos? ticks-left) (:dash-stopped? player false))
            :dash-cooldown-left (remaining-seconds (:dash-cooldown-left player 0) dt))))
 
+(defn- advance-antiknockback [player dt]
+  (assoc player
+         :antiknockback-seconds-left (remaining-seconds (:antiknockback-seconds-left player 0) dt)
+         :antiknockback-cooldown-left (remaining-seconds (:antiknockback-cooldown-left player 0) dt)))
+
+(defn- resolve-antiknockback
+  "Accepts Q before movement and damage. A request during an active dash is
+  buffered and retried on the first tick after the dash ends."
+  [player requested? dash-active?]
+  (let [wanted? (or requested? (:antiknockback-buffered? player false))]
+    (cond
+      (not wanted?) player
+      (antiknockback-active? player) (assoc player :antiknockback-buffered? false)
+      dash-active? (assoc player :antiknockback-buffered? true)
+      (and (not (:spawn-locked? player))
+           (zero? (:antiknockback-cooldown-left player 0)))
+      (assoc player :antiknockback-seconds-left antiknockback-duration
+             :antiknockback-cooldown-left antiknockback-cooldown
+             :antiknockback-buffered? false)
+      :else (assoc player :antiknockback-buffered? false))))
+
 (defn- start-dash [player]
   (assoc player :dash-ticks-left dash-ticks :dash-cooldown-left dash-cooldown
          :dash-stopped? false))
@@ -433,14 +465,16 @@
   (max (- horizontal-speed) (min horizontal-speed vx)))
 
 (defn step-player [player platforms
-                   {:keys [horizontal jump? drop? attack? dash?]
-                    :or {horizontal 0 jump? false drop? false attack? false dash? false}} dt]
+                   {:keys [horizontal jump? drop? attack? dash? antiknockback?]
+                    :or {horizontal 0 jump? false drop? false attack? false dash? false
+                         antiknockback? false}} dt]
   (if-not (active-player? player)
     player
     (let [player (clear-drop-through player platforms)
           dash-ended? (= 1 (:dash-ticks-left player 0))
-          player (advance-dash player dt)
+          player (-> player (advance-dash dt) (advance-antiknockback dt))
           dash-active? (pos? (:dash-ticks-left player))
+          player (resolve-antiknockback player antiknockback? dash-active?)
           locked? (:spawn-locked? player)
           horizontal (if (or locked? dash-active?) 0 horizontal)
           player (cond
@@ -509,12 +543,14 @@
               {:keys [dvx dvy]} (melee-knockback-impulse facings percentage)]
           (update result target-id
                   (fn [target]
-                    (-> target
-                        (assoc :accumulated-percentage percentage)
-                        (update :vx (fnil + 0) dvx)
-                        (update :vy (fnil + 0) dvy)
-                        (update :knockback-vx (fnil + 0) dvx)
-                        (update :knockback-vy (fnil + 0) dvy))))))
+                    (if (antiknockback-active? target)
+                      (assoc target :accumulated-percentage percentage)
+                      (-> target
+                          (assoc :accumulated-percentage percentage)
+                          (update :vx (fnil + 0) dvx)
+                          (update :vy (fnil + 0) dvy)
+                          (update :knockback-vx (fnil + 0) dvx)
+                          (update :knockback-vy (fnil + 0) dvy)))))))
       resolved hits-by-target)))
 
 (defn step [world inputs-by-player dt]

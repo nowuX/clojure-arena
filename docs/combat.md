@@ -114,3 +114,26 @@ not gravity, motion, platform contacts or ring-outs.
 the activation tick is dash tick 1, hits evaluated on ticks 1–8 are consumed
 without effect, and tick 9 hit evaluation sees a normal target. Like protection,
 a dash-rejected strike never becomes a delayed hit.
+
+## Antiknockback (Q)
+
+A fresh Q press (`:antiknockback? true`) sets `:antiknockback-seconds-left 5`
+and `:antiknockback-cooldown-left 10` for an active, unlocked body whose cooldown
+is zero. It is resolved before locomotion, so it can start on the same tick as a
+dash or a strike; it never ends spawn protection. Both timers decrement at the
+start of every later active tick: Q covers the activation tick plus 199 later
+ticks, expires before hit evaluation on the 200th, and can be used again 400
+ticks after activation. Requests while Q is active neither stack nor refresh.
+
+A Q press during an already active dash sets `:antiknockback-buffered? true`.
+On the first tick after the dash it activates before movement and damage if the
+cooldown is ready, and is discarded otherwise, so the tick 9 hits already meet
+an active Q.
+
+While Q is active, `apply-melee-hits` still adds the hit percentage and consumes
+the strike but adds no impulse to total or received velocity. Earlier received
+motion, gravity, contacts and ring-outs continue normally. Immune targets are
+excluded before Q is considered, so spawn or dash immunity blocks the percentage
+too. A ring-out clears active and buffered Q; the respawned body has a ready
+cooldown. Canvas draws a neutral dashed ring and the panel row shows «Q activa
+N s», «Q tras el Dash», «Q en N s» or «Q lista».

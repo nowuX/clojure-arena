@@ -2,10 +2,11 @@
 
 ## Status and scope
 
-**72 of 87 checkpoints complete.** Checkpoints 01–70 (core route, Milestones
-1–8), 71 (ability intentions) and 72 (Dash) are complete; checkpoints 73–87
-(match-scoped timers, remaining abilities, ledge recovery, attribution, and
-their monochrome presentation) are planned and pending. The target is a
+**73 of 87 checkpoints complete, 1 skipped.** Checkpoints 01–70 (core route,
+Milestones 1–8), 71 (ability intentions), 72 (Dash) and 74 (Antiknockback) are
+complete; 73 (match-scoped timers) was skipped; checkpoints 75–87 (remaining
+abilities, ledge recovery, attribution, and their monochrome presentation) are
+planned and pending. The target is a
 browser platform fighter with a local sandbox and one shared authoritative room
 for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
@@ -86,7 +87,7 @@ only when they own an implemented responsibility.
 | 6 | 50–56 | Stocks, fresh lives, and bounded protection |
 | 7 | 57–66 | Countdown, contenders, clock, results, and rematches |
 | 8 | 67–70 | Clear diagnostics, efficient panel, responsive monochrome UI, concise guides |
-| 9 | 71–75 | Ability input contract, Dash, match-scoped timers, Antiknockback, and percentage recovery |
+| 9 | 71–75 | Ability input contract, Dash, Antiknockback, and percentage recovery (73 skipped) |
 | 10 | 76–78 | Unified multi-source combat, Impulse grenade, and swept piecewise contacts |
 | 11 | 79–81 | Elimination attribution, Nova charge meter, and radial Nova blast |
 | 12 | 82–83 | Swept main-platform ledge capture, hang, and two-stage climb |
@@ -965,9 +966,9 @@ Checkpoints **67–70**. Improve the implemented game without adding mechanics o
 
 ## Milestone 9 — Ability intentions, match timers, and core defensive/mobility powers
 
-Checkpoints **71–75**. Extend the exact input/snapshot contract, add Shift, move
-its cooldown into match-scoped storage that survives respawns, then add Q and E
-without premature projectile or Nova state. From 72 onward, each mechanic ships
+Checkpoints **71–75**. Extend the exact input/snapshot contract, add Shift, then
+add Q and E without premature projectile or Nova state. Checkpoint 73 is
+skipped: ability cooldowns belong to the physical body and reset on respawn. From 72 onward, each mechanic ships
 with its minimal neutral Canvas cue, retained HUD field, `#controls` help, and
 topical guide update, as core checkpoints 34 and 56 did.
 
@@ -1024,41 +1025,32 @@ topical guide update, as core checkpoints 34 and 56 did.
   avoids early expiry without adding a separate clock.
 - **Commit:** `feat(dash): add directional dash with quantized immunity`.
 
-### 73 — Preserve match-scoped timers across respawns
+### 73 — Skipped: match-scoped timers
 
-- **Status:** Pending.
-- **Implement / result:** Move the Dash cooldown out of the resettable physical body into
-  per-match storage keyed by player ID, which later ability cooldowns (74, 75, 77) join.
-  Advance existing cooldowns during running `:active` and `:respawning` ticks, pause them
-  in `:waiting`/`:countdown`/`:finished`, preserve them across `step-respawn`, and reset
-  them to zero on `start-match` and `reset-match` (never inherited by new connections). In
-  the local sandbox, cooldowns advance on every local tick and reset with the sandbox
-  world. Update exact `protocol/snapshot-message?` bounds and `docs/matches.md`.
-- **Verify:** The Dash cooldown decrements during the three-second respawn delay, survives
-  respawn, pauses outside running ticks, resets on fresh matches, is not inherited by a
-  new connection, resets with the sandbox world, and snapshots reject
-  negative/nonfinite/out-of-range values.
-- **Explain:** Per-match cooldowns outlive an individual stock while still measuring
-  processed running simulation time.
-- **Commit:** `feat(abilities): preserve match-scoped timers across respawns`.
+- **Status:** Skipped. Ability cooldowns stay on the physical body and reset with
+  each respawn. This number has no implementation or commit.
 
 ### 74 — Add Antiknockback duration and impulse suppression
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Accept `Q` before movement and damage for active unlocked
-  players outside an active dash (`5` s / `200`-tick duration, `10` s / `400`-tick
-  cooldown, no stacking/refresh/hold-repeat). Coexists with locomotion (including starting
-  a dash) and one offensive action; does not end spawn protection. Suppress new hit
-  impulses on both axes while still adding percentage and consuming hits normally.
-  Preserve existing received velocity, gravity, movement, contacts, and ring-outs.
-  Spawn/dash immunity takes precedence over `Q`. Expire before hit evaluation at zero;
-  ring-out clears active `Q` while its match-scoped cooldown continues. Extend exact
-  `protocol/snapshot-message?` fields and bounds for active `Q` and its cooldown. Draw a
-  neutral dashed ring around a body with active `Q`, show `Q` remaining seconds and
-  cooldown in retained rows, and add Q to `#controls`. Update `docs/combat.md`.
-- **Verify:** Exact 200-tick expiry boundary, percentage gain with zero new impulse, prior
-  received motion preserved, immunity precedence, coexistence with activation-tick
-  dash/attack, ring-out cleanup with continuing cooldown, snapshot bounds, and line dash
+  players (`5` s / `200`-tick duration, `10` s / `400`-tick cooldown, no
+  stacking/refresh/hold-repeat). Coexists with locomotion (including starting a dash) and
+  one offensive action; does not end spawn protection. A `Q` press during an already
+  active dash is buffered and activates on the first tick after the dash if still
+  eligible, otherwise it is discarded. Suppress new hit impulses on both axes while still
+  adding percentage and consuming hits normally. Preserve existing received velocity,
+  gravity, movement, contacts, and ring-outs. Spawn/dash immunity takes precedence over
+  `Q`. Expire before hit evaluation at zero; ring-out clears active or buffered `Q`, and
+  the respawned body starts with a ready cooldown. Extend exact
+  `protocol/snapshot-message?` fields and bounds for active `Q`, its cooldown, and the
+  buffered request. Draw a neutral dashed ring around a body with active `Q`, show `Q`
+  remaining seconds, buffered state, and cooldown in retained rows, and add Q to
+  `#controls`. Update `docs/combat.md`.
+- **Verify:** Exact 200-tick expiry boundary, 400-tick cooldown, percentage gain with zero
+  new impulse, prior received motion preserved, immunity precedence, coexistence with
+  activation-tick dash/attack, buffered activation on tick 9 after a dash and discard when
+  cooling, ring-out cleanup and cooldown reset on respawn, snapshot bounds, and line dash
   reset after the ring.
 - **Explain:** Suppressing new impulses while retaining percentage growth and prior
   momentum creates a bounded defensive trade-off.
@@ -1075,7 +1067,7 @@ topical guide update, as core checkpoints 34 and 56 did.
   floating-point precision in simulation, snapshots, and `match/result-for` comparisons.
   Format displayed percentages in player rows and `#match-standings` to at most one
   decimal, omitting a trailing `.0`. Extend exact `protocol/snapshot-message?` bounds for
-  the match-scoped `E` cooldown, show `E` readiness/cooldown in retained rows, and add E
+  the `E` cooldown, show `E` readiness/cooldown in retained rows, and add E
   to `#controls`. Update `docs/combat.md`.
 - **Verify:** `80% -> 56%`, `20% -> 14%`, `0%` rejected without cooldown, same-tick hit
   uses reduced `P`, prior knockback unchanged, unrounded float tie comparison in
@@ -1115,7 +1107,7 @@ can be swept.
 - **Implement / result:** Introduce pure `projectile.cljc` for grenade spawn, ballistic
   flight, and lifecycle. Add `:projectiles` and `:next-event-id` to world and exact
   `protocol/snapshot-message?` validation (requiring empty `:projectiles` outside
-  `:running`, including `:finished`). Accept `R` (`13` s / `520`-tick match-scoped
+  `:running`, including `:finished`). Accept `R` (`13` s / `520`-tick
   cooldown with snapshot bounds, at most one live grenade per owner, `R > melee` offensive
   priority, ends existing spawn protection before targeting that tick) to spawn a
   radius-`6` projectile at `(x + facing*22, y - 8)` with velocity `(facing*320, -260)`
@@ -1335,7 +1327,8 @@ end-to-end multiplayer behavior, and finish the guides.
 - **Status:** Pending.
 - **Implement / result:** Consolidate JVM room/agent/WebSocket and Node client integration
   regressions covering every acceptance criterion in `docs/game-specification.md`:
-  cooldown boundaries and nonrepeating keys, persistence across lives and phase pauses,
+  cooldown boundaries and nonrepeating keys, cooldown reset on respawn and pause outside
+  running ticks,
   `E` without stock/velocity changes, `Q` preserving prior knockback, no dash tunneling,
   single swept grenade detonation and bounds-exit priority, single Nova resolution and
   match-finish cancellation (no live timers frozen in `:finished`), multi-hit
@@ -1368,9 +1361,9 @@ end-to-end multiplayer behavior, and finish the guides.
 
 ## Completion boundary
 
-The route is complete when all 87 checkpoint commits exist (core route 01–70
-plus the abilities and recovery extension 71–87), relevant automated checks
-pass, and outstanding browser/device verification is reported explicitly.
+The route is complete when every non-skipped checkpoint commit exists (core
+route 01–70 plus the abilities and recovery extension 71–87, except skipped 73),
+relevant automated checks pass, and outstanding browser/device verification is reported explicitly.
 The final implementation must match the game specification and monochrome
 visual contract, without adding mechanics outside the scope boundary. The
 roadmap plans the work; it is not evidence that any of it has been implemented.

@@ -230,8 +230,8 @@ travel; later dash ticks use zero voluntary X until the original deadline, so
 an early stop never shortens the input lock or immunity. Flat tops, forward
 corner corrections and one-way semisolid rules do not stop travel. On the tick
 after the dash, only voluntary X is clamped to 220 before ordinary acceleration
-or friction. A ring-out clears the active dash. Until checkpoint 73 the
-cooldown belongs to the physical body, so a respawn starts with a ready dash.
+or friction. A ring-out clears the active dash. The cooldown belongs to the
+physical body, so a respawn starts with a ready dash.
 The local sandbox steps the same rules on every local tick.
 
 Canvas draws two short neutral streaks behind a dashing body, and each panel row
