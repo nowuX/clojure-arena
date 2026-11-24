@@ -239,6 +239,11 @@
          (update-in snapshot [:world :players player-id] assoc :antiknockback-buffered? true)
          (update-in snapshot [:world :players player-id]
                     assoc :antiknockback-seconds-left 2 :lifecycle :respawning :respawn-seconds-left 2)
+         (update-in snapshot [:world :players player-id] dissoc :recover-cooldown-left)
+         (update-in snapshot [:world :players player-id] assoc :recover-cooldown-left 12.5)
+         (update-in snapshot [:world :players player-id] assoc :recover-cooldown-left -1)
+         (update-in snapshot [:world :players player-id] assoc :recover-buffered? nil)
+         (update-in snapshot [:world :players player-id] assoc :recover-buffered? true)
          (assoc-in snapshot [:world :players "player-1"]
                    (get-in snapshot [:world :players player-id]))]]
     (testing "the current game factory scene is a complete snapshot"
@@ -258,6 +263,14 @@
                       assoc :antiknockback-seconds-left 5 :antiknockback-cooldown-left 10
                       :dash-ticks-left 4 :antiknockback-buffered? true))
           "an active Q at its bounds and a Q buffered during a dash are valid")
+      (is (protocol/snapshot-message?
+           (-> snapshot
+               (update-in [:world :players player-id]
+                          assoc :recover-cooldown-left 12 :dash-ticks-left 2 :recover-buffered? true
+                          :accumulated-percentage 56.00000000000001)
+               (assoc-in [:world :match :contenders player-id :accumulated-percentage]
+                         56.00000000000001)))
+          "a full E cooldown, an E buffered during a dash and fractional percentages are valid")
       (is (nil? (:drop-through-platform-id
                  (get-in snapshot [:world :players player-id])))
           "the valid nullable platform state remains present in factory players"))

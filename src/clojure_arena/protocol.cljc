@@ -23,7 +23,7 @@
                      :melee-target-ids :accumulated-percentage :radius :color
                      :dash-ticks-left :dash-cooldown-left :dash-stopped?
                      :antiknockback-seconds-left :antiknockback-cooldown-left
-                     :antiknockback-buffered?})
+                     :antiknockback-buffered? :recover-cooldown-left :recover-buffered?})
 
 (defn player-input? [input]
   (and (map? input)
@@ -120,6 +120,14 @@
          (or (zero? seconds-left) (= :active (:lifecycle player)))
          (or (not buffered?) (pos? (:dash-ticks-left player 0))))))
 
+(defn- recover-state? [player]
+  (let [cooldown (:recover-cooldown-left player)
+        buffered? (:recover-buffered? player)]
+    (and (finite-number? cooldown)
+         (<= 0 cooldown game/recover-cooldown)
+         (boolean? buffered?)
+         (or (not buffered?) (pos? (:dash-ticks-left player 0))))))
+
 (defn- player? [player semisolid-platform-ids]
   (let [drop-through-id (:drop-through-platform-id player)]
     (and (map? player)
@@ -127,6 +135,7 @@
          (stock-state? player)
          (dash-state? player)
          (antiknockback-state? player)
+         (recover-state? player)
          (every? finite-number?
                  (map player [:x :y :spawn-x :spawn-y :vx :vy :knockback-vx :knockback-vy
                               :melee-cooldown-left :accumulated-percentage

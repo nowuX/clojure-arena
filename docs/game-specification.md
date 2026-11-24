@@ -211,8 +211,8 @@ concrete defaults for a future implementation, not measured optimal balance.
 - Accept at most one requested offensive action per player per tick, choosing
   the highest eligible request: Nova, grenade, then melee. Ordinary jumps and
   attacks may coexist. An active dash, Nova windup, ledge hang, or ledge climb
-  rejects all new ability/melee requests, except that Q pressed during an active
-  dash is buffered (see Antiknockback); these restrictions do not stop already
+  rejects all new ability/melee requests, except that Q or E pressed during an
+  active dash is buffered (see Antiknockback and Percentage recovery); these restrictions do not stop already
   active Q/protection timers or an already launched grenade.
 - After movement and all ring-outs, resolve eligible melee hits and explosions
   from the same player snapshot. Each selected hit has a unique source event
@@ -250,7 +250,7 @@ concrete defaults for a future implementation, not measured optimal balance.
   normally, so total speed can differ from 400. Preserve vertical velocity,
   gravity, and the remaining air-jump allowance. Air dashing is allowed.
 - Ignore steering, jumps, drops, attacks, and new ability requests while the
-  dash is already active. No cancellation, and no action buffering except Q.
+  dash is already active. No cancellation, and no action buffering except Q and E.
   Accepted Q/E on the activation tick may coexist because their effects
   precede locomotion.
 - Sweep ordinary solid contacts. A solid contact whose normal has a nonzero
@@ -307,6 +307,10 @@ identify it without introducing a colored status effect.
   charge, or cooldown reset. It does not erase an attacker's attribution window.
 - Acceptance is instant, without channeling or input lock. It can combine with
   Q, a jump, a dash beginning that tick, or one eligible offensive action.
+- An E press during an already active dash is buffered like Q: on the first
+  tick after the dash, before movement and damage, it applies if the cooldown
+  is ready and the percentage is positive; otherwise it is discarded without
+  spending cooldown. Ring-out clears a buffered request.
 
 ### Impulse grenade — R
 

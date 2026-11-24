@@ -2,9 +2,9 @@
 
 A browser platform fighter for two to four connected players, built with
 Clojure, ClojureScript and immutable shared simulation. The core route
-(checkpoints 01–70), ability intention capture (71), Dash (72) and
-Antiknockback (74) are complete (73/87; 73 skipped). The remaining abilities
-and ledge recovery (checkpoints 75–87) are planned and pending. Each checkpoint has one
+(checkpoints 01–70), ability intention capture (71), Dash (72), Antiknockback
+(74) and percentage recovery (75) are complete (74/87; 73 skipped). The
+grenade, Nova and ledge recovery (checkpoints 76–87) are planned and pending. Each checkpoint has one
 Conventional Commit.
 
 ## Play
@@ -33,8 +33,9 @@ local sandbox; the connection status shows mode, endpoint and known errors.
 UI and platforms are monochrome; only player bodies and identity swatches use
 color. Shift performs a Dash: 80 px in 0.2 s with brief hit immunity and a
 2.5 s wait. Q blocks new knockback for 5 s (hits still add percentage) with a
-10 s wait. E, R and F are captured and validated as intentions without gameplay
-effects yet; they and ledge recovery are planned in checkpoints 75–87.
+10 s wait. E cuts the current percentage by 30 % with a 12 s wait. R and F are
+captured and validated as intentions without gameplay effects yet; they and
+ledge recovery are planned in checkpoints 76–87.
 
 ## Verify and inspect
 
@@ -49,7 +50,7 @@ an automated pass does not establish those results.
 - [Language manual in Spanish](docs/language-guide.md)
 - [Local verification](docs/simulation-verification.md) and [multiplayer verification](docs/multiplayer-verification.md)
 - [Monochrome design system](docs/design-system.md)
-- [Implementation roadmap (73/87 complete)](docs/implementation-roadmap.md)
+- [Implementation roadmap (74/87 complete)](docs/implementation-roadmap.md)
 
 ## License
 

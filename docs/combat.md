@@ -137,3 +137,26 @@ excluded before Q is considered, so spawn or dash immunity blocks the percentage
 too. A ring-out clears active and buffered Q; the respawned body has a ready
 cooldown. Canvas draws a neutral dashed ring and the panel row shows «Q activa
 N s», «Q tras el Dash», «Q en N s» or «Q lista».
+
+## Percentage recovery (E)
+
+A fresh E press (`:recover? true`) sets `P = max(0, P * 0.7)` and
+`:recover-cooldown-left 12` for an active, unlocked body with a ready cooldown
+and a positive percentage; at exactly zero it is rejected without spending the
+cooldown. It is a relative reduction (80 → 56, 20 → 14), applied before
+locomotion and before that tick's hits, so a simultaneous strike adds its +10 to
+the healed value and computes its impulse from that final percentage. Earlier
+impulses are never rewritten: E changes no stock, velocity, received motion,
+air jump, protection or other cooldown. It can start with Q, a dash or a strike
+on the same tick, is ready again 480 ticks after activation, and resets with
+the respawned body.
+
+An E press during an already active dash sets `:recover-buffered? true` and is
+retried on the first tick after the dash, like Q; a buffered E that finds a zero
+percentage or a cooling E is discarded. Ring-out clears the buffer.
+
+The simulation, snapshots and `match/result-for` keep full floating-point
+precision, so 56 still beats 56.04 at the time limit and only an exact stored
+tie draws. `format-percentage` shows at most one decimal and drops a trailing
+`.0` in panel rows and standings («56 %», «17.5 %»). The panel row shows «E
+lista», «E tras el Dash» or «E en N s».

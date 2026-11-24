@@ -23,6 +23,9 @@
 (def antiknockback-duration 5)
 (def antiknockback-cooldown 10)
 
+(def recover-factor 0.7)
+(def recover-cooldown 12)
+
 (defn make-player [color x y]
   {:x x :y y :spawn-x x :spawn-y y
    :vx 0 :vy 0 :knockback-vx 0 :knockback-vy 0 :radius 16
@@ -35,7 +38,8 @@
    :respawn-seconds-left 0 :protection-seconds-left 0
    :dash-ticks-left 0 :dash-cooldown-left 0 :dash-stopped? false
    :antiknockback-seconds-left 0 :antiknockback-cooldown-left 0
-   :antiknockback-buffered? false})
+   :antiknockback-buffered? false
+   :recover-cooldown-left 0 :recover-buffered? false})
 
 (def local-player-fixtures
   {:player-1 (make-player "#22d3ee" 400 160)
@@ -117,6 +121,7 @@
              :protection-seconds-left 0
              :dash-ticks-left 0 :dash-stopped? false
              :antiknockback-seconds-left 0 :antiknockback-buffered? false
+             :recover-buffered? false
              :vx 0 :vy 0 :knockback-vx 0 :knockback-vy 0
              :spawn-locked? true :air-jumps-left 1
              :drop-through-platform-id nil :melee-cooldown-left 0
@@ -436,26 +441,43 @@
            :dash-stopped? (and (pos? ticks-left) (:dash-stopped? player false))
            :dash-cooldown-left (remaining-seconds (:dash-cooldown-left player 0) dt))))
 
-(defn- advance-antiknockback [player dt]
+(defn- advance-ability-timers [player dt]
   (assoc player
          :antiknockback-seconds-left (remaining-seconds (:antiknockback-seconds-left player 0) dt)
-         :antiknockback-cooldown-left (remaining-seconds (:antiknockback-cooldown-left player 0) dt)))
+         :antiknockback-cooldown-left (remaining-seconds (:antiknockback-cooldown-left player 0) dt)
+         :recover-cooldown-left (remaining-seconds (:recover-cooldown-left player 0) dt)))
 
-(defn- resolve-antiknockback
-  "Accepts Q before movement and damage. A request during an active dash is
-  buffered and retried on the first tick after the dash ends."
-  [player requested? dash-active?]
-  (let [wanted? (or requested? (:antiknockback-buffered? player false))]
+(defn- resolve-buffered-ability
+  "Accepts an ability before movement and damage. A request during an active
+  dash is buffered and retried on the first tick after the dash; one that is
+  still not ready then is discarded."
+  [player requested? dash-active? buffered-key ready? activate]
+  (let [wanted? (or requested? (get player buffered-key false))]
     (cond
       (not wanted?) player
-      (antiknockback-active? player) (assoc player :antiknockback-buffered? false)
-      dash-active? (assoc player :antiknockback-buffered? true)
-      (and (not (:spawn-locked? player))
-           (zero? (:antiknockback-cooldown-left player 0)))
-      (assoc player :antiknockback-seconds-left antiknockback-duration
-             :antiknockback-cooldown-left antiknockback-cooldown
-             :antiknockback-buffered? false)
-      :else (assoc player :antiknockback-buffered? false))))
+      dash-active? (assoc player buffered-key true)
+      (and (not (:spawn-locked? player)) (ready? player))
+      (assoc (activate player) buffered-key false)
+      :else (assoc player buffered-key false))))
+
+(defn- antiknockback-ready? [player]
+  (and (not (antiknockback-active? player))
+       (zero? (:antiknockback-cooldown-left player 0))))
+
+(defn- activate-antiknockback [player]
+  (assoc player :antiknockback-seconds-left antiknockback-duration
+         :antiknockback-cooldown-left antiknockback-cooldown))
+
+(defn- recover-ready?
+  "E needs a ready cooldown and a positive percentage to reduce."
+  [player]
+  (and (zero? (:recover-cooldown-left player 0))
+       (pos? (:accumulated-percentage player 0))))
+
+(defn- activate-recover [player]
+  (-> player
+      (update :accumulated-percentage #(max 0 (* % recover-factor)))
+      (assoc :recover-cooldown-left recover-cooldown)))
 
 (defn- start-dash [player]
   (assoc player :dash-ticks-left dash-ticks :dash-cooldown-left dash-cooldown
@@ -465,16 +487,20 @@
   (max (- horizontal-speed) (min horizontal-speed vx)))
 
 (defn step-player [player platforms
-                   {:keys [horizontal jump? drop? attack? dash? antiknockback?]
+                   {:keys [horizontal jump? drop? attack? dash? antiknockback? recover?]
                     :or {horizontal 0 jump? false drop? false attack? false dash? false
-                         antiknockback? false}} dt]
+                         antiknockback? false recover? false}} dt]
   (if-not (active-player? player)
     player
     (let [player (clear-drop-through player platforms)
           dash-ended? (= 1 (:dash-ticks-left player 0))
-          player (-> player (advance-dash dt) (advance-antiknockback dt))
+          player (-> player (advance-dash dt) (advance-ability-timers dt))
           dash-active? (pos? (:dash-ticks-left player))
-          player (resolve-antiknockback player antiknockback? dash-active?)
+          player (-> player
+                     (resolve-buffered-ability antiknockback? dash-active? :antiknockback-buffered?
+                                               antiknockback-ready? activate-antiknockback)
+                     (resolve-buffered-ability recover? dash-active? :recover-buffered?
+                                               recover-ready? activate-recover))
           locked? (:spawn-locked? player)
           horizontal (if (or locked? dash-active?) 0 horizontal)
           player (cond

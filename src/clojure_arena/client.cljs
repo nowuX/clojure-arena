@@ -280,6 +280,22 @@
     (str "Q en " (js/Math.ceil (:antiknockback-cooldown-left player)) " s")
     :else "Q lista"))
 
+(defn recover-label [player]
+  (cond
+    (:recover-buffered? player) "E tras el Dash"
+    (pos? (:recover-cooldown-left player 0))
+    (str "E en " (js/Math.ceil (:recover-cooldown-left player)) " s")
+    :else "E lista"))
+
+(defn format-percentage
+  "Shows at most one decimal and drops a trailing .0; the stored value keeps full precision."
+  [percentage]
+  (let [tenths (js/Math.round (* (or percentage 0) 10))]
+    (str (if (zero? (mod tenths 10))
+           (quot tenths 10)
+           (.toFixed (/ tenths 10) 1))
+         " %")))
+
 (defn- panel-state-label [player-id player match]
   (case (:phase match)
     :waiting "Esperando jugadores"
@@ -301,18 +317,19 @@
         stocks (.createElement js/document "span")
         state (.createElement js/document "span")
         dash (.createElement js/document "span")
-        antiknockback (.createElement js/document "span")]
+        antiknockback (.createElement js/document "span")
+        recover (.createElement js/document "span")]
     (set! (.-className row) "player-row")
     (set! (.-className swatch) "player-swatch")
     (.setAttribute swatch "aria-hidden" "true")
     (set-text! label (name player-id))
-    (doseq [element [swatch label percentage stocks state dash antiknockback]]
+    (doseq [element [swatch label percentage stocks state dash antiknockback recover]]
       (.appendChild row element))
     {:row row :swatch swatch :label label :percentage percentage
-     :stocks stocks :state state :dash dash :antiknockback antiknockback}))
+     :stocks stocks :state state :dash dash :antiknockback antiknockback :recover recover}))
 
 (defn- update-player-row! [entry player-id player match controlled-id]
-  (let [{:keys [row swatch percentage stocks state dash antiknockback]} entry
+  (let [{:keys [row swatch percentage stocks state dash antiknockback recover]} entry
         color (:color player)
         controlled? (= player-id controlled-id)
         row-class (str "player-row" (when controlled? " player-row-local"))
@@ -324,12 +341,13 @@
     ;; Native CSS reads normalize colors; retain the original assigned value.
     (when-not (= color (:color entry))
       (set! (.-backgroundColor (.-style swatch)) color))
-    (set-text! percentage (str (:accumulated-percentage player 0) " %"))
+    (set-text! percentage (format-percentage (:accumulated-percentage player 0)))
     (set-text! stocks (str (:stocks player)
                           (if (= 1 (:stocks player)) " oportunidad" " oportunidades")))
     (set-text! state (panel-state-label player-id player match))
     (set-text! dash (dash-label player))
     (set-text! antiknockback (antiknockback-label player))
+    (set-text! recover (recover-label player))
     (assoc entry :color color)))
 
 (defn render-players! [{:keys [players match]}]
@@ -398,7 +416,7 @@
           (.setAttribute swatch "aria-hidden" "true")
           (.appendChild row swatch)
           (doseq [text [(name player-id) (str stocks " oportunidades")
-                       (str accumulated-percentage " %")
+                       (format-percentage accumulated-percentage)
                        (if forfeited? "Abandonó" "Contendiente")]]
             (let [label (.createElement js/document "span")]
               (set-text! label text)

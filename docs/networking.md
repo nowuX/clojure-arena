@@ -179,7 +179,10 @@ protection; eliminated records have zero stocks and zero timers. Dash state is
 `:dash-cooldown-left` (finite 0–2.5) and `:dash-stopped?` (true only during an
 active dash). Q state is `:antiknockback-seconds-left` (finite 0–5, nonzero only
 for active bodies), `:antiknockback-cooldown-left` (finite 0–10) and
-`:antiknockback-buffered?` (true only during an active dash). Neither
+`:antiknockback-buffered?` (true only during an active dash). E state is
+`:recover-cooldown-left` (finite 0–12) and `:recover-buffered?` (true only
+during an active dash). Percentages are finite nonnegative numbers and may be
+fractional. Neither
 stock loss nor elimination removes membership or snapshot delivery. Only
 socket retirement removes the body record and frees its color.
 

@@ -859,3 +859,19 @@
     (is (= [[4 4] []] @dashes) "the dash pattern is restored after the ring")
     (is (= "#000000" (.-strokeStyle context)))
     (is (= 1 (.-lineWidth context)))))
+
+
+(deftest recover-label-shows-buffered-cooldown-and-ready-states
+  (let [player (game/make-player "#22d3ee" 0 0)]
+    (is (= "E lista" (client/recover-label player)))
+    (is (= "E tras el Dash" (client/recover-label (assoc player :dash-ticks-left 2
+                                                         :recover-buffered? true))))
+    (is (= "E en 12 s" (client/recover-label (assoc player :recover-cooldown-left 11.3))))))
+
+(deftest displayed-percentages-keep-at-most-one-decimal
+  (is (= "56 %" (client/format-percentage 56)))
+  (is (= "56 %" (client/format-percentage (* 80 0.7))))
+  (is (= "7 %" (client/format-percentage 7.000000000000001)))
+  (is (= "17.5 %" (client/format-percentage 17.5)))
+  (is (= "9.8 %" (client/format-percentage 9.8)))
+  (is (= "0 %" (client/format-percentage 0))))

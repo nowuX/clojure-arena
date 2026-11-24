@@ -126,8 +126,8 @@
         (is (some? (hud/row-for dom "player-3")))
         (is (= ["player-1" "player-3"] (mapv hud/row-id (hud/player-rows dom))))
         (is (not (identical? removed-row (hud/row-for dom "player-3"))))
-        (is (= 8 (:created @counters))
-            "one new row and its seven children are created for the new identity")
+        (is (= 9 (:created @counters))
+            "one new row and its eight children are created for the new identity")
         (is (<= (:replace-children @counters) 1)
             "only the changed player list may require a child-list replacement")
         (is (identical? standing-row (first (hud/children standings-container))))
@@ -218,3 +218,16 @@
       (is (= 0 (:text-writes @counters)) "a fractional tick within the same second writes nothing")
       (client/render-match! (assoc-in cooling [:players :player-1 :dash-cooldown-left] 1.9))
       (is (= 1 (:text-writes @counters)) "only the Dash field changes when the second changes")))))
+
+
+(deftest fractional-percentages-render-rounded-and-skip-equal-labels
+  (let [dom (hud/make-dom)
+        counters (:counters dom)
+        healed (assoc-in (hud/sample-world) [:players :player-1 :accumulated-percentage] (* 80 0.7))]
+    (with-dom dom (fn []
+      (reset-client!)
+      (client/render-match! healed)
+      (is (= "56 %" (.-textContent (:percentage (hud/row-fields (hud/row-for dom "player-1"))))))
+      (hud/reset-counters! counters)
+      (client/render-match! (assoc-in healed [:players :player-1 :accumulated-percentage] 56.04))
+      (is (= 0 (:text-writes @counters)) "a value that displays identically writes nothing")))))

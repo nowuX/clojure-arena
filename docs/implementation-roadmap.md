@@ -2,11 +2,11 @@
 
 ## Status and scope
 
-**73 of 87 checkpoints complete, 1 skipped.** Checkpoints 01–70 (core route,
-Milestones 1–8), 71 (ability intentions), 72 (Dash) and 74 (Antiknockback) are
-complete; 73 (match-scoped timers) was skipped; checkpoints 75–87 (remaining
-abilities, ledge recovery, attribution, and their monochrome presentation) are
-planned and pending. The target is a
+**74 of 87 checkpoints complete, 1 skipped.** Checkpoints 01–70 (core route,
+Milestones 1–8), 71 (ability intentions), 72 (Dash), 74 (Antiknockback) and 75
+(percentage recovery) are complete; 73 (match-scoped timers) was skipped;
+checkpoints 76–87 (unified combat, grenade, Nova, ledge recovery, attribution,
+and their monochrome presentation) are planned and pending. The target is a
 browser platform fighter with a local sandbox and one shared authoritative room
 for two to four connections. Read the
 [game specification](game-specification.md), [design system](design-system.md),
@@ -1058,19 +1058,22 @@ topical guide update, as core checkpoints 34 and 56 did.
 
 ### 75 — Add relative percentage recovery
 
-- **Status:** Pending.
+- **Status:** Complete.
 - **Implement / result:** Accept `E` before movement and same-tick percentage additions
   (`P = max(0, P * 0.70)`, `12` s / `480`-tick cooldown). Reject at exactly `0` percentage
   without spending cooldown. Coexists with `Q`, locomotion (including starting a dash),
-  and one offensive action; rejected during an active dash. Does not restore stocks,
-  change velocity, grant air jumps, grant or end protection, or reset cooldowns. Keep full
-  floating-point precision in simulation, snapshots, and `match/result-for` comparisons.
-  Format displayed percentages in player rows and `#match-standings` to at most one
-  decimal, omitting a trailing `.0`. Extend exact `protocol/snapshot-message?` bounds for
-  the `E` cooldown, show `E` readiness/cooldown in retained rows, and add E
-  to `#controls`. Update `docs/combat.md`.
-- **Verify:** `80% -> 56%`, `20% -> 14%`, `0%` rejected without cooldown, same-tick hit
-  uses reduced `P`, prior knockback unchanged, unrounded float tie comparison in
+  and one offensive action. An `E` press during an already active dash is buffered like
+  `Q` and applies on the first tick after the dash if still eligible, otherwise it is
+  discarded. Does not restore stocks, change velocity, grant air jumps, grant or end
+  protection, or reset cooldowns. Keep full floating-point precision in simulation,
+  snapshots, and `match/result-for` comparisons. Format displayed percentages in player
+  rows and `#match-standings` to at most one decimal, omitting a trailing `.0`. Extend
+  exact `protocol/snapshot-message?` bounds for the `E` cooldown and buffered request,
+  show `E` readiness, buffered state, and cooldown in retained rows, and add E to
+  `#controls`. Update `docs/combat.md`.
+- **Verify:** `80% -> 56%`, `20% -> 14%`, `0%` rejected without cooldown, 480-tick
+  cooldown, same-tick hit uses reduced `P`, prior knockback unchanged, buffered healing on
+  tick 9 after a dash and discard at zero, unrounded float tie comparison in
   `match/result-for`, and labels such as `56 %`, `7 %`, and `17.5 %` (never
   `7.000000000000001 %`).
 - **Explain:** Applying recovery before movement and damage ensures simultaneous hits
