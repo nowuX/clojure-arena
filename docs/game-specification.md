@@ -1,9 +1,10 @@
 # Game specification
 
-This document defines the core target for the 70 checkpoints in the
-[implementation roadmap](implementation-roadmap.md), plus an explicitly separate
-future abilities and recovery scope. Implementation progress is tracked in the roadmap. The
-future sections add no roadmap checkpoints and authorize no implementation.
+This document defines the core target for completed checkpoints 01–70 and the
+planned abilities and recovery extension for pending checkpoints 71–87 in the
+[implementation roadmap](implementation-roadmap.md). Implementation progress is
+tracked in the roadmap. Pending checkpoints are not yet implemented and must not
+be built before their checkpoint arrives.
 Values labeled trial are concrete defaults for testing, not proven optimal
 balance.
 
@@ -171,11 +172,12 @@ Before a first shared snapshot, do not mislabel an offline fixture as the server
 identity. Retain DOM rows and update only displayed changes. No local winner
 calculation, physics prediction, or snapshot interpolation is part of this route.
 
-## Future abilities and recovery specification
+## Abilities and recovery specification (planned, checkpoints 71–87)
 
-The following rules define future scope only. They do not add checkpoints to
-or change the 70-checkpoint implementation roadmap. They are not implemented
-and must not be introduced while delivering an unrelated existing checkpoint.
+The following rules define the planned extension tracked in pending checkpoints
+71–87 of the [implementation roadmap](implementation-roadmap.md) (without
+renumbering checkpoints 01–70). They are not yet implemented until their
+respective checkpoints are delivered.
 
 The established ability defaults are dash speed 400 units/s, nominal dash
 immunity 180 ms and 2.5-second cooldown; Q duration 5 seconds and 10-second
@@ -225,8 +227,9 @@ concrete defaults for a future implementation, not measured optimal balance.
 - Activating R or F ends existing spawn protection before targeting that tick.
   Ordinary melee keeps its specified spawn-protection behavior. Q and E do not
   end spawn protection. Nova and grenade grant no new immunity of their own.
-- Extend exact input/snapshot validation only when these mechanics are actually
-  implemented. Send boolean action intentions, not effect values or claimed
+- Extend exact input validation when ability intentions are first captured, and
+  snapshot validation only when the corresponding state is implemented. Send
+  boolean action intentions, not effect values or claimed
   charge/cooldowns. Store serializable effects/projectiles/timers in the world;
   keep all ownership tokens private and reuse the existing room queue.
 
@@ -470,8 +473,8 @@ waiting player keeps its cooldown/charge labels with the appropriate role.
 Keep these values in named configuration, independent of player color. Before
 calling the extensions balanced, exercise two- and four-player sessions and
 measure time to eliminate, useful recovery distance, Q uptime, successful E
-uses, grenade hit rate, and Nova frequency. These checks do not add roadmap
-steps or claim an implementation exists.
+uses, grenade hit rate, and Nova frequency. The roadmap's final documentation
+checkpoint adds this manual checklist; listing it does not claim balance.
 
 Verify especially: cooldown boundaries and nonrepeating keys; active requests
 across lives; no E stock/velocity change; no retained knockback erased by Q;
@@ -482,10 +485,11 @@ losses; identical snapshots; and readable monochrome rendering.
 
 ## Scope boundary
 
-The 70-checkpoint roadmap covers the core local/shared game and presentation
-polish only. The future abilities, ledge recovery, ability HUD, attribution,
-and trial balance above are specification-only extensions, outside those
-checkpoints. Do not implement or renumber them without an explicit later task.
-Character-specific stats, additional victory scoring, art assets, touch controls,
-and external automated opponents remain outside both scopes. This document
-provides future defaults; it does not mark any feature implemented.
+Checkpoints 01–70 of the roadmap cover the completed core local/shared game and
+presentation polish. Pending checkpoints 71–87 plan the abilities, ledge
+recovery, ability HUD, attribution, and trial-balance extension. Do not
+implement pending checkpoints out of order or renumber 01–70. Character-specific
+stats, additional victory scoring, art assets, touch controls, and external
+automated opponents remain outside both scopes. This document provides the
+specification for planned checkpoints; it does not mark any pending feature
+implemented.

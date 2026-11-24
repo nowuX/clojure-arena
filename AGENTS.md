@@ -50,5 +50,7 @@
 
 ## Scope
 
-Implement the specified browser game only. Keep automated external opponents,
-training systems, extra abilities, and additional mechanics outside this route.
+Implement the specified browser game only (core checkpoints 01–70 and planned
+abilities/recovery checkpoints 71–87). Keep automated external opponents,
+training systems, character-specific stats, extra victory scoring, art assets,
+touch controls, and mechanics outside the roadmap out of scope.
