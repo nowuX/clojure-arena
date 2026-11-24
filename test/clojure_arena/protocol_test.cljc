@@ -220,6 +220,17 @@
                     assoc :drop-through-platform-id :main)
          (update-in snapshot [:world :players player-id] assoc :facing :up)
          (update-in snapshot [:world :players player-id] assoc :color "url(javascript:bad)")
+         (update-in snapshot [:world :players player-id] dissoc :dash-cooldown-left)
+         (update-in snapshot [:world :players player-id] assoc :dash-ticks-left 9)
+         (update-in snapshot [:world :players player-id] assoc :dash-ticks-left -1)
+         (update-in snapshot [:world :players player-id] assoc :dash-ticks-left 2.5)
+         (update-in snapshot [:world :players player-id] assoc :dash-cooldown-left -0.1)
+         (update-in snapshot [:world :players player-id] assoc :dash-cooldown-left 2.6)
+         (update-in snapshot [:world :players player-id] assoc :dash-cooldown-left infinity)
+         (update-in snapshot [:world :players player-id] assoc :dash-stopped? nil)
+         (update-in snapshot [:world :players player-id] assoc :dash-stopped? true)
+         (update-in snapshot [:world :players player-id]
+                    assoc :dash-ticks-left 3 :lifecycle :respawning :respawn-seconds-left 2)
          (assoc-in snapshot [:world :players "player-1"]
                    (get-in snapshot [:world :players player-id]))]]
     (testing "the current game factory scene is a complete snapshot"
@@ -230,6 +241,10 @@
       (is (protocol/snapshot-message?
            (assoc-in snapshot [:world :players player-id
                                :drop-through-platform-id] :left)))
+      (is (protocol/snapshot-message?
+           (update-in snapshot [:world :players player-id]
+                      assoc :dash-ticks-left 8 :dash-cooldown-left 2.5 :dash-stopped? true))
+          "an active dash at its bounds, stopped by a wall, is a valid state")
       (is (nil? (:drop-through-platform-id
                  (get-in snapshot [:world :players player-id])))
           "the valid nullable platform state remains present in factory players"))

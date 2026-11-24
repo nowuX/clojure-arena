@@ -16,6 +16,10 @@
 (def respawn-delay 3)
 (def spawn-protection-duration 2)
 
+(def dash-speed 400)
+(def dash-ticks 8)
+(def dash-cooldown 2.5)
+
 (defn make-player [color x y]
   {:x x :y y :spawn-x x :spawn-y y
    :vx 0 :vy 0 :knockback-vx 0 :knockback-vy 0 :radius 16
@@ -25,7 +29,8 @@
    :melee-target-ids #{}
    :accumulated-percentage 0
    :stocks initial-stocks :lifecycle :active
-   :respawn-seconds-left 0 :protection-seconds-left 0})
+   :respawn-seconds-left 0 :protection-seconds-left 0
+   :dash-ticks-left 0 :dash-cooldown-left 0 :dash-stopped? false})
 
 (def local-player-fixtures
   {:player-1 (make-player "#22d3ee" 400 160)
@@ -56,6 +61,16 @@
 
 (defn protected-player? [player]
   (and (active-player? player) (pos? (:protection-seconds-left player 0))))
+
+(defn dashing?
+  "True from the activation tick through the eighth dash tick, including hit evaluation."
+  [player]
+  (and (active-player? player) (pos? (:dash-ticks-left player 0))))
+
+(defn immune-player?
+  "Spawn protection and an active dash both block percentage and impulse."
+  [player]
+  (or (protected-player? player) (dashing? player)))
 
 (defn grant-spawn-protection [player]
   (if (active-player? player)
@@ -90,6 +105,7 @@
              :lifecycle (if (pos? stocks) :respawning :eliminated)
              :respawn-seconds-left (if (pos? stocks) respawn-delay 0)
              :protection-seconds-left 0
+             :dash-ticks-left 0 :dash-stopped? false
              :vx 0 :vy 0 :knockback-vx 0 :knockback-vy 0
              :spawn-locked? true :air-jumps-left 1
              :drop-through-platform-id nil :melee-cooldown-left 0
@@ -290,39 +306,51 @@
                        (assoc contact :platform platform)))
                    platforms))))
 
-(defn collide-platforms [player platforms dt]
-  (loop [player player
-         remaining-dt dt
-         contacts-left max-contacts-per-tick
-         departing-ids #{}]
-    (if (or (zero? contacts-left) (not (pos? remaining-dt)))
-      player
-      (let [support (supporting-platform player platforms)
-            travel-dt (if support
-                        (supported-travel-time player support remaining-dt)
-                        remaining-dt)
-            proposed (move-player player travel-dt)]
-        (if-let [contact (earliest-contact player proposed platforms departing-ids)]
-          (let [resolved (resolve-contact player contact)
-                landed (if (grounded? resolved (:platform contact))
-                         (assoc resolved :air-jumps-left 1 :spawn-locked? false)
-                         resolved)]
-            (recur landed
-                   (- remaining-dt (* travel-dt (:time contact)))
-                   (dec contacts-left)
-                   #{}))
-          (if (< travel-dt remaining-dt)
-            (let [fall-dt (- remaining-dt travel-dt)
-                  departing-ids (set (map :id
-                                         (filter #(and (grounded? proposed %)
-                                                       (zero? (supported-travel-time
-                                                                proposed % fall-dt)))
-                                                 platforms)))]
-              (recur (assoc proposed :vy (* gravity fall-dt))
-                     fall-dt
-                     contacts-left
-                     departing-ids))
-            proposed))))))
+(defn- blocks-dash? [contact dash-direction]
+  (and (some? dash-direction)
+       (= :solid (get-in contact [:platform :type]))
+       (< (* (:nx contact) dash-direction) (- contact-epsilon))))
+
+(defn collide-platforms
+  "Sweeps one tick of motion. With a dash direction, a solid contact opposing it
+  stops dash travel and consumes the rest of this tick's movement."
+  ([player platforms dt]
+   (collide-platforms player platforms dt nil))
+  ([player platforms dt dash-direction]
+   (loop [player player
+          remaining-dt dt
+          contacts-left max-contacts-per-tick
+          departing-ids #{}]
+     (if (or (zero? contacts-left) (not (pos? remaining-dt)))
+       player
+       (let [support (supporting-platform player platforms)
+             travel-dt (if support
+                         (supported-travel-time player support remaining-dt)
+                         remaining-dt)
+             proposed (move-player player travel-dt)]
+         (if-let [contact (earliest-contact player proposed platforms departing-ids)]
+           (let [resolved (resolve-contact player contact)
+                 landed (if (grounded? resolved (:platform contact))
+                          (assoc resolved :air-jumps-left 1 :spawn-locked? false)
+                          resolved)]
+             (if (blocks-dash? contact dash-direction)
+               (assoc landed :dash-stopped? true)
+               (recur landed
+                      (- remaining-dt (* travel-dt (:time contact)))
+                      (dec contacts-left)
+                      #{})))
+           (if (< travel-dt remaining-dt)
+             (let [fall-dt (- remaining-dt travel-dt)
+                   departing-ids (set (map :id
+                                          (filter #(and (grounded? proposed %)
+                                                        (zero? (supported-travel-time
+                                                                 proposed % fall-dt)))
+                                                  platforms)))]
+               (recur (assoc proposed :vy (* gravity fall-dt))
+                      fall-dt
+                      contacts-left
+                      departing-ids))
+             proposed)))))))
 
 (defn apply-horizontal-friction [vx dt]
   (let [change (* horizontal-friction dt)]
@@ -361,7 +389,7 @@
         (let [dx (- (:x target) (:x attacker))
               dy (- (:y target) (:y attacker))]
           (if (and (active-player? target)
-                   (not (protected-player? target))
+                   (not (immune-player? target))
                    (not= target-id attacker-id)
                    (case (:facing attacker)
                      :right (pos? dx)
@@ -385,33 +413,73 @@
             (update :melee-strike-id (fnil inc 0)))
         player))))
 
+(defn- facing-sign [player]
+  (if (= :left (:facing player)) -1 1))
+
+(defn- advance-dash
+  "Counts down an active dash and its cooldown before this tick's requests."
+  [player dt]
+  (let [ticks-left (max 0 (dec (:dash-ticks-left player 0)))]
+    (assoc player
+           :dash-ticks-left ticks-left
+           :dash-stopped? (and (pos? ticks-left) (:dash-stopped? player false))
+           :dash-cooldown-left (remaining-seconds (:dash-cooldown-left player 0) dt))))
+
+(defn- start-dash [player]
+  (assoc player :dash-ticks-left dash-ticks :dash-cooldown-left dash-cooldown
+         :dash-stopped? false))
+
+(defn- clamp-voluntary-speed [vx]
+  (max (- horizontal-speed) (min horizontal-speed vx)))
+
 (defn step-player [player platforms
-                   {:keys [horizontal jump? drop? attack?]
-                    :or {horizontal 0 jump? false drop? false attack? false}} dt]
+                   {:keys [horizontal jump? drop? attack? dash?]
+                    :or {horizontal 0 jump? false drop? false attack? false dash? false}} dt]
   (if-not (active-player? player)
     player
     (let [player (clear-drop-through player platforms)
+          dash-ended? (= 1 (:dash-ticks-left player 0))
+          player (advance-dash player dt)
+          dash-active? (pos? (:dash-ticks-left player))
           locked? (:spawn-locked? player)
-          horizontal (if locked? 0 horizontal)
+          horizontal (if (or locked? dash-active?) 0 horizontal)
           player (cond
                    (neg? horizontal) (assoc player :facing :left)
                    (pos? horizontal) (assoc player :facing :right)
                    :else player)
-          player (step-melee player attack? dt)
           support (supporting-platform player platforms)
-          dropping? (and (not locked?) drop? (= :semisolid (:type support)))
-          player (if dropping?
-                   (assoc player :drop-through-platform-id (:id support))
-                   (apply-jump player platforms jump?))
+          ;; One locomotion action per tick: drop, then jump, then dash.
+          dropping? (and (not locked?) (not dash-active?) drop?
+                         (= :semisolid (:type support)))
+          jumping? (and (not locked?) (not dash-active?) (not dropping?) jump?
+                        (or (some? support) (pos? (:air-jumps-left player))))
+          dash-started? (and dash? (not locked?) (not dash-active?)
+                             (not dropping?) (not jumping?)
+                             (zero? (:dash-cooldown-left player)))
+          dashing-now? (or dash-active? dash-started?)
+          player (step-melee player (and attack? (not dashing-now?)) dt)
+          player (cond
+                   dropping? (assoc player :drop-through-platform-id (:id support))
+                   jumping? (apply-jump player platforms true)
+                   dash-started? (start-dash player)
+                   :else player)
           previous-knockback-vx (:knockback-vx player 0)
           knockback-vx (apply-horizontal-friction previous-knockback-vx dt)
-          voluntary-vx (accelerate-horizontal (- (:vx player) previous-knockback-vx)
-                                              horizontal dt)
+          previous-voluntary-vx (- (:vx player) previous-knockback-vx)
+          voluntary-vx (cond
+                         (and dashing-now? (:dash-stopped? player)) 0
+                         dashing-now? (* (facing-sign player) dash-speed)
+                         dash-ended? (accelerate-horizontal
+                                       (clamp-voluntary-speed previous-voluntary-vx)
+                                       horizontal dt)
+                         :else (accelerate-horizontal previous-voluntary-vx horizontal dt))
           moving-player (assoc player :vx (+ voluntary-vx knockback-vx)
-                               :knockback-vx knockback-vx)]
+                               :knockback-vx knockback-vx)
+          dash-direction (when (and dashing-now? (not (:dash-stopped? player)))
+                           (facing-sign player))]
       (-> moving-player
           (update :vy + (* gravity dt))
-          (collide-platforms platforms dt)
+          (collide-platforms platforms dt dash-direction)
           (clear-drop-through platforms)))))
 
 (defn apply-melee-hits [players]
@@ -425,7 +493,7 @@
                   (reduce (fn [hits target-id]
                             (if (and (contains? players target-id)
                                      (active-player? (get players target-id))
-                                     (not (protected-player? (get players target-id))))
+                                     (not (immune-player? (get players target-id))))
                               (update hits target-id (fnil conj []) (:facing attacker))
                               hits))
                           hits (:melee-target-ids attacker)))

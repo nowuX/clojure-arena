@@ -1,5 +1,6 @@
 (ns clojure-arena.protocol
-  (:require [clojure-arena.match :as match]
+  (:require [clojure-arena.game :as game]
+            [clojure-arena.match :as match]
             #?(:clj [clojure.edn :as edn]
                :cljs [cljs.tools.reader.edn :as edn])
             #?(:cljs [cljs.tools.reader.reader-types :as readers])))
@@ -19,7 +20,8 @@
                      :facing :spawn-locked? :air-jumps-left
                      :drop-through-platform-id :melee-cooldown-left
                      :melee-strike-id :melee-resolved-strike-id
-                     :melee-target-ids :accumulated-percentage :radius :color})
+                     :melee-target-ids :accumulated-percentage :radius :color
+                     :dash-ticks-left :dash-cooldown-left :dash-stopped?})
 
 (defn player-input? [input]
   (and (map? input)
@@ -93,11 +95,23 @@
            :eliminated (and (zero? stocks) (zero? respawn) (zero? protection))
            false))))
 
+(defn- dash-state? [player]
+  (let [ticks-left (:dash-ticks-left player)
+        cooldown (:dash-cooldown-left player)]
+    (and (safe-nonnegative-integer? ticks-left)
+         (<= ticks-left game/dash-ticks)
+         (finite-number? cooldown)
+         (<= 0 cooldown game/dash-cooldown)
+         (boolean? (:dash-stopped? player))
+         (or (zero? ticks-left) (= :active (:lifecycle player)))
+         (or (pos? ticks-left) (not (:dash-stopped? player))))))
+
 (defn- player? [player semisolid-platform-ids]
   (let [drop-through-id (:drop-through-platform-id player)]
     (and (map? player)
          (= player-fields (set (keys player)))
          (stock-state? player)
+         (dash-state? player)
          (every? finite-number?
                  (map player [:x :y :spawn-x :spawn-y :vx :vy :knockback-vx :knockback-vy
                               :melee-cooldown-left :accumulated-percentage

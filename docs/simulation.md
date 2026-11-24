@@ -205,3 +205,34 @@ colors remain reserved for identity; stocks, lifecycle and protection are
 separate fields. At zero stocks a player remains connected and eliminated;
 the match layer captures victory or time-limit results and later rebuilds current
 connections for a rematch. The offline sandbox keeps its simpler match-free world.
+
+## Dash
+
+A fresh Shift press (`:dash? true`) starts a dash for an active, unlocked body
+whose `:dash-cooldown-left` is zero. Each tick resolves at most one locomotion
+action in the order supported S drop, eligible W jump, then dash; an ineligible
+drop (midair or on a solid top) or jump (no air jump left) does not block it.
+Activation locks facing, sets `:dash-ticks-left 8` and `:dash-cooldown-left 2.5`.
+
+`step-player` decrements both values at the start of every later active tick,
+before reading requests, so the activation tick never consumes cooldown and the
+2.5 s wait spans exactly 100 ticks. The integer tick counter keeps the 8-tick
+movement and immunity boundary exact. While it is positive, voluntary X is
+replaced by `400 * facing` (80 px over 8 ticks at neutral received X), and
+steering, jumps, drops, attacks and further dash requests are ignored, including
+an attack sent on the activation tick. Received X still decays separately;
+vertical velocity, gravity and the air-jump allowance are untouched, so air
+dashes are allowed.
+
+`collide-platforms` receives the dash direction. A solid contact whose normal
+opposes it sets `:dash-stopped? true` and consumes the rest of that tick's
+travel; later dash ticks use zero voluntary X until the original deadline, so
+an early stop never shortens the input lock or immunity. Flat tops, forward
+corner corrections and one-way semisolid rules do not stop travel. On the tick
+after the dash, only voluntary X is clamped to 220 before ordinary acceleration
+or friction. A ring-out clears the active dash. Until checkpoint 73 the
+cooldown belongs to the physical body, so a respawn starts with a ready dash.
+The local sandbox steps the same rules on every local tick.
+
+Canvas draws two short neutral streaks behind a dashing body, and each panel row
+shows «Dash listo», «Dash activo» or «Dash en N s» with rounded-up seconds.

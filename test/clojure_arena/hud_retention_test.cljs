@@ -126,8 +126,8 @@
         (is (some? (hud/row-for dom "player-3")))
         (is (= ["player-1" "player-3"] (mapv hud/row-id (hud/player-rows dom))))
         (is (not (identical? removed-row (hud/row-for dom "player-3"))))
-        (is (= 6 (:created @counters))
-            "one new row and its five children are created for the new identity")
+        (is (= 7 (:created @counters))
+            "one new row and its six children are created for the new identity")
         (is (<= (:replace-children @counters) 1)
             "only the changed player list may require a child-list replacement")
         (is (identical? standing-row (first (hud/children standings-container))))
@@ -202,3 +202,19 @@
           "HUD caching leaves the animation loop drawing every requested frame")
       (is (= snapshot @client/world))
       (reset! client/frame-id nil))))))
+
+
+(deftest dash-cooldown-rewrites-its-field-only-when-the-displayed-second-changes
+  (let [dom (hud/make-dom)
+        counters (:counters dom)
+        cooling (assoc-in (hud/sample-world) [:players :player-1 :dash-cooldown-left] 2.4)]
+    (with-dom dom (fn []
+      (reset-client!)
+      (client/render-match! cooling)
+      (is (= "Dash en 3 s"
+             (.-textContent (:dash (hud/row-fields (hud/row-for dom "player-1"))))))
+      (hud/reset-counters! counters)
+      (client/render-match! (assoc-in cooling [:players :player-1 :dash-cooldown-left] 2.1))
+      (is (= 0 (:text-writes @counters)) "a fractional tick within the same second writes nothing")
+      (client/render-match! (assoc-in cooling [:players :player-1 :dash-cooldown-left] 1.9))
+      (is (= 1 (:text-writes @counters)) "only the Dash field changes when the second changes")))))

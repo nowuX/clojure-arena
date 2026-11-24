@@ -175,6 +175,28 @@
             (set! (.-strokeStyle context) previous-stroke)
             (set! (.-lineWidth context) previous-width)))))))
 
+(defn draw-dash-cue
+  "Draws neutral trailing streaks while dash immunity is active."
+  [canvas {:keys [x y radius facing] :as player}]
+  (when (game/dashing? player)
+    (let [context (.getContext canvas "2d")
+          previous-stroke (.-strokeStyle context)
+          previous-width (.-lineWidth context)
+          behind (if (= facing :left) 1 -1)
+          start-x (+ x (* behind (+ radius 4)))
+          end-x (+ x (* behind (+ radius 16)))]
+      (try
+        (set! (.-strokeStyle context) "#b3b3b3")
+        (set! (.-lineWidth context) 2)
+        (.beginPath context)
+        (doseq [offset [-6 6]]
+          (.moveTo context start-x (+ y offset))
+          (.lineTo context end-x (+ y offset)))
+        (.stroke context)
+        (finally
+          (set! (.-strokeStyle context) previous-stroke)
+          (set! (.-lineWidth context) previous-width))))))
+
 (defn- drawable-player? [match player-id player]
   (and (game/active-player? player)
        (or (nil? match)
@@ -206,6 +228,7 @@
     (doseq [platform platforms] (draw-platform canvas platform))
     (doseq [[player-id player] players
             :when (drawable-player? match player-id player)]
+      (draw-dash-cue canvas player)
       (draw-player canvas player)
       (when (= player-id controlled-id)
         (draw-controlled-player-label canvas player)))))
@@ -219,6 +242,13 @@
     :eliminated "Eliminado"
     :waiting "Esperando próxima partida"
     "Sin estado"))
+
+(defn dash-label [player]
+  (cond
+    (game/dashing? player) "Dash activo"
+    (pos? (:dash-cooldown-left player 0))
+    (str "Dash en " (js/Math.ceil (:dash-cooldown-left player)) " s")
+    :else "Dash listo"))
 
 (defn- panel-state-label [player-id player match]
   (case (:phase match)
@@ -239,18 +269,19 @@
         label (.createElement js/document "span")
         percentage (.createElement js/document "span")
         stocks (.createElement js/document "span")
-        state (.createElement js/document "span")]
+        state (.createElement js/document "span")
+        dash (.createElement js/document "span")]
     (set! (.-className row) "player-row")
     (set! (.-className swatch) "player-swatch")
     (.setAttribute swatch "aria-hidden" "true")
     (set-text! label (name player-id))
-    (doseq [element [swatch label percentage stocks state]]
+    (doseq [element [swatch label percentage stocks state dash]]
       (.appendChild row element))
     {:row row :swatch swatch :label label :percentage percentage
-     :stocks stocks :state state}))
+     :stocks stocks :state state :dash dash}))
 
 (defn- update-player-row! [entry player-id player match controlled-id]
-  (let [{:keys [row swatch percentage stocks state]} entry
+  (let [{:keys [row swatch percentage stocks state dash]} entry
         color (:color player)
         controlled? (= player-id controlled-id)
         row-class (str "player-row" (when controlled? " player-row-local"))
@@ -266,6 +297,7 @@
     (set-text! stocks (str (:stocks player)
                           (if (= 1 (:stocks player)) " oportunidad" " oportunidades")))
     (set-text! state (panel-state-label player-id player match))
+    (set-text! dash (dash-label player))
     (assoc entry :color color)))
 
 (defn render-players! [{:keys [players match]}]

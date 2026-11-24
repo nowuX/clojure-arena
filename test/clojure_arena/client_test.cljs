@@ -815,3 +815,20 @@
       (key-event! "keyup" "KeyF")
       (fire-frame! 100)
       (is (= [true false false false] (mapv #(get-in % [:player-1 :nova?]) @seen))))))
+
+(deftest local-sandbox-shift-starts-a-dash
+  (reset! client/world (assoc-in playable-world [:players :player-1 :y] 264))
+  (client/init)
+  (fire-frame! 0)
+  (key-event! "keydown" "ShiftLeft")
+  (fire-frame! 25)
+  (let [player (get-in @client/world [:players :player-1])]
+    (is (= game/dash-ticks (:dash-ticks-left player)))
+    (is (= game/dash-cooldown (:dash-cooldown-left player)))))
+
+(deftest dash-label-shows-active-cooldown-and-ready-states
+  (let [player (game/make-player "#22d3ee" 0 0)]
+    (is (= "Dash listo" (client/dash-label player)))
+    (is (= "Dash activo" (client/dash-label (assoc player :dash-ticks-left 3))))
+    (is (= "Dash en 3 s" (client/dash-label (assoc player :dash-cooldown-left 2.4))))
+    (is (= "Dash en 1 s" (client/dash-label (assoc player :dash-cooldown-left 0.025))))))

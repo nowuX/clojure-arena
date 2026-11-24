@@ -108,3 +108,9 @@ protection expires. Outgoing attacks remain normal after landing unlocks them.
 The two-second protection timer decrements before that tick's targeting and
 expires on the 80th later 25 ms tick. It blocks percentage and impulse together,
 not gravity, motion, platform contacts or ring-outs.
+
+`immune-player?` combines spawn protection with an active dash. The nominal
+180 ms dash immunity is quantized to the first 25 ms boundary at or after it:
+the activation tick is dash tick 1, hits evaluated on ticks 1–8 are consumed
+without effect, and tick 9 hit evaluation sees a normal target. Like protection,
+a dash-rejected strike never becomes a delayed hit.

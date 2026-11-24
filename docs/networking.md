@@ -174,7 +174,10 @@ Player schema includes `:stocks` (integer 0–3), `:lifecycle`
 (waiting/active/respawning/eliminated), finite `:spawn-x/:spawn-y`, and finite timers
 `:respawn-seconds-left` (0–3) / `:protection-seconds-left` (0–2). Active players
 have stocks and no respawn countdown. Respawning records have stocks and no
-protection; eliminated records have zero stocks and zero timers. Neither
+protection; eliminated records have zero stocks and zero timers. Dash state is
+`:dash-ticks-left` (integer 0–8, nonzero only for active bodies),
+`:dash-cooldown-left` (finite 0–2.5) and `:dash-stopped?` (true only during an
+active dash). Neither
 stock loss nor elimination removes membership or snapshot delivery. Only
 socket retirement removes the body record and frees its color.
 

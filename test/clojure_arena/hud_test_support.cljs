@@ -153,7 +153,8 @@
      :id (aget fields 1)
      :percentage (aget fields 2)
      :stocks (aget fields 3)
-     :lifecycle (aget fields 4)}))
+     :lifecycle (aget fields 4)
+     :dash (aget fields 5)}))
 
 (defn sample-player [color x]
   (assoc (game/make-player color x 160)
